@@ -13,7 +13,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 README = ROOT / "README.md"
 AGENT_MARKER = "<!-- Maintained by the agent:"
-HEADING = re.compile(r"^(#{1,6})\\s+")
+HEADING = re.compile(r"^(#{1,6})\s+")
 
 
 def deny(message: str, *, codex: bool) -> int:

@@ -15,13 +15,13 @@
 
   <header class="page">
     <h1>Structure-aware chunking for scientific papers</h1>
-    <p class="standfirst">Use Docling's document structure to make searchable children, then restore section context and exact source locations during retrieval.</p>
+    <p class="standfirst">Use Docling's document structure to make searchable chunks with contextual text and exact source locations.</p>
     <div class="header-meta">
       <span><b>GitHub issue</b> <a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/10">Issue 10</a></span>
       <span><b>Date</b> 2026-08-09</span>
       <span><b>Corpus</b> 27 papers, 425 pages</span>
       <span><b>Status</b> provisional, test pending</span>
-      <span><b>Decision</b> HybridChunker plus retrieval adapter</span>
+      <span><b>Decision</b> HybridChunker plus flat retrieval</span>
     </div>
   </header>
 
@@ -42,29 +42,30 @@
 
     <div class="col">
       <section id="answer">
-        <h2><span class="idx">01</span> Use Docling HybridChunker with a small retrieval adapter</h2>
+        <h2><span class="idx">01</span> Use Docling HybridChunker with flat retrieval</h2>
         <p class="lead">The parser should decide semantic boundaries. The embedding tokenizer should only split an oversized structural unit.</p>
         <p>Use <code>HybridChunker</code> on the native <code>DoclingDocument</code>, with the selected embedding tokenizer and repeated table headers.</p>
         <p>Use <code>DoclingReader(export_type="json")</code> and <code>DoclingNodeParser</code> so headings, paragraphs, lists, tables, captions, page numbers, and bounding boxes remain available to the node layer.</p>
-        <p>Add a narrow application adapter for parent sections, stable IDs, contextual text, and the child-to-parent lookup.</p>
+        <p>Add a narrow application adapter for stable IDs, contextual text, and exact source provenance.</p>
         <div class="callout note">
           <span class="lbl">Decision boundary</span>
           <p>This page records a provisional integration shape. The final chunking decision depends on the listed corpus tests.</p>
           <p>The missing gate is a retrieval benchmark on the 27-paper corpus with the selected embedding model.</p>
+          <p>Parent-section expansion is outside this demo. Add it only when the system is productionized.</p>
         </div>
       </section>
 
       <section id="landscape">
         <h2><span class="idx">02</span> Candidate landscape</h2>
-        <p class="lead">The useful design space has three layers: document-native chunkers, hierarchy builders, and retrieval adapters.</p>
+        <p class="lead">The useful design space has three layers: document-native chunkers, optional hierarchy builders, and retrieval adapters.</p>
         <div class="table-scroll"><table class="matrix wide">
           <thead><tr><th>Candidate</th><th>Primary role</th><th>What it preserves</th><th>Why it is in or out</th></tr></thead>
           <tbody>
             <tr><td class="opt">Docling <code>HybridChunker</code></td><td>Document-native chunker</td><td>Docling elements, headings, captions, table headers, and metadata</td><td class="txt"><span class="tag ok">Finalist</span> It starts from the parsed structure and applies tokenizer-aware refinement.</td></tr>
             <tr><td class="opt">Docling <code>HierarchicalChunker</code></td><td>Document-native baseline</td><td>One chunk per detected element, with headers and captions</td><td class="txt"><span class="tag">Baseline</span> It proves structure preservation but does not enforce the embedding limit.</td></tr>
-            <tr><td class="opt">LlamaIndex <code>HierarchicalNodeParser</code></td><td>Generic hierarchy builder</td><td>Parent references across configured size levels</td><td class="txt"><span class="tag ok">Finalist for retrieval</span> It supplies hierarchy and auto-merging, but its boundaries are size-based.</td></tr>
+            <tr><td class="opt">LlamaIndex <code>HierarchicalNodeParser</code></td><td>Generic hierarchy builder</td><td>References across configured size levels</td><td class="txt"><span class="tag">Production only</span> It is not part of the demo path. Reassess it when productionizing.</td></tr>
             <tr><td class="opt">Unstructured <code>by_title</code></td><td>Element-aware chunker</td><td>Titles, elements, optional pages, and original elements</td><td class="txt"><span class="tag warn">Fallback</span> It needs a second parser path and uses character limits for oversized elements.</td></tr>
-            <tr><td class="opt">Haystack <code>HierarchicalDocumentSplitter</code></td><td>Generic parent-child splitter</td><td>Block IDs, parent IDs, child IDs, levels, and source metadata</td><td class="txt"><span class="tag warn">Fallback</span> It splits by word, sentence, passage, or page, not Docling elements.</td></tr>
+            <tr><td class="opt">Haystack <code>HierarchicalDocumentSplitter</code></td><td>Generic hierarchy splitter</td><td>Block IDs, levels, and source metadata</td><td class="txt"><span class="tag">Production only</span> It is not part of the demo path and splits by word, sentence, passage, or page.</td></tr>
             <tr><td class="opt">Chonkie recursive and semantic chunkers</td><td>Text chunking toolkit</td><td>Recursive rules, sentence similarity, tables, or LLM-selected boundaries</td><td class="txt"><span class="tag warn">Out</span> It does not provide the required PDF layout provenance path.</td></tr>
           </tbody>
         </table></div>
@@ -77,16 +78,16 @@
 
       <section id="matrix">
         <h2><span class="idx">03</span> Capability matrix</h2>
-        <p class="lead">A candidate passes only when it covers all six required behaviors or has a named adapter for the gap.</p>
+        <p class="lead">The matrix separates demo requirements from hierarchy expansion, which is reserved for productionizing.</p>
         <div class="table-scroll"><table class="matrix wide">
-          <thead><tr><th>Candidate</th><th>Semantic boundaries</th><th>No blind token primary</th><th>Parent-child retrieval</th><th>Context before dense and lexical indexing</th><th>Page, box, path, IDs</th><th>Embedding tokenizer safety</th></tr></thead>
+          <thead><tr><th>Candidate</th><th>Semantic boundaries</th><th>No blind token primary</th><th>Hierarchy expansion</th><th>Context before dense and lexical indexing</th><th>Page, box, path, IDs</th><th>Embedding tokenizer safety</th></tr></thead>
           <tbody>
-            <tr><td class="opt">HybridChunker</td><td class="ctr"><span class="tag ok">Yes</span></td><td class="ctr"><span class="tag ok">Yes</span></td><td class="ctr">Adapter</td><td class="ctr">Adapter</td><td class="ctr">Native metadata</td><td class="ctr"><span class="tag ok">Yes</span></td></tr>
-            <tr><td class="opt">HierarchicalChunker</td><td class="ctr"><span class="tag ok">Yes</span></td><td class="ctr"><span class="tag ok">Yes</span></td><td class="ctr">Adapter</td><td class="ctr">Native context</td><td class="ctr">Native metadata</td><td class="ctr"><span class="tag warn">No</span></td></tr>
-            <tr><td class="opt">LlamaIndex hierarchy</td><td class="ctr">Partial</td><td class="ctr"><span class="tag warn">No</span></td><td class="ctr"><span class="tag ok">Yes</span></td><td class="ctr">Adapter</td><td class="ctr">Input-dependent</td><td class="ctr">Splitter-dependent</td></tr>
-            <tr><td class="opt">Unstructured by title</td><td class="ctr"><span class="tag ok">Yes</span></td><td class="ctr"><span class="tag ok">Yes</span></td><td class="ctr">No native path</td><td class="ctr">Adapter</td><td class="ctr">Partial</td><td class="ctr">Character limit</td></tr>
-            <tr><td class="opt">Haystack hierarchy</td><td class="ctr">No</td><td class="ctr"><span class="tag warn">No</span></td><td class="ctr"><span class="tag ok">Yes</span></td><td class="ctr">Adapter</td><td class="ctr">Partial</td><td class="ctr">Unit-dependent</td></tr>
-            <tr><td class="opt">Chonkie</td><td class="ctr">Partial</td><td class="ctr">Varies</td><td class="ctr">No native path</td><td class="ctr">Adapter</td><td class="ctr">Partial</td><td class="ctr">Chunker-dependent</td></tr>
+            <tr><td class="opt">HybridChunker</td><td class="ctr"><span class="tag ok">Yes</span></td><td class="ctr"><span class="tag ok">Yes</span></td><td class="ctr">Not used</td><td class="ctr">Adapter</td><td class="ctr">Native metadata</td><td class="ctr"><span class="tag ok">Yes</span></td></tr>
+            <tr><td class="opt">HierarchicalChunker</td><td class="ctr"><span class="tag ok">Yes</span></td><td class="ctr"><span class="tag ok">Yes</span></td><td class="ctr">Production only</td><td class="ctr">Native context</td><td class="ctr">Native metadata</td><td class="ctr"><span class="tag warn">No</span></td></tr>
+            <tr><td class="opt">LlamaIndex hierarchy</td><td class="ctr">Partial</td><td class="ctr"><span class="tag warn">No</span></td><td class="ctr">Production only</td><td class="ctr">Adapter</td><td class="ctr">Input-dependent</td><td class="ctr">Splitter-dependent</td></tr>
+            <tr><td class="opt">Unstructured by title</td><td class="ctr"><span class="tag ok">Yes</span></td><td class="ctr"><span class="tag ok">Yes</span></td><td class="ctr">Not used</td><td class="ctr">Adapter</td><td class="ctr">Partial</td><td class="ctr">Character limit</td></tr>
+            <tr><td class="opt">Haystack hierarchy</td><td class="ctr">No</td><td class="ctr"><span class="tag warn">No</span></td><td class="ctr">Production only</td><td class="ctr">Adapter</td><td class="ctr">Partial</td><td class="ctr">Unit-dependent</td></tr>
+            <tr><td class="opt">Chonkie</td><td class="ctr">Partial</td><td class="ctr">Varies</td><td class="ctr">Not used</td><td class="ctr">Adapter</td><td class="ctr">Partial</td><td class="ctr">Chunker-dependent</td></tr>
           </tbody>
         </table></div>
         <p class="footnote">Native metadata means the parser exposes the source data. The LlamaIndex node propagation still needs a direct integration test before citations are promised.</p>
@@ -98,10 +99,10 @@
         <ol class="numbered">
           <li><b>Parse the PDF once</b><span class="d">Use <code>DocumentConverter</code> with the approved heading hierarchy option. Store the native <code>DoclingDocument</code> JSON as the ingestion artifact.</span></li>
           <li><b>Read native JSON into LlamaIndex</b><span class="d">Instantiate <code>DoclingReader(export_type="json")</code>. The reader creates a LlamaIndex <code>Document</code> whose text is serialized Docling data.</span></li>
-          <li><b>Create searchable children</b><span class="d">Instantiate <code>DoclingNodeParser(chunker=HybridChunker(...))</code>. The parser creates nodes for Docling paragraphs, headings, tables, and other document elements.</span></li>
-          <li><b>Attach stable retrieval metadata</b><span class="d">Write <code>document_id</code>, <code>parent_id</code>, <code>heading_path</code>, <code>doc_item_refs</code>, page numbers, bounding boxes, and a content hash.</span></li>
-          <li><b>Index only searchable children</b><span class="d">Embed and add contextualized child text to dense and BM25 indexes. Keep original child text separate from generated context.</span></li>
-          <li><b>Expand after retrieval</b><span class="d">Resolve the winning child IDs to section parents, deduplicate parent sections, and keep the child location beside the expanded context.</span></li>
+          <li><b>Create searchable chunks</b><span class="d">Instantiate <code>DoclingNodeParser(chunker=HybridChunker(...))</code>. The parser creates nodes for Docling paragraphs, headings, tables, and other document elements.</span></li>
+          <li><b>Attach stable retrieval metadata</b><span class="d">Write <code>document_id</code>, <code>chunk_id</code>, <code>heading_path</code>, <code>doc_item_refs</code>, page numbers, bounding boxes, and a content hash.</span></li>
+          <li><b>Index searchable chunks</b><span class="d">Embed and add contextualized chunk text to dense and BM25 indexes. Keep original chunk text separate from generated context.</span></li>
+          <li><b>Return source chunks</b><span class="d">Keep the winning chunks and their original Docling provenance in the retrieval result. Do not expand them to larger sections in the demo.</span></li>
         </ol>
 
         <div class="accordion">
@@ -122,30 +123,33 @@ children = parser.get_nodes_from_documents(documents)</code></pre>
             </div>
           </details>
           <details>
-            <summary>What the official path does not provide</summary>
+            <summary>Productionizing follow-up</summary>
             <div class="body">
-              <p>The parser creates a source relationship to the input document. The docs do not promise a section-parent relationship that can expand a retrieved child into the exact parent section.</p>
-              <p>Build that relationship from the Docling item references and heading path, then test the resulting node metadata on real PDFs.</p>
+              <p>A document store and section expansion layer may improve context at production scale.</p>
+              <p>Do not build that relationship for this demo. Reassess it during productionizing with a measured retrieval and context-size test.</p>
             </div>
           </details>
         </div>
       </section>
 
       <section id="retrieval">
-        <h2><span class="idx">05</span> Parent-child and contextual retrieval</h2>
+        <h2><span class="idx">05</span> Contextual retrieval and demo scope</h2>
         <div class="grid-2">
           <article class="option">
-            <h3>Parent-child storage</h3>
-            <p>Store a document root and section parents in a document store keyed by stable IDs.</p>
-            <p>Store leaf children in the dense and BM25 indexes. Each child points to one section parent and keeps its own source locations.</p>
-            <p>At query time, retrieve children, rank them, group by parent ID, and return the smallest set of parents that covers the evidence.</p>
+            <h3>Demo retrieval</h3>
+            <p>Retrieve and rank flat Docling chunks in the dense and BM25 indexes.</p>
+            <p>Keep each chunk's original text, stable ID, heading path, page number, bounding box, and item references.</p>
+            <p>Return the source chunks directly. The demo does not add a document store or section expansion.</p>
           </article>
           <article class="option">
             <h3>Contextual text</h3>
             <p>First add deterministic context: paper title, section path, element type, table caption, and page label.</p>
             <p>Then test generated context as a separate experiment. Cache it by document hash, child hash, prompt version, and model version.</p>
-            <p>Index the generated context plus child text, but show only the source child and its provenance to the researcher.</p>
+            <p>Index the generated context plus chunk text, but show only the source chunk and its provenance to the researcher.</p>
           </article>
+        </div>
+        <div class="callout note">
+          <p><strong>Productionizing only.</strong> A future production system can test section storage and context expansion. This demo does not need that complexity.</p>
         </div>
         <div class="callout warn">
           <span class="lbl">Citation rule</span>
@@ -172,9 +176,9 @@ children = parser.get_nodes_from_documents(documents)</code></pre>
 
         <h3>Still required before closing the choice</h3>
         <ul>
-          <li>Run the same six retrieval cases from the evaluation page with flat, hierarchical, and hybrid children.</li>
+          <li>Run the same six retrieval cases from the evaluation page with flat and hybrid chunks.</li>
           <li>Measure gold-paper recall at top 5, top 10, and top 20, plus distractor rank.</li>
-          <li>Assert that every returned child has a document ID, page number, bounding box, heading path, and parent ID.</li>
+          <li>Assert that every returned chunk has a document ID, chunk ID, page number, bounding box, and heading path.</li>
           <li>Compare deterministic context with generated context on dense retrieval and BM25 separately.</li>
         </ul>
         <p><a href="evaluation.html">The evaluation page defines the corpus cases and proposed thresholds.</a></p>
@@ -186,8 +190,9 @@ children = parser.get_nodes_from_documents(documents)</code></pre>
           <div class="rec-head">Provisional decision for testing</div>
           <div class="rec-body">
             <p><strong>Use Docling HybridChunker as the primary chunker.</strong> Pass the selected embedding tokenizer, keep table headers on split table chunks, and preserve the native metadata.</p>
-            <p><strong>Use LlamaIndex DoclingReader and DoclingNodeParser as the integration seam.</strong> Add a small parent registry and contextualizer instead of replacing the document-native parser with a generic splitter.</p>
+            <p><strong>Use LlamaIndex DoclingReader and DoclingNodeParser as the integration seam.</strong> Keep retrieval flat, preserve source metadata, and add only the contextualizer needed for the demo.</p>
             <p><strong>Start with deterministic contextual text.</strong> Add generated context only behind a versioned cache and an evaluation flag.</p>
+            <p><strong>Defer section expansion.</strong> Treat document-store-backed context expansion as productionizing work.</p>
           </div>
         </div>
         <h3>Revisit triggers</h3>
@@ -196,9 +201,8 @@ children = parser.get_nodes_from_documents(documents)</code></pre>
           <tbody>
             <tr><td class="opt">A section or table is larger than the embedding limit</td><td class="txt">Let <code>HybridChunker</code> split only that unit and repeat the heading or table header.</td><td class="txt">A corpus benchmark shows lost table rows or lower recall than a controlled overlap baseline.</td></tr>
             <tr><td class="opt">Docling loses a caption or reading-order relation</td><td class="txt">Keep the native item refs and add a regression PDF for each observed defect.</td><td class="txt">A required query cannot recover its table, caption, or neighboring evidence.</td></tr>
-            <tr><td class="opt">Node metadata loses page or box data</td><td class="txt">Fail ingestion when required provenance is absent from a searchable child.</td><td class="txt">The direct LlamaIndex propagation test fails on any finalist PDF.</td></tr>
+            <tr><td class="opt">Node metadata loses page or box data</td><td class="txt">Fail ingestion when required provenance is absent from a searchable chunk.</td><td class="txt">The direct LlamaIndex propagation test fails on any finalist PDF.</td></tr>
             <tr><td class="opt">Generated context adds a false claim</td><td class="txt">Keep generated text out of citation display and store model and prompt hashes.</td><td class="txt">Context improves rank but changes the answer against the source text.</td></tr>
-            <tr><td class="opt">Parent expansion overwhelms the answer context</td><td class="txt">Deduplicate parents, cap section count, and retain the winning child locations.</td><td class="txt">Answer quality drops when parent expansion is enabled.</td></tr>
           </tbody>
         </table></div>
         <p class="footnote">The recommendation should become a recorded decision only after the local retrieval and provenance gates pass.</p>
@@ -211,8 +215,8 @@ children = parser.get_nodes_from_documents(documents)</code></pre>
           <li><a href="https://docling-project.github.io/docling/integrations/llamaindex/">Docling LlamaIndex integration</a> - official reader and node parser overview.</li>
           <li><a href="https://developers.llamaindex.ai/python/framework-api-reference/readers/docling/">LlamaIndex DoclingReader API</a> - Markdown or JSON export behavior.</li>
           <li><a href="https://developers.llamaindex.ai/python/framework-api-reference/node_parser/docling/">LlamaIndex DoclingNodeParser API</a> - element nodes, chunker seam, and metadata export.</li>
-          <li><a href="https://developers.llamaindex.ai/python/framework/module_guides/loading/node_parsers/modules/">LlamaIndex node parser modules</a> - hierarchy and auto-merging behavior.</li>
-          <li><a href="https://docs.haystack.deepset.ai/docs/hierarchicaldocumentsplitter">Haystack HierarchicalDocumentSplitter</a> - generic parent-child block splitting.</li>
+          <li><a href="https://developers.llamaindex.ai/python/framework/module_guides/loading/node_parsers/modules/">LlamaIndex node parser modules</a> - hierarchy and auto-merging behavior for production evaluation.</li>
+          <li><a href="https://docs.haystack.deepset.ai/docs/hierarchicaldocumentsplitter">Haystack HierarchicalDocumentSplitter</a> - generic hierarchy splitting for production evaluation.</li>
           <li><a href="https://docs.unstructured.io/open-source/core-functionality/chunking">Unstructured chunking</a> - element-aware and title-aware chunking behavior.</li>
           <li><a href="https://www.anthropic.com/engineering/contextual-retrieval">Anthropic contextual retrieval</a> - contextual embeddings, contextual BM25, and published measurements.</li>
           <li><a href="../research/parsing.html#headtohead">Repository parsing measurements</a> - local Docling and MinerU corpus comparison.</li>

@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vector database research - Live Long R&amp;D assistant</title>
+<!-- ds:css:start -->
+<link rel="stylesheet" href="../_assets/docs.css">
+<!-- ds:css:end -->
+</head>
+<body>
+<div class="wrap">
+  <button class="theme-toggle" type="button" aria-label="Switch to dark">☾</button>
+  <a class="backlink" href="../index.html">← System documentation</a>
+  <header class="page">
+    <h1>Vector database research</h1>
+    <p class="standfirst">Six storage options compared for a 27-paper local Docker demo and a later managed path.</p>
+    <div class="header-meta"><span><b>GitHub issue</b> <a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/14">Issue 14</a></span><span><b>Date</b> 2026-08-09</span><span><b>Corpus</b> about 2M characters</span><span><b>Decision</b> LanceDB selected</span></div>
+  </header>
+  <div class="shell">
+    <nav class="toc" aria-label="On this page"><p class="toc-title">Contents</p><ol>
+      <li><a href="#frame"><span class="n">01</span><span>Decision frame</span></a></li>
+      <li><a href="#options"><span class="n">02</span><span>Options</span></a></li>
+      <li><a href="#shortlist"><span class="n">03</span><span>Shortlist</span></a></li>
+      <li><a href="#revisit"><span class="n">04</span><span>Revisit triggers</span></a></li>
+    </ol></nav>
+    <div class="col">
+      <section id="frame">
+        <h2><span class="idx">01</span> This is a deployment choice</h2>
+        <p class="lead">At about 1,100 chunks, the store does not decide retrieval quality.</p>
+        <p>LlamaIndex can fuse a dense retriever and a BM25 retriever in application code. Native hybrid search is useful, but it is not required.</p>
+        <p>The useful axes are Docker weight, LlamaIndex support, and the managed upgrade path.</p>
+      </section>
+      <section id="options">
+        <h2><span class="idx">02</span> Six options</h2>
+        <div class="table-scroll"><table class="matrix wide">
+          <thead><tr><th>Store</th><th>Deployment</th><th>Hybrid</th><th>LlamaIndex</th><th>Managed path</th></tr></thead>
+          <tbody>
+            <tr><td class="opt">LanceDB</td><td>Embedded</td><td>Native BM25 + dense</td><td>Mature</td><td>LanceDB Cloud</td></tr>
+            <tr><td class="opt">SimpleVectorStore</td><td>In process</td><td>Fusion in application</td><td>Built into core</td><td>Migration required</td></tr>
+            <tr><td class="opt">Qdrant</td><td>Server or embedded client</td><td>Native RRF and DBSF</td><td>Mature</td><td>Qdrant Cloud</td></tr>
+            <tr><td class="opt">pgvector</td><td>Postgres server</td><td>FTS + application fusion</td><td>Mature</td><td>Managed Postgres</td></tr>
+            <tr><td class="opt">Chroma</td><td>Embedded or server</td><td>No native OSS hybrid</td><td>Available</td><td>Chroma Cloud</td></tr>
+            <tr><td class="opt">sqlite-vec</td><td>Embedded</td><td>None</td><td>None</td><td>None</td></tr>
+          </tbody>
+        </table></div>
+
+        <h3>LanceDB</h3>
+        <p>LanceDB adds no service to Docker. Its LlamaIndex integration exposes vector, full-text, and hybrid query modes.</p>
+        <p>The current integration does not support its hybrid path against LanceDB Cloud tables.</p>
+        <p><a href="https://docs.lancedb.com/search/hybrid-search">Hybrid search</a> · <a href="https://github.com/run-llama/llama_index/tree/main/llama-index-integrations/vector_stores/llama-index-vector-stores-lancedb">LlamaIndex integration</a></p>
+
+        <h3>SimpleVectorStore</h3>
+        <p>This is the smallest honest baseline. It adds no dependency and persists to a JSON file.</p>
+        <p>Hybrid retrieval would use LlamaIndex’s <code>QueryFusionRetriever</code> with a separate BM25 leg.</p>
+
+        <h3>Qdrant</h3>
+        <p>Qdrant has the strongest server-side hybrid story and a clean managed path. Its image is about 67 MiB compressed.</p>
+        <p>Its grouping API also maps to the measured per-document cap.</p>
+        <p><a href="https://qdrant.tech/documentation/concepts/hybrid-queries/">Hybrid queries</a> · <a href="https://developers.llamaindex.ai/python/framework/integrations/vector_stores/qdrant_hybrid/">LlamaIndex guide</a></p>
+
+        <h3>Options not shortlisted</h3>
+        <p>pgvector adds a full database server before the application needs Postgres. Chroma lacks native hybrid search in its open-source version.</p>
+        <p>sqlite-vec has no LlamaIndex adapter and remains pre-v1.</p>
+      </section>
+      <section id="shortlist">
+        <h2><span class="idx">03</span> Shortlist and decision</h2>
+        <ol class="numbered">
+          <li><b>LanceDB - selected</b><span class="d">Embedded, natively hybrid, Apache-2.0, and supported by LlamaIndex.</span></li>
+          <li><b>SimpleVectorStore</b><span class="d">Minimal fallback. It proves the RAG loop with no storage infrastructure.</span></li>
+          <li><b>Qdrant</b><span class="d">Use it if the design needs a service boundary or a stronger managed path now.</span></li>
+        </ol>
+        <div class="callout note"><span class="lbl">Decision</span><p>Use LanceDB for the local Docker demo. It adds no service, supports native BM25 plus dense search, and has a mature LlamaIndex integration.</p><p>LanceDB Cloud does not currently support the hybrid path through this integration. Revisit the managed choice when deployment becomes real.</p></div>
+      </section>
+      <section id="revisit">
+        <h2><span class="idx">04</span> Revisit triggers</h2>
+        <ul>
+          <li>Compare Qdrant Cloud and LanceDB Cloud when the deployment target becomes concrete.</li>
+          <li>Reconsider pgvector if Postgres enters the stack for chat history or users.</li>
+          <li>Reconsider a server when the corpus outgrows embedded storage.</li>
+        </ul>
+      </section>
+    </div>
+  </div>
+  <footer class="page"><a class="backlink mb-0" href="../index.html">← System documentation</a></footer>
+</div>
+<!-- ds:js:start -->
+<script defer src="../_assets/docs.js"></script>
+<!-- ds:js:end -->
+</body></html>

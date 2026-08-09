@@ -21,21 +21,6 @@ its public sources.
 
 <!-- Cha writes this section himself. Leave empty. He may ask the agent for specific parts. -->
 
-## RAG/LLM approach and decisions
-
-<!-- Cha writes this section himself. Leave empty. He may ask the agent for specific parts.
-     Covers: LLM, embedding model, vector database, orchestration framework,
-     prompt & context management, guardrails, quality, observability. -->
-
-### Framework
-
-Chose llamaindex as the framework for our RAG pipeline because the selected docs are scientific papers, PDFs, with lots of tables, equations, graphs, and llamaindex provides a good, simple way to parse and feed them into the pipeline. Provides the full set so we can run tests on our data and pick the best method to chunk, store, retrieve the data, plus build evals on the same pipeline. 
-
-### Parsing
-Considered multiple parsers to convert the 27 target PDFs into structured markdown. This is where a lot of RAG pipelines fail. Converting PDFs into markdown will have issues so a great parser is necessary. 
-
-Researched and tested multiple solutions for this. 
-
 ### Chunking
 
 ## Key technical decisions and why
@@ -44,7 +29,43 @@ Researched and tested multiple solutions for this.
 1. Chose to build a longevity research paper corpus, as it might be an actual customer use case, building assinstants that help researchers do their work in fields such as longevity.
 
 ### RAG pipeline
-1. Choose the pipeline according to the data. 
+
+### RAG/LLM approach and decisions
+
+<!-- Cha writes this section himself. Leave empty. He may ask the agent for specific parts.
+     Covers: LLM, embedding model, vector database, orchestration framework,
+     prompt & context management, guardrails, quality, observability. -->
+
+There are many RAG options that provide end to end RAG capabilities such as RAG Anything. I chose not to use such read frameworks to show my thinking and approach to each of the parts of a RAG pipeline separately. 
+
+
+
+#### Framework
+
+Chose llamaindex as the framework for our RAG pipeline because the selected docs are scientific papers, PDFs, with lots of tables, equations, graphs, and llamaindex provides a good, simple way to parse and feed them into the pipeline. Provides the full set so we can run tests on our data and pick the best method to chunk, store, retrieve the data, plus build evals on the same pipeline. 
+
+#### Parsing and Chunking
+Considered multiple parsers to convert the 27 target PDFs into structured markdown. This is where a lot of RAG pipelines fail. Converting PDFs into markdown will have issues so a great parser is necessary. 
+
+Researched and tested multiple solutions for parsing. Chose Docling as it:
+1. is open source and usable by an enterprise client without any fees
+2. tested well for our corpus:
+    a. tables don't break
+    b. retrieval collision with repeated headings in the same paper
+    c. provides document hierarchy which can be used for citations
+3. works well with llamaindex
+4. works locally on CPU so I can run it without issues for my demo
+
+My chunking strategy is the widely accepted strategy the broader RAG engineering community is converging upon for production systems:
+1. Structural chunking to preserve meaning across the structure of the document, since fixed size chunking messes up the chunks and removes all meaning. 
+2. Metadata enrichment of chunks so we can both filter out retrieval chunks by identifiers, and receive useful information in the chunks themselves.
+3. Contextual chunks: We add context to each chunk so the LLM can understand the chunk as part of a larger document and place it within that context as it analyzes.
+
+
+#### Embedding
+Using Qwen3-Embedding-0.6B since it is very good and can run without issue on my laptop. 
+
+Qwen3-Embedding-8B would be a good upgrade in a more serious production environment.
 
 ## Engineering standards followed (and skipped)
 
@@ -101,6 +122,7 @@ Given this scenario I would:
 4. Focus on understanding the customers' use case. It's easy to build a RAG pipeline that simply answers questions. But that's never the real goal of the customer. The customer wants a tool to make their work easier. What does that work entail? Does it cross these research papers as well as their own work? Is their work avaiable to be indexed? Do we need access controls? A boundary between their work and these papers? What is the actual goal of the researcher? What painful, time consuming tasks can our system look to eliminate or alleviate? Questions of this sort need to be understood and turned into solutions. 
 5. Authentication has not been considered as part of this work. In a real scenario we would deploy within the authentication paradigm of the customer.
 6. Work with the actual corpus, which would likely be thousands of papers, as well as other sorts of documents, to select each part of the pipeline. I'd run tests similar to the ones I've ran at a smaller scope in this repo, understand the corpus' nature, which chunking methodology provides better results in retrieveal and other tests. 
+7. Parent-child retrieval. A likely addition I would make to this system. This improves the general reliability of the system. It would require another data store to store the parents and add a level of complexity that is overengineering for the purposes of this simple demo, but a production system would benefit from this.
 
 ## Screenshots
 
