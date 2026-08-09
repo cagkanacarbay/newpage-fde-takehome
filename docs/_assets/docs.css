@@ -1,0 +1,1143 @@
+/* ============================================================================
+   NewPage docs design system — canonical stylesheet.
+
+   SOURCE OF TRUTH. Do not hand-edit the <style> block inside any .html doc:
+   it is generated. Edit this file, then run:
+
+       python3 docs/_assets/sync-design-system.py
+
+   Built to look like newpage.io, not like a technical doc. What the source
+   site actually does, and what this file therefore does:
+
+     - LIGHT. newpage.io has no dark mode. Light is the design; dark is an
+       opt-in translation behind a toggle, never the default.
+     - BIG SOFT BLOBS. Cards are white, radius 32-48px, NO border. Depth comes
+       from fill + radius. There is not one box-shadow in their stylesheet.
+     - NO MONOSPACE. Their site uses one typeface for everything. Mono here is
+       reserved for literal code, never for labels or eyebrows.
+     - CHUNKY BUTTONS. 64px tall, 16px radius, with a square-ish icon chip on
+       the right edge that grows on hover (.custom-anchor / .custom-anchor-green).
+     - TINTED PANELS. Mint and orange wash blocks at 24px radius carry emphasis
+       (.mint-radius / .orange-radius). No hairline rules, no left accent bars.
+     - AIRY. Large gaps between sections; generous padding inside every surface.
+     - Orange emphasises, teal acts, yellow is a small state only.
+     - Hover is a colour wash plus a chip scale. Never a lift or a shadow.
+
+   Documented deviations, made for long-form legibility:
+     - type ramp scaled down from the marketing scale (their h1 is 96px)
+     - long prose runs at weight 400; their 500 is kept for short copy, cards,
+       leads and UI text, which is all their site actually has
+   ============================================================================ */
+
+:root {
+  /* ---- Type ---- */
+  /* NewPage self-hosts "Red Hat Display" (SIL OFL) — a geometric, high-x-height
+     grotesque. These docs ship no font files and load nothing external, so this
+     is the closest system approximation. */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+
+  --ls-body: .01em;
+
+  /* ---- Space ---- */
+  --s1: 4px;   --s2: 8px;   --s3: 12px;  --s4: 16px;
+  --s5: 20px;  --s6: 24px;  --s8: 32px;  --s10: 40px;
+  --s12: 48px; --s16: 64px; --s20: 80px; --s24: 96px;
+
+  /* ---- Radius (observed: 8/12/16/24/32/48 on the source site) ---- */
+  --r-sm: 8px; --r-md: 12px; --r-lg: 16px; --r-xl: 24px; --r-2xl: 32px; --r-3xl: 48px;
+  --r-pill: 999px;
+
+  /* ---- Layout ---- */
+  --measure: 68ch;
+  --content-max: 820px;
+  --page-max: 1240px;
+
+  /* ---- Colour: light (observed on newpage.io) ---- */
+  --bg: #fafafa;
+  --surface: #ffffff;
+  --surface-2: #f2f2f2;
+  --text: #000000;
+  --body: #404040;
+  --muted: #5c5c5c;
+  --faint: #737373;
+  --line: #e8e8e8;
+  --line-strong: #d2d2d2;
+
+  --orange: #ff7f1f;
+  --orange-bg: #fff2e9;
+  --orange-mid: #ffd9bc;
+  --orange-ink: #a34700;      /* derived: dark enough to read as text on tint */
+
+  --teal: #008c85;
+  --teal-bg: #e6f4f3;
+  --teal-mid: #80c5c2;
+  --teal-ink: #00615c;        /* derived */
+
+  --yellow: #ffcf36;
+  --yellow-bg: #fffbeb;
+  --yellow-mid: #ffe79a;
+  --yellow-ink: #7a5600;      /* derived */
+
+  --link: var(--teal);
+  --link-hover: var(--orange);
+  --on-accent: #ffffff;
+
+  color-scheme: light;
+}
+
+/* Dark is opt-in only — the toggle sets data-theme. newpage.io has no dark
+   mode at all, so every value below is derived, and light stays the default
+   even for visitors whose OS prefers dark. */
+:root[data-theme="dark"] {
+  --bg: #14181a;
+  --surface: #1e2326;
+  --surface-2: #272d30;
+  --text: #f7f7f7;
+  --body: #cdcdcd;
+  --muted: #a2a8aa;
+  --faint: #848a8d;
+  --line: #2c3235;
+  --line-strong: #3c4347;
+
+  --orange: #ff9142;
+  --orange-bg: #35220f;
+  --orange-mid: #7a4726;
+  --orange-ink: #ffb277;
+
+  --teal: #2fbdb2;
+  --teal-bg: #0f2c2a;
+  --teal-mid: #2f6360;
+  --teal-ink: #7fd8d0;
+
+  --yellow: #ffd65c;
+  --yellow-bg: #302913;
+  --yellow-mid: #5c4c24;
+  --yellow-ink: #ffdf85;
+
+  --on-accent: #06110f;
+
+  color-scheme: dark;
+}
+
+/* ---------------------------------------------------------------- base ---- */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html {
+  -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
+  scroll-padding-top: var(--s8);
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  * { transition: none !important; animation: none !important; }
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--body);
+  font-family: var(--font-sans);
+  font-size: 18px;
+  line-height: 1.6;
+  font-weight: 400;
+  letter-spacing: var(--ls-body);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow-wrap: break-word;
+}
+
+.wrap {
+  max-width: var(--page-max);
+  margin: 0 auto;
+  padding: var(--s10) var(--s8) var(--s24);
+}
+@media (max-width: 900px) { .wrap { padding: var(--s6) var(--s5) var(--s16); } }
+@media (max-width: 480px) {
+  .wrap { padding: var(--s5) var(--s4) var(--s12); }
+  .card, .panel, .option { padding: var(--s6) var(--s5); }
+  .status > div, .doc, .gate { padding: var(--s5); }
+  .theme-toggle { width: 40px; height: 40px; }
+}
+
+/* Sticky rail + reading column. Collapses under 1100px. */
+.shell { display: block; }
+@media (min-width: 1100px) {
+  .shell {
+    display: grid;
+    grid-template-columns: 260px minmax(0, 1fr);
+    gap: var(--s20);
+    align-items: start;
+  }
+}
+.col { max-width: var(--content-max); min-width: 0; }
+
+/* ---------------------------------------------------------- typography ---- */
+
+h1, h2, h3, h4 {
+  color: var(--text);
+  font-weight: 600;
+  letter-spacing: -.02em;
+  text-wrap: balance;
+}
+
+h1 {
+  font-size: clamp(2.6rem, 5.6vw, 4rem);
+  line-height: 1.02;
+  letter-spacing: -.035em;
+  margin: 0 0 var(--s5);
+}
+
+h2 {
+  font-size: clamp(2.15rem, 3.7vw, 2.95rem);
+  line-height: 1.1;
+  letter-spacing: -.03em;
+  margin: 0 0 var(--s6);
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--s4);
+  scroll-margin-top: var(--s8);
+}
+
+h3 {
+  font-size: 1.5rem;
+  line-height: 1.25;
+  letter-spacing: -.025em;
+  margin: var(--s12) 0 var(--s4);
+}
+h3:first-child { margin-top: 0; }
+
+h4 {
+  font-size: 1.08rem;
+  line-height: 1.3;
+  letter-spacing: -.015em;
+  margin: 0 0 var(--s3);
+}
+
+p { margin: 0 0 var(--s5); max-width: var(--measure); }
+p:last-child { margin-bottom: 0; }
+
+/* Short copy sits at 500 the way every paragraph on newpage.io does. */
+.lead {
+  font-size: 1.32rem;
+  line-height: 1.45;
+  font-weight: 500;
+  color: var(--text);
+  letter-spacing: -.015em;
+}
+
+strong, b { font-weight: 600; color: var(--text); }
+em { font-style: italic; }
+
+a {
+  color: var(--link);
+  font-weight: 500;
+  text-decoration: none;
+  border-bottom: 1.5px solid color-mix(in srgb, var(--link) 30%, transparent);
+  transition: color .35s ease, border-color .35s ease;
+}
+a:hover { color: var(--link-hover); border-bottom-color: var(--link-hover); }
+a:focus-visible { outline: 2px solid var(--teal); outline-offset: 4px; border-radius: 4px; }
+
+ul, ol { max-width: var(--measure); margin: 0 0 var(--s5); padding-left: 1.3em; }
+li { margin-bottom: var(--s3); }
+li:last-child { margin-bottom: 0; }
+
+/* Default list style for scannable points — dot in the accent, roomy. */
+.list-airy { list-style: none; padding: 0; }
+.list-airy > li {
+  position: relative;
+  padding: 0 0 0 var(--s8);
+  margin-bottom: var(--s5);
+}
+.list-airy > li::before {
+  content: "";
+  position: absolute;
+  left: 0; top: .58em;
+  width: 10px; height: 10px;
+  border-radius: var(--r-pill);
+  background: var(--orange);
+}
+.list-airy > li b, .list-airy > li strong { color: var(--text); }
+
+/* Mono is for literal code only. Never for labels — the source site has none. */
+code, kbd, .mono {
+  font-family: var(--font-mono);
+  font-size: .86em;
+  letter-spacing: 0;
+  overflow-wrap: anywhere;
+}
+:not(pre) > code {
+  background: var(--surface-2);
+  padding: .12em .45em;
+  border-radius: var(--r-sm);
+  color: var(--text);
+}
+
+/* ---------------------------------------------------------- page parts ---- */
+
+.eyebrow {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--muted);
+  letter-spacing: -.01em;
+  margin: 0 0 var(--s4);
+}
+
+.backlink {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  font-size: .98rem;
+  font-weight: 500;
+  color: var(--muted);
+  border: none;
+  margin-bottom: var(--s8);
+}
+.backlink:hover { color: var(--orange); border: none; }
+
+header.page { margin-bottom: var(--s20); }
+
+.standfirst {
+  font-size: 1.32rem;
+  line-height: 1.45;
+  font-weight: 500;
+  color: var(--body);
+  letter-spacing: -.012em;
+  max-width: 34ch;
+  margin: 0;
+}
+@media (min-width: 700px) { .standfirst { max-width: 46ch; } }
+
+/* Header facts — pill row, no mono, no hairlines. */
+.header-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2) var(--s8);
+  margin-top: var(--s8);
+}
+.header-meta > span {
+  display: inline-flex;
+  align-items: baseline;
+  gap: .5em;
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--text);
+}
+.header-meta b { color: var(--muted); font-weight: 500; }
+
+section { margin: 0 0 var(--s20); }
+section:last-of-type { margin-bottom: var(--s16); }
+
+/* Section index — a soft tinted blob, not a mono ticker. */
+h2 .idx {
+  flex: none;
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: -.01em;
+  color: var(--orange-ink);
+  background: var(--orange-bg);
+  border-radius: var(--r-pill);
+  padding: .28em .85em;
+  position: relative;
+  top: -.22em;
+}
+
+footer.page { margin-top: var(--s16); }
+
+.footnote {
+  font-size: .98rem;
+  line-height: 1.6;
+  color: var(--muted);
+  max-width: var(--measure);
+  margin: 0 0 var(--s4);
+}
+
+.caption {
+  font-size: .98rem;
+  line-height: 1.6;
+  color: var(--muted);
+  max-width: var(--measure);
+  margin-top: var(--s5);
+}
+
+/* ------------------------------------------------------------- controls --- */
+
+/* The site's signature CTA: 64px tall, 16px radius, icon chip on the right
+   that scales on hover. Teal fill is the primary; white is the secondary. */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  height: 64px;
+  padding: 0 var(--s2) 0 var(--s6);
+  gap: var(--s6);
+  background: var(--teal);
+  color: var(--on-accent);
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 24px;
+  letter-spacing: var(--ls-body);
+  border: none;
+  border-radius: var(--r-lg);
+  transition: background-color .5s ease, color .5s ease;
+}
+.btn::after {
+  content: "→";
+  flex: none;
+  width: 48px;
+  height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface);
+  color: var(--teal);
+  border-radius: var(--r-md);
+  font-size: 1.15rem;
+  transition: transform .5s ease-in-out;
+}
+.btn:hover { color: var(--on-accent); border: none; }
+.btn:hover::after { transform: scale(1.08); }
+
+.btn.secondary { background: var(--surface); color: var(--text); }
+.btn.secondary::after { background: var(--teal); color: var(--on-accent); }
+.btn.secondary:hover { background: var(--teal-bg); color: var(--text); }
+
+/* Theme toggle. Light is the default; this is the only way to dark. */
+.theme-toggle {
+  position: fixed;
+  top: var(--s5);
+  right: var(--s5);
+  z-index: 50;
+  width: 48px;
+  height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface);
+  color: var(--body);
+  border: none;
+  border-radius: var(--r-md);
+  font-size: 1.1rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background-color .4s ease, color .4s ease;
+}
+.theme-toggle:hover { background: var(--teal-bg); color: var(--teal); }
+@media (max-width: 900px) { .theme-toggle { top: var(--s3); right: var(--s3); } }
+@media print { .theme-toggle { display: none; } }
+
+/* ---------------------------------------------------------------- TOC ----- */
+
+.toc {
+  position: sticky;
+  top: var(--s8);
+  font-size: .98rem;
+  line-height: 1.35;
+}
+.toc-title {
+  padding-top: var(--s2);
+  font-size: .95rem;
+  font-weight: 600;
+  color: var(--faint);
+  margin: 0 0 var(--s3);
+  padding-left: var(--s4);
+}
+.toc ol { list-style: none; margin: 0; padding: 0; max-width: none; }
+.toc li { margin: 0; }
+.toc a {
+  display: flex;
+  gap: var(--s3);
+  padding: .42rem var(--s4);
+  border: none;
+  border-radius: var(--r-md);
+  color: var(--body);
+  font-weight: 500;
+  transition: color .3s ease, background-color .3s ease;
+}
+.toc a:hover { color: var(--text); background: var(--surface); border: none; }
+.toc a .n { flex: none; min-width: 1.6em; color: var(--faint); }
+.toc a.on { color: var(--teal); background: var(--teal-bg); }
+.toc a.on .n { color: var(--teal); }
+.toc .group {
+  display: block;
+  font-size: .85rem;
+  font-weight: 600;
+  color: var(--faint);
+  padding: var(--s5) var(--s4) var(--s1);
+}
+.toc li:first-child .group { padding-top: 0; }
+
+@media (max-width: 1099px) {
+  .toc {
+    position: static;
+    margin-bottom: var(--s16);
+    background: var(--surface);
+    border-radius: var(--r-2xl);
+    padding: var(--s6);
+  }
+  .toc ol { columns: 2; column-gap: var(--s8); }
+  .toc a { break-inside: avoid; }
+  .toc .group { break-after: avoid; padding-left: var(--s4); }
+}
+@media (max-width: 600px) { .toc ol { columns: 1; } }
+
+/* ------------------------------------------------------------- surfaces --- */
+
+/* White blobs on the off-white page. No borders — this is the whole look. */
+.card {
+  background: var(--surface);
+  border-radius: 40px;
+  padding: var(--s8);
+}
+.card > :last-child { margin-bottom: 0; }
+.card p { font-size: 1.02rem; line-height: 1.55; max-width: none; color: var(--body); }
+
+.grid {
+  display: grid;
+  gap: var(--s3);
+  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
+}
+.grid-2 { grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr)); }
+
+.panel {
+  background: var(--surface);
+  border-radius: var(--r-3xl);
+  padding: var(--s10) var(--s8);
+}
+.panel > :last-child { margin-bottom: 0; }
+
+/* Tinted wash blocks — the site's .mint-radius / .orange-radius pattern.
+   No left bars, no hairlines: the fill is the signal. */
+.callout {
+  background: var(--teal-bg);
+  border-radius: var(--r-xl);
+  padding: var(--s6) var(--s8);
+  margin: var(--s8) 0;
+  max-width: var(--measure);
+}
+.callout > :last-child { margin-bottom: 0; }
+.callout p { font-size: 1.05rem; max-width: none; }
+.callout .lbl {
+  display: block;
+  font-size: .98rem;
+  font-weight: 600;
+  color: var(--teal-ink);
+  margin-bottom: var(--s2);
+}
+.callout .src {
+  display: block;
+  margin-top: var(--s4);
+  font-size: .95rem;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.callout.warn { background: var(--orange-bg); }
+.callout.warn .lbl { color: var(--orange-ink); }
+
+.callout.note { background: var(--surface-2); }
+.callout.note .lbl { color: var(--muted); }
+
+.callout.quote { background: var(--surface); border-radius: var(--r-2xl); padding: var(--s8); }
+.callout.quote p {
+  font-size: 1.5rem;
+  line-height: 1.3;
+  font-weight: 500;
+  letter-spacing: -.025em;
+  color: var(--text);
+}
+
+/* ---------------------------------------------------------------- pills --- */
+
+.state {
+  display: inline-flex;
+  align-items: center;
+  font-size: .88rem;
+  font-weight: 600;
+  letter-spacing: -.005em;
+  padding: .25em .85em;
+  border-radius: var(--r-pill);
+  background: var(--surface-2);
+  color: var(--muted);
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.state.done, .state.set { background: var(--teal-bg); color: var(--teal-ink); }
+.state.now  { background: var(--yellow); color: #4a3400; }
+.state.open { background: var(--orange-bg); color: var(--orange-ink); }
+
+.chips { display: flex; flex-wrap: wrap; gap: var(--s2); margin: var(--s5) 0 0; padding: 0; list-style: none; max-width: none; }
+.chips li {
+  margin: 0;
+  font-size: .95rem;
+  font-weight: 500;
+  background: var(--surface);
+  border-radius: var(--r-pill);
+  padding: .38em 1em;
+  color: var(--body);
+}
+
+/* --------------------------------------------------------------- tables --- */
+
+/* Tables live inside a white blob. No outer border, no vertical rules. */
+.table-scroll {
+  overflow-x: auto;
+  margin: var(--s6) 0;
+  border-radius: var(--r-xl);
+  background: var(--surface);
+  padding: var(--s3) var(--s5);
+  -webkit-overflow-scrolling: touch;
+}
+.table-scroll table { margin: 0; }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+th, td {
+  text-align: left;
+  vertical-align: top;
+  padding: var(--s5) var(--s4);
+  border-bottom: 1px solid var(--line);
+}
+thead th {
+  font-size: .95rem;
+  font-weight: 600;
+  color: var(--faint);
+  padding-top: var(--s4);
+  padding-bottom: var(--s3);
+  white-space: nowrap;
+}
+tbody tr:last-child td, tbody tr:last-child th { border-bottom: none; }
+tbody tr { transition: background-color .4s ease; }
+tbody tr:hover td, tbody tr:hover th { background: var(--teal-bg); }
+tbody th[scope="row"] { font-weight: 600; color: var(--text); }
+
+/* Options table: name | upside | cost */
+table.opts td:first-child { font-weight: 600; color: var(--text); width: 20%; min-width: 150px; }
+table.opts td:first-child .sub {
+  display: block;
+  font-size: .92rem;
+  font-weight: 400;
+  color: var(--faint);
+  margin-top: .25em;
+}
+table.opts td:nth-child(2) { width: 42%; }
+table.opts td:nth-child(3) { width: 38%; color: var(--body); }
+table.opts thead th:nth-child(2)::before { content: "+ "; color: var(--teal); font-weight: 600; }
+table.opts thead th:nth-child(3)::before { content: "− "; color: var(--orange); font-weight: 600; }
+
+/* Map table: dependency-ordered index of decisions */
+table.map td.n { color: var(--muted); width: 2.6rem; white-space: nowrap; }
+table.map td.c { font-weight: 600; width: 21%; }
+table.map td.d { color: var(--body); }
+table.map td.s { text-align: right; white-space: nowrap; width: 1%; }
+table.map tr.group td {
+  background: none;
+  border-bottom: none;
+  padding: var(--s8) var(--s4) var(--s2);
+}
+table.map tr.group:hover td { background: none; }
+table.map .grouplabel { font-size: 1rem; font-weight: 600; color: var(--orange); }
+
+@media (max-width: 900px) {
+  th, td { padding: var(--s4) var(--s3); }
+  table { font-size: .95rem; }
+  table.opts td:first-child { min-width: 120px; }
+}
+
+/* ------------------------------------------------------- rating meters --- */
+
+.lvl { display: inline-flex; align-items: center; gap: var(--s2); font-size: .95rem; font-weight: 500; white-space: nowrap; }
+.meter { display: inline-flex; gap: 3px; }
+.meter i { width: 9px; height: 20px; border-radius: 3px; background: var(--surface-2); display: block; }
+.meter i.on { background: var(--teal); }
+.meter.warn i.on { background: var(--orange); }
+
+/* ------------------------------------------------------------ specifics --- */
+
+/* Status board — separate blobs, not a hairline grid. */
+.status {
+  display: grid;
+  gap: var(--s3);
+  grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr));
+}
+.status > div {
+  background: var(--surface);
+  border-radius: var(--r-2xl);
+  padding: var(--s8) var(--s6);
+}
+.status .label { display: block; font-weight: 600; color: var(--text); font-size: 1.08rem; letter-spacing: -.015em; margin: var(--s4) 0 var(--s2); }
+.status .note { display: block; font-size: 1.02rem; color: var(--body); line-height: 1.55; }
+
+/* Step cards */
+.steps { display: grid; gap: var(--s3); grid-template-columns: repeat(auto-fit, minmax(min(270px, 100%), 1fr)); }
+.step .n { display: block; font-size: .98rem; font-weight: 600; color: var(--orange); margin-bottom: var(--s3); }
+
+/* Numbered requirement list */
+.numbered { list-style: none; counter-reset: r; padding: 0; margin: 0; display: grid; gap: var(--s2); grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); max-width: none; }
+.numbered { gap: var(--s5) var(--s8); }
+.numbered li {
+  counter-increment: r;
+  display: grid;
+  grid-template-columns: 2.4rem 1fr;
+  gap: var(--s3);
+  align-items: start;
+  margin: 0;
+  font-size: 1.02rem;
+  line-height: 1.5;
+}
+.numbered li::before {
+  content: counter(r, decimal-leading-zero);
+  font-weight: 600;
+  color: var(--orange);
+}
+.numbered li b { display: block; color: var(--text); font-weight: 600; }
+.numbered li span.d { color: var(--muted); }
+
+/* Option rows */
+.optionlist { list-style: none; padding: 0; margin: 0; max-width: none; display: grid; gap: var(--s2); }
+.optionlist li {
+  display: grid;
+  grid-template-columns: 3rem minmax(0, 15rem) minmax(0, 1fr);
+  gap: var(--s2) var(--s6);
+  align-items: baseline;
+  margin: 0;
+  padding: var(--s6) var(--s8);
+  background: var(--surface);
+  border-radius: var(--r-2xl);
+}
+.optionlist .num { color: var(--faint); font-weight: 500; }
+.optionlist .name { font-weight: 600; color: var(--text); font-size: 1.12rem; letter-spacing: -.015em; }
+.optionlist .desc { color: var(--muted); font-size: 1rem; }
+@media (max-width: 900px) {
+  .optionlist li { grid-template-columns: 2.6rem minmax(0, 1fr); }
+  .optionlist .desc { grid-column: 2; }
+}
+
+/* Document library — big white blobs with the site's arrow chip. */
+.library { display: grid; gap: var(--s3); }
+.doc {
+  display: block;
+  position: relative;
+  background: var(--surface);
+  border: none;
+  border-radius: var(--r-2xl);
+  padding: var(--s8);
+  color: inherit;
+  transition: background-color .5s ease;
+}
+.doc .t::after {
+  content: "→";
+  width: 34px;
+  height: 34px;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--teal);
+  color: var(--on-accent);
+  border-radius: var(--r-sm);
+  font-size: .95rem;
+  font-weight: 500;
+  transition: transform .5s ease-in-out;
+}
+.doc:hover .t::after { transform: scale(1.08); }
+.doc:hover { background: var(--teal-bg); color: inherit; border: none; }
+.doc .t { display: flex; align-items: center; flex-wrap: wrap; gap: var(--s4); font-weight: 600; font-size: 1.25rem; letter-spacing: -.02em; color: var(--text); margin-bottom: var(--s2); }
+.doc .d { display: block; font-size: 1.02rem; color: var(--body); line-height: 1.55; max-width: 62ch; }
+.doc .path { display: block; margin-top: var(--s4); font-size: .92rem; color: var(--faint); }
+.doc.secondary .t::after { background: var(--surface-2); color: var(--body); }
+.doc.secondary:hover { background: var(--surface-2); }
+
+/* Big-number fact strip */
+.facts {
+  display: grid;
+  gap: var(--s3);
+  grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr));
+  margin: var(--s6) 0;
+}
+.facts > div { background: var(--surface); border-radius: var(--r-2xl); padding: var(--s6); }
+.facts .v { display: block; font-size: 2.4rem; font-weight: 600; color: var(--text); letter-spacing: -.035em; line-height: 1; }
+.facts .k { display: block; font-size: .95rem; color: var(--muted); margin-top: var(--s2); line-height: 1.35; }
+
+/* Decision anatomy */
+.determines {
+  display: block;
+  background: var(--surface);
+  border-radius: var(--r-xl);
+  padding: var(--s5) var(--s6);
+  margin: 0 0 var(--s6);
+  font-size: 1.05rem;
+  line-height: 1.5;
+  color: var(--body);
+  max-width: var(--measure);
+}
+.determines b { color: var(--orange); font-weight: 600; margin-right: .3em; }
+
+.decider {
+  background: var(--teal-bg);
+  border-radius: var(--r-xl);
+  padding: var(--s6) var(--s8);
+  margin: var(--s6) 0 0;
+  max-width: var(--measure);
+}
+.decider .lbl { display: block; font-size: .98rem; font-weight: 600; color: var(--teal-ink); margin-bottom: var(--s2); }
+.decider p { margin: 0; font-size: 1.05rem; max-width: none; }
+
+.aside {
+  background: var(--surface-2);
+  border-radius: var(--r-xl);
+  padding: var(--s5) var(--s6);
+  margin: var(--s5) 0 0;
+  max-width: var(--measure);
+}
+.aside .lbl { display: block; font-size: .95rem; font-weight: 600; color: var(--muted); margin-bottom: var(--s2); }
+.aside p { margin: 0; font-size: 1rem; color: var(--muted); max-width: none; }
+
+/* Long-form option analysis card */
+.option {
+  background: var(--surface);
+  border-radius: var(--r-3xl);
+  padding: var(--s10) var(--s8);
+  margin-bottom: var(--s5);
+}
+.option.chosen { background: var(--teal-bg); }
+.option-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: var(--s4); margin-bottom: var(--s4); }
+.option-head .num { font-size: 1rem; font-weight: 600; color: var(--faint); }
+.option-head h3 { margin: 0; font-size: 1.9rem; letter-spacing: -.03em; flex: 1 1 auto; }
+.option .summary { font-size: 1.15rem; line-height: 1.5; font-weight: 500; color: var(--body); max-width: var(--measure); }
+.facets { display: grid; gap: var(--s3); grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr)); margin-top: var(--s6); }
+.facet { background: var(--bg); border-radius: var(--r-lg); padding: var(--s5); }
+.option.chosen .facet { background: var(--surface); }
+.facet .k { display: block; font-size: .95rem; font-weight: 600; color: var(--faint); margin-bottom: var(--s2); }
+.facet .v { margin: 0; font-size: 1rem; line-height: 1.55; color: var(--body); max-width: none; }
+.facet.risk { background: var(--orange-bg); }
+.facet.risk .k { color: var(--orange-ink); }
+.option.chosen .facet.risk { background: var(--orange-bg); }
+
+/* Recommendation block */
+.rec { border-radius: var(--r-3xl); overflow: hidden; background: var(--surface); }
+.rec-head {
+  background: var(--surface-2);
+  padding: var(--s5) var(--s8);
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--muted);
+}
+.rec-head b { color: var(--orange-ink); font-weight: 600; }
+.rec-body { padding: var(--s10) var(--s8); }
+.rec-body > :last-child { margin-bottom: 0; }
+.rec-body h3 { margin-top: 0; font-size: 1.5rem; }
+.rec-body h3 .prefix { display: block; font-size: .98rem; font-weight: 600; color: var(--teal); margin-bottom: var(--s2); letter-spacing: 0; }
+.rec-split { margin-top: var(--s10); padding-top: var(--s10); border-top: 1px solid var(--line); }
+
+/* Colour swatches — design-system reference page */
+.swatch { display: inline-block; width: 40px; height: 26px; border-radius: var(--r-sm); vertical-align: middle; }
+.swatch.lg { display: block; width: 100%; height: 64px; border-radius: var(--r-lg); margin-bottom: var(--s4); }
+
+/* ------------------------------------------------------------ code block --- */
+
+/* Inferred — newpage.io has no code content. Same-tone fill, soft radius,
+   no border, no shadow. Mono appears here and nowhere else. */
+pre {
+  font-family: var(--font-mono);
+  font-size: .92rem;
+  line-height: 1.6;
+  background: var(--surface-2);
+  border-radius: var(--r-lg);
+  padding: var(--s5) var(--s6);
+  margin: 0 0 var(--s5);
+  overflow-x: auto;
+  color: var(--text);
+  max-width: var(--measure);
+}
+pre code { background: none; padding: 0; font-size: inherit; font-weight: 400; }
+pre.wide { max-width: none; }
+
+/* --------------------------------------------------------- pipeline strip --- */
+
+/* Which stage of the pipeline a thing belongs to. Tested stages take the
+   mint wash; untested stay white. */
+.pipeline {
+  display: grid;
+  gap: var(--s2);
+  grid-template-columns: repeat(auto-fit, minmax(min(168px, 100%), 1fr));
+  margin: var(--s6) 0;
+}
+.pstage {
+  background: var(--surface);
+  border-radius: var(--r-xl);
+  padding: var(--s5);
+  transition: background-color .4s ease;
+}
+.pstage.tested { background: var(--teal-bg); }
+.pstage.pending { background: var(--yellow-bg); }
+.pstage .pn { display: block; font-size: .9rem; font-weight: 600; color: var(--faint); margin-bottom: var(--s2); }
+.pstage.tested .pn { color: var(--teal-ink); }
+.pstage.pending .pn { color: var(--yellow-ink); }
+.pstage .pt { display: block; font-size: 1.1rem; font-weight: 600; color: var(--text); letter-spacing: -.02em; margin-bottom: var(--s1); }
+.pstage .pd { display: block; font-size: .92rem; color: var(--muted); line-height: 1.4; }
+
+/* ----------------------------------------------------- comparison matrix --- */
+
+/* Many options across attributes that are discrete. Every such attribute
+   becomes a column with a meter or a tag, so the table is scanned rather
+   than read. Prose goes in the accordion underneath, not in the cells. */
+.matrix { font-size: .98rem; }
+.matrix thead th.ctr, .matrix tbody td.ctr { text-align: center; }
+.matrix tbody td { vertical-align: middle; }
+.matrix td.opt { font-weight: 600; color: var(--text); white-space: nowrap; }
+.matrix td.opt .sub { display: block; font-size: .88rem; font-weight: 400; color: var(--faint); margin-top: .2em; }
+.matrix td.txt { min-width: 16rem; font-size: .95rem; color: var(--muted); }
+
+.tag {
+  display: inline-block;
+  font-size: .85rem;
+  font-weight: 600;
+  padding: 3px 12px;
+  border-radius: var(--r-pill);
+  background: var(--surface-2);
+  color: var(--muted);
+  white-space: nowrap;
+}
+.tag.ok { background: var(--teal-bg); color: var(--teal-ink); }
+.tag.warn { background: var(--orange-bg); color: var(--orange-ink); }
+.tag.flag { background: var(--yellow-bg); color: var(--yellow-ink); }
+
+.verdict { font-weight: 600; font-size: .95rem; white-space: nowrap; }
+.verdict.ours { color: var(--teal-ink); }
+.verdict.theirs { color: var(--orange-ink); }
+.verdict.none { color: var(--faint); }
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2) var(--s6);
+  margin: var(--s3) 0 var(--s6);
+  font-size: .92rem;
+  color: var(--faint);
+}
+.legend b { font-weight: 600; color: var(--muted); }
+
+/* ------------------------------------------------------------- accordion --- */
+
+/* Detail behind a click, so prose is available without being imposed. */
+.accordion { display: grid; gap: var(--s2); margin: var(--s5) 0 var(--s6); }
+details.why {
+  background: var(--surface);
+  border-radius: var(--r-xl);
+  overflow: hidden;
+}
+details.why > summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s5);
+  padding: var(--s5) var(--s6);
+  font-weight: 600;
+  font-size: 1.08rem;
+  letter-spacing: -.015em;
+  color: var(--text);
+  transition: background-color .4s ease, color .4s ease;
+}
+details.why > summary::-webkit-details-marker { display: none; }
+details.why > summary::after { content: "+"; font-size: 1.3rem; font-weight: 400; color: var(--faint); flex: none; line-height: 1; }
+details.why[open] > summary::after { content: "\2013"; }
+details.why > summary:hover { background: var(--teal-bg); color: var(--teal-ink); }
+details.why[open] > summary { background: var(--surface-2); }
+details.why .body { padding: var(--s5) var(--s6) var(--s6); }
+details.why .body > :last-child { margin-bottom: 0; }
+details.why .body p { font-size: 1rem; max-width: var(--measure); }
+.plus { color: var(--teal-ink); font-weight: 600; }
+.minus { color: var(--orange-ink); font-weight: 600; }
+
+/* ----------------------------------------------------------------- gates --- */
+
+/* The pass/fail questions that settle a choice, as against the attributes
+   that merely inform it. */
+.gates { display: grid; gap: var(--s3); grid-template-columns: repeat(auto-fit, minmax(min(250px, 100%), 1fr)); margin: var(--s5) 0; }
+.gate {
+  background: var(--orange-bg);
+  border-radius: var(--r-xl);
+  padding: var(--s6);
+  transition: background-color .4s ease;
+}
+.gate .q { display: block; font-weight: 600; color: var(--text); font-size: 1.12rem; letter-spacing: -.02em; margin-bottom: var(--s2); }
+.gate .a { display: block; font-size: .98rem; color: var(--muted); line-height: 1.5; }
+
+/* ---------------------------------------------------------------- misc ---- */
+
+.stack-sm > * + * { margin-top: var(--s3); }
+.mt-0 { margin-top: 0; }
+.mt-6 { margin-top: var(--s6); }
+.mt-8 { margin-top: var(--s8); }
+.mb-0 { margin-bottom: 0; }
+.wide { max-width: none; }
+
+::selection { background: var(--orange-mid); color: var(--text); }
+
+@media print {
+  body { background: #fff; font-size: 11pt; }
+  .toc, .backlink, .theme-toggle { display: none; }
+  .shell { display: block; }
+  a { color: #000; border: none; }
+}
+
+/* ==========================================================================
+   Comparison matrix, gates and accordion.
+   Added for the "02a LlamaIndex, examined" analysis in technical-choices.html.
+   ========================================================================== */
+
+/* Wide multi-column comparison table. Same white-blob container as .opts. */
+table.matrix td.opt { font-weight: 600; color: var(--text); min-width: 160px; }
+table.matrix td.opt .sub {
+  display: block;
+  font-size: .92rem;
+  font-weight: 400;
+  color: var(--faint);
+  margin-top: .25em;
+}
+table.matrix td.txt { color: var(--body); font-size: .98rem; }
+table.matrix .ctr, table.matrix th.ctr { text-align: center; }
+table.matrix td.ctr .meter { justify-content: center; }
+
+/* Small state pills used inside matrix cells. */
+.tag {
+  display: inline-block;
+  font-size: .85rem;
+  font-weight: 600;
+  padding: .18em .7em;
+  border-radius: var(--r-pill);
+  background: var(--surface-2);
+  color: var(--muted);
+  white-space: nowrap;
+}
+.tag.ok   { background: var(--teal-bg);   color: var(--teal-ink); }
+.tag.warn { background: var(--orange-bg); color: var(--orange-ink); }
+.tag.flag { background: var(--yellow-mid); color: var(--yellow-ink); }
+
+/* Whose-call verdict. Teal = we keep the decision, orange = we do not. */
+.verdict {
+  display: inline-block;
+  font-size: .92rem;
+  font-weight: 600;
+  padding: .2em .75em;
+  border-radius: var(--r-pill);
+  margin-bottom: var(--s1);
+  white-space: nowrap;
+}
+.verdict.ours   { background: var(--teal-bg);   color: var(--teal-ink); }
+.verdict.theirs { background: var(--orange-bg); color: var(--orange-ink); }
+.verdict.none   { background: var(--surface-2); color: var(--muted); }
+
+/* Key under a matrix — quiet, inline, never a bordered box. */
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2) var(--s8);
+  margin: var(--s4) 0 0;
+  padding: 0 var(--s2);
+  font-size: .95rem;
+  color: var(--muted);
+}
+.legend > span { display: inline-flex; align-items: baseline; gap: .45em; }
+.legend b { color: var(--text); font-weight: 600; }
+
+/* Collapsible argument stack. Closed by default so the section stays scannable. */
+.accordion { display: grid; gap: var(--s2); margin: var(--s6) 0; }
+.accordion details {
+  background: var(--surface);
+  border-radius: var(--r-xl);
+  overflow: hidden;
+  transition: background-color .4s ease;
+}
+.accordion details[open] { background: var(--surface); }
+.accordion summary {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding: var(--s5) var(--s6);
+  font-size: 1.08rem;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: -.015em;
+  cursor: pointer;
+  list-style: none;
+  transition: color .3s ease;
+}
+.accordion summary::-webkit-details-marker { display: none; }
+.accordion summary::after {
+  content: "+";
+  margin-left: auto;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--teal-bg);
+  color: var(--teal);
+  border-radius: var(--r-md);
+  font-size: 1.2rem;
+  font-weight: 500;
+  transition: transform .4s ease, background-color .4s ease;
+}
+.accordion details[open] summary::after { content: "−"; transform: rotate(180deg); }
+.accordion summary:hover { color: var(--teal); }
+.accordion summary:hover::after { background: var(--teal); color: var(--on-accent); }
+.accordion summary:focus-visible { outline: 2px solid var(--teal); outline-offset: -2px; }
+.accordion .body { padding: 0 var(--s6) var(--s6); }
+.accordion .body > :last-child { margin-bottom: 0; }
+.accordion .body p { font-size: 1.02rem; }
+
+/* For / Against markers inside an accordion body. */
+.plus, .minus {
+  display: inline-block;
+  font-weight: 600;
+  font-size: .92rem;
+  padding: .12em .65em;
+  border-radius: var(--r-pill);
+  margin-right: .5em;
+}
+.plus  { background: var(--teal-bg);   color: var(--teal-ink); }
+.minus { background: var(--orange-bg); color: var(--orange-ink); }
+
+/* Pass/fail gates — the questions that settle a decision outright. */
+.gates { display: grid; gap: var(--s3); grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr)); margin: var(--s6) 0 0; }
+.gate { background: var(--surface); border-radius: var(--r-2xl); padding: var(--s6); }
+.gate .q {
+  display: block;
+  font-size: 1.08rem;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: -.015em;
+  margin-bottom: var(--s2);
+}
+.gate .a { display: block; font-size: 1rem; line-height: 1.55; color: var(--muted); }
+
+/* Code blocks. The source site has none, so this is inferred to match the
+   form-input treatment: same-tone fill, no border, no shadow. */
+pre {
+  background: var(--surface-2);
+  border-radius: var(--r-xl);
+  padding: var(--s5) var(--s6);
+  margin: var(--s5) 0;
+  overflow-x: auto;
+  max-width: 100%;
+  -webkit-overflow-scrolling: touch;
+}
+pre code {
+  background: none;
+  padding: 0;
+  font-size: .92rem;
+  line-height: 1.6;
+  color: var(--text);
+  white-space: pre;
+}

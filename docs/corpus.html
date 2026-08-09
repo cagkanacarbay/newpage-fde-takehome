@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Research corpus - Live Long R&amp;D assistant</title>
+<!-- ds:css:start -->
+<link rel="stylesheet" href="_assets/docs.css">
+<!-- ds:css:end -->
+</head>
+<body>
+<div class="wrap">
+
+  <button class="theme-toggle" type="button" aria-label="Switch to dark">☾</button>
+  <a class="backlink" href="index.html">← System documentation</a>
+
+  <header class="page">
+    <h1>Longevity research corpus</h1>
+    <p class="standfirst">A reproducible, open-access research set for testing retrieval, citations, tables, and scientific disagreement.</p>
+    <div class="header-meta">
+      <span><b>Documents</b> 27 papers</span>
+      <span><b>Coverage</b> 425 pages</span>
+      <span><b>Source</b> Europe PMC</span>
+    </div>
+  </header>
+
+  <div class="shell">
+    <nav class="toc" aria-label="On this page">
+      <p class="toc-title">Contents</p>
+      <ol>
+        <li><a href="#purpose"><span class="n">01</span><span>Purpose</span></a></li>
+        <li><a href="#contents"><span class="n">02</span><span>Contents</span></a></li>
+        <li><a href="#reproduce"><span class="n">03</span><span>Reproduce</span></a></li>
+        <li><a href="#provenance"><span class="n">04</span><span>Provenance</span></a></li>
+      </ol>
+    </nav>
+
+    <div class="col">
+      <section id="purpose">
+        <h2><span class="idx">01</span> Purpose</h2>
+        <p>The corpus deliberately contains overlapping topics, named-entity traps, tables, different paper lengths, and conflicting findings.</p>
+        <p>Those properties make retrieval quality visible. A useful answer must identify the right species, method, intervention, and result instead of matching the word “aging.”</p>
+      </section>
+
+      <section id="contents">
+        <h2><span class="idx">02</span> Contents</h2>
+        <p>The 27 papers cover mechanisms of aging, epigenetic clocks, biomarkers, senescence, geroprotectors, and mathematical models of mortality.</p>
+        <p>Papers 021 through 027 contain displayed equations. They are the test set for whether the selected PDF parser preserves scientific notation.</p>
+        <p>The complete paper list, licences, source identifiers, page counts, and retrieval challenges are in the <a href="../data/corpus/longevity/MANIFEST.md">corpus manifest</a>.</p>
+      </section>
+
+      <section id="reproduce">
+        <h2><span class="idx">03</span> Reproduce</h2>
+        <p>The repository includes the full corpus. Run this command only to restore or refresh it from source:</p>
+        <pre><code>uv run scripts/fetch_corpus.py</code></pre>
+        <p>The downloader fetches the publisher PDFs from Europe PMC, checks the PDF header and file size, and extracts text from every page.</p>
+        <p>The PDFs are stored in <code>data/corpus/longevity/</code> and tracked in Git so a reviewer can run ingestion without a long first download.</p>
+      </section>
+
+      <section id="provenance">
+        <h2><span class="idx">04</span> Provenance</h2>
+        <p>Every document is in the PubMed Central Open Access subset and carries a Creative Commons licence.</p>
+        <p>The downloader pins each paper by its PubMed Central ID. It does not bypass paywalls.</p>
+      </section>
+    </div>
+  </div>
+
+</div>
+<!-- ds:js:start -->
+<script defer src="_assets/docs.js"></script>
+<!-- ds:js:end -->
+</body>
+</html>

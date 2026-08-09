@@ -6,10 +6,12 @@ A chat with your docs assistant based on a hypothetical customer "Live Long R&D"
 
 <!-- Maintained by the agent: keep accurate and updated with every change that affects setup -->
 
-There is no runnable code yet. The project is at the setup stage: the repository carries
-its development rules, agent configuration, and hooks, but no application, dependencies,
-or entrypoint. This section is updated as setup lands — Python version, dependency
-install, environment variables, and the command to run the app.
+There is no runnable application yet.
+
+The repository includes the 27-PDF research corpus in
+`data/corpus/longevity/`.
+Use `uv run scripts/fetch_corpus.py` only to restore or refresh the corpus from
+its public sources.
 
 ## RAG/LLM approach and decisions
 

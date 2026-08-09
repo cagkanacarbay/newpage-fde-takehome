@@ -1,8 +1,3 @@
-# Corpus PDFs are never committed. `scripts/fetch_corpus.py` rebuilds them from
-# source, pinned by PubMed Central ID, and verifies every file. MANIFEST.md is
-# committed — it is the record of what the corpus is.
-data/corpus/**/*.pdf
-
 # Parsed intermediates and built indexes — all reproducible from the corpus.
 data/parsed/
 data/index/

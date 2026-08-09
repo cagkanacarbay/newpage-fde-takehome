@@ -1,0 +1,2 @@
+# Keep PDF bytes out of text diffs and whitespace checks.
+data/corpus/**/*.pdf binary
