@@ -25,6 +25,7 @@ def test_empty_docling_output_is_a_failure_not_an_empty_document(tmp_path: Path)
 
 
 @pytest.mark.integration
+@pytest.mark.e2e
 def test_parse_pdf_preserves_structure_and_page_provenance() -> None:
     source = Path(
         "data/corpus/longevity/009-vetter-2026-comparing-fourteen-biomarkers-of-aging.pdf"
@@ -42,6 +43,7 @@ def test_parse_pdf_preserves_structure_and_page_provenance() -> None:
 
 
 @pytest.mark.integration
+@pytest.mark.e2e
 def test_chunked_nodes_keep_exact_spot_citation_provenance() -> None:
     source = Path(
         "data/corpus/longevity/009-vetter-2026-comparing-fourteen-biomarkers-of-aging.pdf"
