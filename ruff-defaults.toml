@@ -1,0 +1,210 @@
+# =============================================================================
+# ruff-defaults.toml — paste-ready Ruff config for ANY new Python project
+# =============================================================================
+#
+# WHAT THIS IS
+#   A starter Ruff lint config. The ACTIVE block below (line-length,
+#   target-version, and the uncommented `select`) is the validated day-one
+#   default: stack-agnostic, low false-positive, safe to turn on before you
+#   know what the project will become.
+#
+#   Everything COMMENTED OUT under `select` is a CANDIDATE family. Each line
+#   says what the family catches and when you'd want it. Uncomment families
+#   as the project grows into them (security, async, pandas, stricter policy).
+#
+# HOW TO USE
+#   - Standalone:  save this as `ruff.toml` at the repo root.
+#   - In pyproject: copy the bodies under `[tool.ruff]` / `[tool.ruff.lint]`
+#                   into those tables in your `pyproject.toml`.
+#
+# FORMATTING IS SEPARATE
+#   `ruff format` owns code layout (quotes, commas, line wrapping). It is
+#   enabled on its own and is NOT controlled by the `select` list here. A few
+#   lint families conflict with or duplicate the formatter — see the
+#   "SKIP WITH THE FORMATTER" section. Do not enable those when you run
+#   `ruff format`.
+#
+# REASONING / WHY THESE CHOICES
+#   Summarised per family in `rules/ruff-rules.md`.
+#
+# Verified against ruff 0.15.17. Prefix notes: type-checking is `TC` (not
+# `TCH`); `E`/`W` is pycodestyle; Pylint splits into PLC/PLE/PLW/PLR.
+# =============================================================================
+
+[tool.ruff]
+line-length = 100        # 88 (Black default) and 120 are the other common picks; set per team taste.
+target-version = "py312" # Lowest Python you support. Drives UP rewrites. Lower it (py39, py310) if you ship to older runtimes.
+
+[tool.ruff.lint]
+select = [
+    # -------------------------------------------------------------------------
+    # CORE — always on. Correctness, modern syntax, import order. Near-zero noise.
+    # -------------------------------------------------------------------------
+    "E",    # pycodestyle errors    — PEP 8 layout problems the formatter doesn't cover
+    "W",    # pycodestyle warnings  — trailing whitespace, blank-line issues
+    "F",    # Pyflakes              — undefined names, unused imports/variables, f-string bugs
+    "I",    # isort                 — import sorting and grouping (autofixable)
+    "B",    # flake8-bugbear        — likely bugs: mutable defaults, loop-var closures, broad gotchas
+    "UP",   # pyupgrade             — rewrites to modern syntax for your target-version
+    "SIM",  # flake8-simplify       — collapses needless if/return, nested with, redundant bool logic
+    "C4",   # flake8-comprehensions — cleaner list/dict/set comprehensions over verbose loops
+    "PIE",  # flake8-pie            — small dead-weight cleanups (no-op pass, dup dict keys)
+    "RUF",  # Ruff-specific         — Ruff's own checks (mutable class defaults, unused noqa, etc.)
+    "PLE",  # Pylint errors         — definite errors only (the safe Pylint subset; no style nags)
+
+    # -------------------------------------------------------------------------
+    # STRONG DEFAULT — high signal, still stack-agnostic. On from day one.
+    # -------------------------------------------------------------------------
+    "RET",     # flake8-return         — unreachable/redundant returns, unnecessary else after return
+    "PTH",     # flake8-use-pathlib    — pushes os.path calls toward pathlib.Path
+    "ARG",     # flake8-unused-arguments— unused function/method args (catches dead params)
+    "PLC0415", # Pylint convention     — import statements outside the module top level
+    "TID",     # flake8-tidy-imports   — bans relative imports / configurable banned imports
+    "PERF",    # Perflint              — slow patterns (try/except in loops, list() over comprehension)
+    "PLW",     # Pylint warnings       — real footguns (global misuse, bad except, self-assignment)
+
+    # -------------------------------------------------------------------------
+    # CHERRY-PICKED — specific high-value codes from otherwise-noisy families.
+    # We take the good rules and leave the controversial ones off. The why,
+    # and the complexity dial, live in development-standards.md (same folder).
+    # -------------------------------------------------------------------------
+    # tryceratops (TRY) — exception hygiene, the uncontroversial subset:
+    "TRY002",  # no raising bare `Exception` — use a specific class
+    "TRY004",  # raise TypeError (not ValueError/RuntimeError) for type checks
+    "TRY301",  # don't `raise` inside the `try` you're about to catch — restructure
+    "TRY400",  # log with logging.exception (keeps the traceback), not logging.error
+    "TRY401",  # don't put the exception object in the log message; logging adds it
+    #   Deliberately OFF: TRY003 (long messages at the raise site — only pays off
+    #   with a real custom-exception hierarchy) and TRY300 (try/else, stylistic).
+    # Pylint complexity guardrails (PLR09xx) — too-many-* caps. Each has a DIAL
+    # in [tool.ruff.lint.pylint] below. Change the dial only by human approval
+    # (development-standards.md).
+    "PLR0911", # too many return statements   (dial: max-returns,   default 6)
+    "PLR0912", # too many branches            (dial: max-branches,  default 12)
+    "PLR0913", # too many arguments           (dial: max-args,      default 5)
+    "PLR0915", # too many statements          (dial: max-statements,default 50)
+    #   Deliberately OFF: PLR2004 (magic-value comparison — too noisy on ordinary code).
+    # Pylint small wins (modernise / simplify):
+    "PLR1714", # `x == a or x == b`  ->  `x in (a, b)`
+    "PLR5501", # `else:` then nested `if`  ->  `elif`
+    "PLR1722", # use `sys.exit()` instead of `exit()` / `quit()`
+
+    # =========================================================================
+    # CANDIDATES — uncomment as the project needs them. Grouped by tier below.
+    # =========================================================================
+
+    # -------------------------------------------------------------------------
+    # OPINIONATED — good rules, reasonably left off by default. Turn on when
+    # the codebase is stable enough to absorb the churn.
+    # -------------------------------------------------------------------------
+    # "TC",   # flake8-type-checking — moves import-only-for-typing into `if TYPE_CHECKING`.
+    #         #   DECLINED for our standard: stays SILENT unless files have
+    #         #   `from __future__ import annotations`, so it's churn for little gain here.
+    # "A",    # flake8-builtins      — names that shadow builtins (a var/arg named `list`, `id`, `type`).
+    #         #   DECLINED for our standard: more pedantic than useful at our scale (and A005 is noise).
+    # "TRY",  # tryceratops         — DON'T enable the whole prefix. We cherry-pick the good codes in the
+    #         #   CHERRY-PICKED block above (TRY002/004/301/400/401) and leave TRY003/TRY300 off.
+    # "PLR",  # Pylint refactor     — DON'T enable the whole prefix (NOISIEST family). We cherry-pick the
+    #         #   complexity guardrails + small wins above and leave PLR2004 (magic values) off.
+    # "FURB", # refurb              — idiom modernization (pathlib reads, dict/set tricks).
+    #         #   NOTE: PREVIEW-ONLY. Has no effect unless you also set `preview = true` at the top.
+    # "SLF",  # flake8-self         — flags access to _private members from outside the owning class.
+    # "RSE",  # flake8-raise        — unnecessary parens on raise (`raise Exc()` with no args).
+    # "FLY",  # flynt               — turns "".join / %-format / .format into f-strings.
+    # "PGH",  # pygrep-hooks        — bare `# type: ignore` / blanket `# noqa` without a code.
+    # "SLOT", # flake8-slots        — suggests __slots__ on subclasses of str/tuple/namedtuple.
+    # "FA",   # flake8-future-annotations — requires `from __future__ import annotations`; pairs with TC.
+    # "YTT",  # flake8-2020         — wrong sys.version / sys.version_info checks (py2/py3 guard bugs).
+    # "BLE",  # flake8-blind-except — bans `except:` and `except Exception:` that swallow everything.
+    # "T10",  # flake8-debugger     — leftover breakpoint() / pdb.set_trace() calls.
+    # "EXE",  # flake8-executable   — shebang vs. +x permission mismatches on scripts.
+    # "ICN",  # flake8-import-conventions — enforces aliases (import numpy as np, pandas as pd).
+    # "PYI",  # flake8-pyi          — correctness rules for .pyi type stub files (no-op without stubs).
+
+    # -------------------------------------------------------------------------
+    # DOMAIN-SPECIFIC — turn on only when the project actually does that thing.
+    # -------------------------------------------------------------------------
+    # "S",     # flake8-bandit       — security: subprocess, eval, pickle/yaml.load, hardcoded secrets,
+    #          #   requests without timeout. Turn on for anything making outbound calls, running
+    #          #   subprocesses, or deserializing untrusted input. (S101 = assert; exempt it in tests.)
+    # "DTZ",   # flake8-datetimez    — flags naive datetimes; forces tz-aware. Turn on for ANYTHING that
+    #          #   orders, stores, or compares time (logs, schedulers, event timelines).
+    # "PT",    # flake8-pytest-style — pytest idioms (fixtures, parametrize, pytest.raises). On if you use pytest.
+    # "LOG",   # flake8-logging      — logging API misuse (logging.warn, exception() outside handler).
+    # "G",     # flake8-logging-format— logging-format issues (f-strings in log calls, % vs args).
+    #          #   Enable LOG + G together once you commit to stdlib `logging`.
+    # "ASYNC", # flake8-async        — async pitfalls (blocking calls in coroutines, missing await). Async code only.
+    # "PD",    # pandas-vet          — LIBRARY-SPECIFIC: pandas antipatterns (inplace=True, .ix, chained ops).
+    # "NPY",   # NumPy-specific      — LIBRARY-SPECIFIC: deprecated NumPy APIs and legacy random usage.
+    # "DJ",    # flake8-django       — Django model/view conventions. Django projects only.
+    # "FAST",  # FastAPI             — FastAPI route/dependency issues. FastAPI projects only.
+    # "AIR",   # Airflow             — Airflow DAG/operator deprecations. Airflow projects only.
+    # "INT",   # flake8-gettext      — gettext/i18n usage (f-strings inside _()). On if you localize strings.
+
+    # -------------------------------------------------------------------------
+    # POLICY / STRICT — enable deliberately as a team decision. Often noisy;
+    # several collide with real-world code. Pair most with per-file-ignores.
+    # -------------------------------------------------------------------------
+    # "ANN",  # flake8-annotations  — requires type annotations on functions. Big upfront cost; great for libraries.
+    # "D",    # pydocstyle          — requires docstrings + format. Pick a convention (see lint.pydocstyle below).
+    # "DOC",  # pydoclint           — docstring matches the signature (args/returns/raises). Pairs with D; PREVIEW for some rules.
+    # "EM",   # flake8-errmsg       — forces exception messages into a variable instead of an inline string.
+    # "FBT",  # flake8-boolean-trap — flags boolean positional args (foo(True)); push toward keyword-only.
+    # "T20",  # flake8-print        — bans print(). WRONG for CLIs/scripts/notebooks; right for libraries/services.
+    # "ERA",  # eradicate           — commented-out code. HEURISTIC: false-positives on prose-y comments.
+    # "INP",  # flake8-no-pep420    — requires __init__.py (no implicit namespace packages). Off for namespace pkgs.
+    # "N",    # pep8-naming         — naming conventions. COLLIDES with external APIs (e.g. setUp, Qt camelCase).
+    # "TD",   # flake8-todos        — TODO comments must follow a format (author, link, colon).
+    # "FIX",  # flake8-fixme        — flags any FIXME/TODO/XXX left in the code (fails CI on open todos).
+    # "CPY",  # flake8-copyright    — requires a copyright header in every file.
+    # "C90",  # mccabe              — cyclomatic complexity ceiling. Set max-complexity (see lint.mccabe below).
+
+    # -------------------------------------------------------------------------
+    # SKIP WITH THE FORMATTER — do NOT enable these while using `ruff format`.
+    # They conflict with or duplicate what the formatter already does.
+    # -------------------------------------------------------------------------
+    # "COM",  # flake8-commas — trailing commas. COM812 specifically: Ruff's docs RECOMMEND AGAINST it
+    #         #   alongside the formatter (the formatter already enforces trailing commas; the rule is redundant).
+    # "ISC",  # flake8-implicit-str-concat — ISC001 conflicts with the formatter (it can introduce the very
+    #         #   single-line concatenations ISC001 flags). Leave off with the formatter; ISC003 is safe if needed.
+    # "Q",    # flake8-quotes — quote style. The formatter owns quotes; this is pure redundancy with `ruff format`.
+]
+
+# =============================================================================
+# CONFIG KNOBS — uncomment alongside the families they tune. Inert until the
+# matching family above is enabled.
+# =============================================================================
+
+# Per-file overrides. Common one: tests legitimately use asserts and reuse
+# fixture args, so exempt them there even when the family is globally on.
+# [tool.ruff.lint.per-file-ignores]
+# "tests/**" = [
+#     "ARG",   # unused args are normal in test doubles / fixture stubs
+#     "S101",  # assert is the whole point of a test (only relevant if "S" is enabled)
+#     "PLR2004", # magic values in assertions read fine (only relevant if "PLR"/PLR2004 enabled)
+# ]
+# "__init__.py" = ["F401"]  # re-exports: imported-but-unused is intentional in package __init__
+
+# PLR complexity DIAL — these tune the too-many-* guardrails enabled above.
+# Values below are Ruff's defaults, made explicit so they are a knob, not a mystery.
+# CHANGE ONLY BY HUMAN APPROVAL — see development-standards.md. If the agent keeps
+# hitting one of these on legitimate code, it should flag the human, not raise the dial.
+[tool.ruff.lint.pylint]
+max-args = 5         # PLR0913 — arguments per function
+max-branches = 12    # PLR0912 — branches per function
+max-statements = 50  # PLR0915 — statements per function
+max-returns = 6      # PLR0911 — return statements per function
+
+# mccabe complexity ceiling. Only matters if "C90" is enabled.
+# [tool.ruff.lint.mccabe]
+# max-complexity = 10  # flag functions above this cyclomatic complexity
+
+# isort is configurable, but the defaults are good. Only add this table if you
+# need first-party grouping or a forced single line. "I" works fine with no config.
+# [tool.ruff.lint.isort]
+# known-first-party = ["your_package"]
+
+# pydocstyle convention. Only matters if "D" is enabled — pick one to silence
+# the conflicting docstring rules.
+# [tool.ruff.lint.pydocstyle]
+# convention = "google"  # or "numpy" / "pep257"

@@ -1,0 +1,34 @@
+# Project-scoped Codex config. Mirrors the Claude Code hooks in .claude/settings.json
+# so the same lint/test/UI gates run under either harness. Hooks are a stable,
+# default-on Codex feature; on first run, trust each hook once via `/hooks` in the
+# Codex TUI (Codex records trust by script hash).
+
+# Format on edit: Codex fires PostToolUse for apply_patch, its file-edit tool.
+[[hooks.PostToolUse]]
+matcher = "^apply_patch$"
+
+[[hooks.PostToolUse.hooks]]
+type = "command"
+command = 'bash "$(git rev-parse --show-toplevel)/.codex/hooks/format.sh"'
+timeout = 60
+statusMessage = "ruff format edited files"
+
+# Finish gate: block the turn from ending until lint + offline tests pass.
+[[hooks.Stop]]
+
+[[hooks.Stop.hooks]]
+type = "command"
+command = 'bash "$(git rev-parse --show-toplevel)/.codex/hooks/gate.sh"'
+timeout = 120
+statusMessage = "lint + tests gate"
+
+# UI verify gate: block the turn from ending when this session changed UI
+# structurally/visually but never rendered the page. Rules + classifier are shared
+# with the Claude twin; see .claude/hooks/ui-verify-gate.sh and ui_structural_diff.py.
+[[hooks.Stop]]
+
+[[hooks.Stop.hooks]]
+type = "command"
+command = 'bash "$(git rev-parse --show-toplevel)/.codex/hooks/ui-verify-gate.sh"'
+timeout = 60
+statusMessage = "UI verify gate"

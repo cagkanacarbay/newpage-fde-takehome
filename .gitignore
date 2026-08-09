@@ -1,0 +1,35 @@
+# Corpus PDFs are never committed. `scripts/fetch_corpus.py` rebuilds them from
+# source, pinned by PubMed Central ID, and verifies every file. MANIFEST.md is
+# committed — it is the record of what the corpus is.
+data/corpus/**/*.pdf
+
+# Parsed intermediates and built indexes — all reproducible from the corpus.
+data/parsed/
+data/index/
+storage/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Secrets. Never commit; `.env.example` documents the shape.
+.env
+.env.*
+!.env.example
+
+# Model weights and HuggingFace caches pulled at runtime
+models/
+.cache/
+
+# Editor / OS
+.DS_Store
+.idea/
+*.swp
