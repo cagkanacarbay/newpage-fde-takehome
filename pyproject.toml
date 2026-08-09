@@ -1,0 +1,37 @@
+[project]
+name = "live-long-rnd"
+version = "0.1.0"
+description = "Live Long R&D document assistant"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "docling>=2.115.0,<3",
+    "llama-index-core>=0.14.0,<0.15",
+    "llama-index-node-parser-docling>=0.4.0,<1",
+    "llama-index-readers-docling>=0.4.0,<1",
+]
+
+[dependency-groups]
+dev = [
+    "mypy>=1.15.0,<2",
+    "pytest>=8.4.0,<9",
+    "ruff>=0.15.17,<0.16",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+markers = [
+    "e2e: tests that exercise a real process or external I/O boundary",
+    "integration: tests that exercise installed third-party integrations",
+]
+
+[tool.mypy]
+strict = true
+python_version = "3.12"
+
+[[tool.mypy.overrides]]
+module = [
+    "llama_index.node_parser.docling",
+    "llama_index.readers.docling",
+]
+ignore_missing_imports = true

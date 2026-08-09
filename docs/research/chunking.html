@@ -20,7 +20,7 @@
       <span><b>GitHub issue</b> <a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/10">Issue 10</a></span>
       <span><b>Date</b> 2026-08-09</span>
       <span><b>Corpus</b> 27 papers, 425 pages</span>
-      <span><b>Status</b> provisional, test pending</span>
+      <span><b>Status</b> provisional, provenance test passed</span>
       <span><b>Decision</b> HybridChunker plus flat retrieval</span>
     </div>
   </header>
@@ -90,7 +90,7 @@
             <tr><td class="opt">Chonkie</td><td class="ctr">Partial</td><td class="ctr">Varies</td><td class="ctr">Not used</td><td class="ctr">Adapter</td><td class="ctr">Partial</td><td class="ctr">Chunker-dependent</td></tr>
           </tbody>
         </table></div>
-        <p class="footnote">Native metadata means the parser exposes the source data. The LlamaIndex node propagation still needs a direct integration test before citations are promised.</p>
+        <p class="footnote">Native metadata means the parser exposes the source data. A real integration test now verifies page numbers and bounding boxes on every searchable node.</p>
       </section>
 
       <section id="integration">
@@ -126,7 +126,7 @@ children = parser.get_nodes_from_documents(documents)</code></pre>
             <summary>Productionizing follow-up</summary>
             <div class="body">
               <p>A document store and section expansion layer may improve context at production scale.</p>
-              <p>Do not build that relationship for this demo. Reassess it during productionizing with a measured retrieval and context-size test.</p>
+              <p>The current application bridge preserves source provenance on paper 009. Do not build section expansion for this demo. Reassess it during productionizing with a measured retrieval and context-size test.</p>
             </div>
           </details>
         </div>

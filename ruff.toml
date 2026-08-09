@@ -1,0 +1,42 @@
+line-length = 100
+target-version = "py312"
+
+[lint]
+select = [
+    "E",
+    "W",
+    "F",
+    "I",
+    "B",
+    "UP",
+    "SIM",
+    "C4",
+    "PIE",
+    "RUF",
+    "PLE",
+    "RET",
+    "PTH",
+    "ARG",
+    "PLC0415",
+    "TID",
+    "PERF",
+    "PLW",
+    "TRY002",
+    "TRY004",
+    "TRY301",
+    "TRY400",
+    "TRY401",
+    "PLR0911",
+    "PLR0912",
+    "PLR0913",
+    "PLR0915",
+    "PLR1714",
+    "PLR5501",
+    "PLR1722",
+]
+
+[lint.pylint]
+max-args = 5
+max-branches = 12
+max-statements = 50
+max-returns = 6
