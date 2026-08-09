@@ -3,6 +3,24 @@
 # default-on Codex feature; on first run, trust each hook once via `/hooks` in the
 # Codex TUI (Codex records trust by script hash).
 
+[[hooks.PreToolUse]]
+matcher = "^apply_patch$"
+
+[[hooks.PreToolUse.hooks]]
+type = "command"
+command = 'python3 "$(git rev-parse --show-toplevel)/.codex/hooks/protect-readme.py"'
+timeout = 10
+statusMessage = "checking README ownership"
+
+[[hooks.PreToolUse]]
+matcher = "^Bash$"
+
+[[hooks.PreToolUse.hooks]]
+type = "command"
+command = 'python3 "$(git rev-parse --show-toplevel)/.codex/hooks/protect-readme.py"'
+timeout = 10
+statusMessage = "checking README ownership"
+
 # Format on edit: Codex fires PostToolUse for apply_patch, its file-edit tool.
 [[hooks.PostToolUse]]
 matcher = "^apply_patch$"
@@ -32,3 +50,12 @@ type = "command"
 command = 'bash "$(git rev-parse --show-toplevel)/.codex/hooks/ui-verify-gate.sh"'
 timeout = 60
 statusMessage = "UI verify gate"
+
+# Docs use external shared assets. Inline CSS or JavaScript is a defect.
+[[hooks.Stop]]
+
+[[hooks.Stop.hooks]]
+type = "command"
+command = 'bash "$(git rev-parse --show-toplevel)/.codex/hooks/docs-asset-gate.sh"'
+timeout = 30
+statusMessage = "docs asset gate"

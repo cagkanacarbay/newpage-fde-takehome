@@ -111,9 +111,19 @@ mechanical issues and escalating judgment calls.
 
 `docs/index.html` is the entry point and is always current: what the system is, its
 architecture, and a link to every sub-document. Each part of the system gets its own
-self-contained HTML sub-document in `docs/` — inline CSS, no CDN, renders straight from
-the filesystem, readable in light and dark. A sub-doc not linked from the index is a
-defect.
+HTML sub-document in `docs/`. Pages load shared assets from `docs/_assets/docs.css` and
+`docs/_assets/docs.js`. Inline CSS, inline JavaScript, and `style=` attributes are
+defects. A sub-doc not linked from the index is a defect.
+
+Store measured evidence in `docs/research/<topic>.html`.
+Store the resulting technical choice in `docs/decisions/<topic>.html`.
+Link both pages from `docs/index.html`.
+Keep the research page factual and state its limits.
+Keep the decision page brief, link to its research page, and state when the choice must be revisited.
+
+Start new docs from `docs/_assets/template.html`. Run
+`python3 docs/_assets/sync-design-system.py` after a docs change. The automatic docs
+asset gate runs `docs/_assets/check-doc-assets.py --check` before an agent finishes.
 
 
 ## References

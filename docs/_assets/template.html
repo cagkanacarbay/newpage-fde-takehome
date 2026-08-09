@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TITLE — NewPage Solutions AI FDE</title>
+<!--
+  Starting point for a new doc. Copy into docs/, fill in, link it from
+  docs/index.html (an unlinked sub-doc is a defect), then run:
+      python3 docs/_assets/sync-design-system.py
+  Never replace the shared external CSS or JavaScript references.
+  Component reference: docs/design-system.html
+  (Links below assume this file sits in docs/ — they do not resolve from _assets/.)
+-->
+<!-- ds:css:start -->
+<link rel="stylesheet" href="docs.css">
+<!-- ds:css:end -->
+</head>
+<body>
+<div class="wrap">
+
+  <button class="theme-toggle" type="button" aria-label="Switch to dark">☾</button>
+
+  <a class="backlink" href="index.html">← Main document</a>
+
+  <header class="page">
+    <p class="eyebrow">Document type · status</p>
+    <h1>Title</h1>
+    <p class="standfirst">One or two sentences: what this document decides or explains, and why it exists.</p>
+    <div class="header-meta">
+      <span><b>Status</b> value</span>
+      <span><b>Decided</b> value</span>
+    </div>
+  </header>
+
+  <div class="shell">
+    <!-- Drop the <nav class="toc"> and use a plain .col if the doc is short. -->
+    <nav class="toc" aria-label="On this page">
+      <p class="toc-title">On this page</p>
+      <ol>
+        <li><a href="#s1"><span class="n">01</span><span>Section</span></a></li>
+      </ol>
+    </nav>
+
+    <div class="col">
+      <section id="s1">
+        <h2><span class="idx">01</span> Section</h2>
+        <p>Body copy.</p>
+      </section>
+    </div>
+  </div>
+
+  <footer class="page">
+    <a class="backlink mb-0" href="index.html">← Main document</a>
+  </footer>
+
+</div>
+<!-- ds:js:start -->
+<script defer src="docs.js"></script>
+<!-- ds:js:end -->
+</body>
+</html>
