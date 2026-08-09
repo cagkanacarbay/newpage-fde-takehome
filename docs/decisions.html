@@ -13,6 +13,7 @@
 
   <button class="theme-toggle" type="button" aria-label="Switch to dark">☾</button>
   <a class="backlink" href="index.html">← System documentation</a>
+  <a class="backlink" href="technical-choices.html">← Technical Choices</a>
 
   <header class="page">
     <h1>Decisions</h1>
@@ -199,6 +200,7 @@
             <p><strong>What:</strong> Store the demo index in LanceDB and use its dense, full-text, and hybrid query modes.</p>
             <p><strong>Why:</strong> It adds no service to Docker, supports the measured hybrid retrieval direction, and has a mature LlamaIndex integration. <a href="research/vector-database.html#shortlist">Research evidence</a>.</p>
             <p><strong>Production:</strong> Revisit LanceDB Cloud and Qdrant Cloud when the deployment target becomes concrete. The current LanceDB integration does not support hybrid queries against LanceDB Cloud tables.</p>
+            <p><strong>GitHub:</strong> <a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/14">Issue 14</a> is closed.</p>
             <p><strong>Status:</strong> Decided for the demo.</p>
           </div>
         </div>

@@ -1,0 +1,1184 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Technical Choices - Live Long R&amp;D assistant</title>
+<!-- ds:css:start -->
+<link rel="stylesheet" href="_assets/docs.css">
+<!-- ds:css:end -->
+</head>
+<body>
+<div class="wrap">
+
+  <button class="theme-toggle" type="button" aria-label="Switch to dark">☾</button>
+
+  <a class="backlink" href="index.html">← Main document</a>
+
+  <header class="page">
+    <h1>Technical Choices</h1>
+    <p class="standfirst">The working document I use to chart the path from zero to completion.</p>
+    <div class="callout note">
+      <span class="lbl">How I use this document</span>
+      <p>This document combines broad research with specific implementation choices. It is not meant to be complete or totally correct.</p>
+      <p>I read the parts I need when I need them. I do not treat every line as completely correct. I used parts of this document to create GitHub issues, and the links across it show that connection.</p>
+    </div>
+    <div class="header-meta">
+      <span><b>Choices</b> 15</span>
+      <span><b>Existing issue links</b> 6</span>
+      <span><b>Suggested issues</b> 12</span>
+      <span><b>Open now</b> 3</span>
+    </div>
+  </header>
+
+  <div class="shell">
+    <nav class="toc" aria-label="On this page">
+      <p class="toc-title">Decisions</p>
+      <ol>
+        <li><span class="group">Settled</span></li>
+        <li><a href="#technical-choices"><span class="n">01</span><span>Technical Choices</span></a></li>
+        <li><a href="#issues"><span class="n">—</span><span>Issue coverage</span></a></li>
+        <li><a href="#corpus"><span class="n">—</span><span>The corpus</span></a></li>
+
+        <li><span class="group">Shape</span></li>
+        <li><a href="#c1"><span class="n">01</span><span>Product shape</span></a></li>
+        <li><a href="#c2"><span class="n">02</span><span>Framework or compose</span></a></li>
+        <li><a href="#llamaindex"><span class="n">02a</span><span>LlamaIndex examined</span></a></li>
+
+        <li><span class="group">Documents in</span></li>
+        <li><a href="#c3"><span class="n">03</span><span>PDF parsing</span></a></li>
+        <li><a href="#c4"><span class="n">04</span><span>Chunking</span></a></li>
+        <li><a href="#c5"><span class="n">05</span><span>Metadata &amp; citation</span></a></li>
+
+        <li><span class="group">The index</span></li>
+        <li><a href="#c6"><span class="n">06</span><span>Embedding model</span></a></li>
+        <li><a href="#c7"><span class="n">07</span><span>Vector store</span></a></li>
+
+        <li><span class="group">Getting text back</span></li>
+        <li><a href="#c8"><span class="n">08</span><span>Retrieval strategy</span></a></li>
+        <li><a href="#c9"><span class="n">09</span><span>Multi-turn</span></a></li>
+
+        <li><span class="group">The answer</span></li>
+        <li><a href="#c10"><span class="n">10</span><span>Generation model</span></a></li>
+        <li><a href="#c11"><span class="n">11</span><span>Context &amp; prompt</span></a></li>
+        <li><a href="#c12"><span class="n">12</span><span>Guardrails</span></a></li>
+
+        <li><span class="group">Proving it</span></li>
+        <li><a href="#c13"><span class="n">13</span><span>Evaluation</span></a></li>
+        <li><a href="#c14"><span class="n">14</span><span>Observability</span></a></li>
+
+        <li><span class="group">Shipping</span></li>
+        <li><a href="#c15"><span class="n">15</span><span>Frontend &amp; packaging</span></a></li>
+        <li><a href="#next"><span class="n">→</span><span>How we work through this</span></a></li>
+      </ol>
+    </nav>
+
+    <div class="col">
+
+      <section id="technical-choices">
+        <h2><span class="idx">01</span> Technical Choices</h2>
+        <p>Ordered by dependency: each choice constrains the ones below it. Read down the middle column to see what each decision actually controls.</p>
+
+        <div class="table-scroll">
+          <table class="map">
+            <thead>
+              <tr><th></th><th>Choice</th><th>What it determines</th><th>Status</th></tr>
+            </thead>
+            <tbody>
+              <tr class="group"><td colspan="4"><span class="grouplabel">Already settled</span></td></tr>
+              <tr><td class="n">—</td><td class="c">Assignment option</td><td class="d">Option 1, Chat With Your Docs</td><td class="s"><span class="state set">Set</span></td></tr>
+              <tr><td class="n">—</td><td class="c"><a href="#corpus">Corpus</a></td><td class="d">27 open-access longevity research papers, 425 pages</td><td class="s"><span class="state set">Set</span></td></tr>
+              <tr><td class="n">—</td><td class="c">Backend language</td><td class="d">Python 3.12, uv, ruff, mypy, pytest — pinned in the working folder's rules</td><td class="s"><span class="state set">Set</span></td></tr>
+
+              <tr class="group"><td colspan="4"><span class="grouplabel">The shape of the thing</span></td></tr>
+              <tr><td class="n">01</td><td class="c"><a href="#c1">Product shape</a></td><td class="d">Whether ingestion is a build step or a live feature the user drives</td><td class="s"><span class="state open">Open</span></td></tr>
+              <tr><td class="n">02</td><td class="c"><a href="#c2">Framework or compose</a></td><td class="d">Whether choices 03–14 are ours to make or inherited as defaults</td><td class="s"><span class="state open">Open</span></td></tr>
+              <tr><td class="n">02a</td><td class="c"><a href="#llamaindex">LlamaIndex examined</a></td><td class="d">Checked against the brief's grading list — it takes away none of the nine</td><td class="s"><span class="state open">Open</span></td></tr>
+
+              <tr class="group"><td colspan="4"><span class="grouplabel">Getting documents in</span></td></tr>
+              <tr><td class="n">03</td><td class="c"><a href="#c3">PDF parsing</a></td><td class="d">Whether headings, tables, reading order and page numbers survive</td><td class="s"><span class="state open">Open</span></td></tr>
+              <tr><td class="n">04</td><td class="c"><a href="#c4">Chunking</a></td><td class="d">What a retrieval hit physically is</td><td class="s"><span class="state open">Open</span></td></tr>
+              <tr><td class="n">05</td><td class="c"><a href="#c5">Metadata &amp; citation unit</a></td><td class="d">What the UI can show as a source, and what we can filter on</td><td class="s"><span class="state open">Open</span></td></tr>
+
+              <tr class="group"><td colspan="4"><span class="grouplabel">The index</span></td></tr>
+              <tr><td class="n">06</td><td class="c"><a href="#c6">Embedding model</a></td><td class="d">Retrieval quality ceiling, running cost, and whether setup needs a key</td><td class="s"><span class="state open">Open</span></td></tr>
+              <tr><td class="n">07</td><td class="c"><a href="#c7">Vector store</a></td><td class="d">Whether hybrid search is one query or hand-wired, and the deploy shape</td><td class="s"><span class="state set">Set</span></td></tr>
+
+              <tr class="group"><td colspan="4"><span class="grouplabel">Getting the right text back</span></td></tr>
+              <tr><td class="n">08</td><td class="c"><a href="#c8">Retrieval strategy</a></td><td class="d">What actually reaches the model</td><td class="s"><span class="state open">Open</span></td></tr>
+              <tr><td class="n">09</td><td class="c"><a href="#c9">Multi-turn handling</a></td><td class="d">Whether follow-up questions work at all</td><td class="s"><span class="state open">Open</span></td></tr>
+
+              <tr class="group"><td colspan="4"><span class="grouplabel">Producing the answer</span></td></tr>
+              <tr><td class="n">10</td><td class="c"><a href="#c10">Generation model</a></td><td class="d">Answer quality, latency, cost per demo run</td><td class="s"><span class="state open">Open</span></td></tr>
+              <tr><td class="n">11</td><td class="c"><a href="#c11">Context assembly &amp; prompt</a></td><td class="d">Grounding, citation accuracy, and how disagreement gets reported</td><td class="s"><span class="state open">Open</span></td></tr>
+              <tr><td class="n">12</td><td class="c"><a href="#c12">Guardrails</a></td><td class="d">What happens on out-of-scope and unanswerable questions</td><td class="s"><span class="state open">Open</span></td></tr>
+
+              <tr class="group"><td colspan="4"><span class="grouplabel">Proving it works</span></td></tr>
+              <tr><td class="n">13</td><td class="c"><a href="#c13">Evaluation</a></td><td class="d">Whether the claims above are measured or asserted</td><td class="s"><span class="state open">Open</span></td></tr>
+              <tr><td class="n">14</td><td class="c"><a href="#c14">Observability</a></td><td class="d">Whether we can see why a bad answer happened</td><td class="s"><span class="state open">Open</span></td></tr>
+
+              <tr class="group"><td colspan="4"><span class="grouplabel">Shipping it</span></td></tr>
+              <tr><td class="n">15</td><td class="c"><a href="#c15">Frontend &amp; packaging</a></td><td class="d">Setup friction for the reviewer, and where the design effort goes</td><td class="s"><span class="state open">Open</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="aside">
+          <span class="lbl">On borrowing from earlier work</span>
+          <p>A previous project (<code>cronkite</code>, June 2026) ran a chunking comparison and settled a few of these for a Wikipedia corpus. Where that produced a number worth knowing, it appears below as a dashed note. It is an input, not a default — different corpus, different parser, different product. Every choice here gets made on its own merits.</p>
+        </div>
+      </section>
+
+      <section id="issues">
+        <h2><span class="idx">Issues</span> GitHub coverage and gaps</h2>
+        <p class="lead">Each existing issue name is matched to a technical choice heading. Proposed issue names cover every remaining gap.</p>
+
+        <div class="table-scroll"><table class="matrix wide">
+          <thead><tr><th>Issue</th><th>Status</th><th>Technical Choices section</th><th>Coverage</th></tr></thead>
+          <tbody>
+            <tr><td class="opt"><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/24">#24</a><span class="sub">UI design: streaming chat with exact-spot PDF citations</span></td><td><span class="state open">Open</span></td><td>05, 11, 15</td><td class="txt">Matches <strong>Chunk metadata &amp; the citation unit</strong>, <strong>Context assembly &amp; prompt</strong>, and <strong>Frontend &amp; packaging</strong>.</td></tr>
+            <tr><td class="opt"><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/25">#25</a><span class="sub">Productionizing and hyperscaler deployment</span></td><td><span class="state open">Open</span></td><td>04, 06, 07, 10, 14, 15</td><td class="txt">Matches production concerns across <strong>Chunking</strong>, <strong>Embedding model</strong>, <strong>Vector store</strong>, <strong>Generation model</strong>, <strong>Observability</strong>, and <strong>Frontend &amp; packaging</strong>.</td></tr>
+            <tr><td class="opt"><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/26">#26</a><span class="sub">Architecture doc and build-slice decomposition</span></td><td><span class="state open">Open</span></td><td>01-15</td><td class="txt">Matches the full dependency chain and vertical slices. It does not close each choice by itself.</td></tr>
+            <tr><td class="opt"><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/21">#21</a><span class="sub">GUARDRAILS POLICY</span></td><td><span class="state now">Referenced</span></td><td>12</td><td class="txt">Matches the <strong>Guardrails</strong> heading. This is the focused policy issue for out-of-scope questions, unanswerable questions, and refusal behavior.</td></tr>
+            <tr><td class="opt"><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/10">#10</a><span class="sub">Chunking research</span></td><td><span class="state done">Closed</span></td><td>04</td><td class="txt">Matches <strong>Chunking</strong>. The recorded answer remains provisional until the corpus retrieval and provenance gates pass. <a href="research/chunking.html">Research</a>.</td></tr>
+            <tr><td class="opt"><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/14">#14</a><span class="sub">Vector database research</span></td><td><span class="state done">Closed</span></td><td>07</td><td class="txt">Matches <strong>Vector store</strong>. <strong>Decision:</strong> use LanceDB for the local Docker demo. <strong>TL;DR:</strong> embedded, natively hybrid, and supported by LlamaIndex. <a href="research/vector-database.html">Research</a> · <a href="decisions.html#vector-database">Decision page</a>.</td></tr>
+          </tbody>
+        </table></div>
+
+        <h3>Suggested GitHub issues to add</h3>
+        <p>These are proposed issue titles, not created issues. Add one when its choice needs a focused owner, evidence, and close condition.</p>
+        <div class="table-scroll"><table class="matrix wide">
+          <thead><tr><th>Proposed issue title</th><th>Sections</th><th>What it should settle</th></tr></thead>
+          <tbody>
+            <tr id="issue-product-shape"><td class="opt">Product shape and demo scope</td><td>01</td><td class="txt">Choose preloaded corpus, upload, or both. Define the first 60 seconds and the ingestion boundary.</td></tr>
+            <tr id="issue-llamaindex"><td class="opt">LlamaIndex architecture boundary</td><td>02, 02a</td><td class="txt">Record why LlamaIndex is selected, which layers remain explicit, and which framework defaults are rejected.</td></tr>
+            <tr id="issue-parsing"><td class="opt">PDF parsing and provenance gates</td><td>03</td><td class="txt">Close the Docling choice after formula, reading-order, table, page, and node-metadata tests.</td></tr>
+            <tr id="issue-citation"><td class="opt">Citation metadata contract</td><td>05</td><td class="txt">Define stable source IDs, page and bounding-box data, heading paths, and the exact citation payload for the UI.</td></tr>
+            <tr id="issue-embedding"><td class="opt">Embedding benchmark and model selection</td><td>06</td><td class="txt">Compare local and production candidates on the corpus, then pin the model, tokenizer, dimensions, and metric.</td></tr>
+            <tr id="issue-retrieval"><td class="opt">Retrieval strategy and hybrid fusion</td><td>08</td><td class="txt">Choose dense, lexical, hybrid, reranking, per-document caps, and the retrieval evidence returned to generation.</td></tr>
+            <tr id="issue-multiturn"><td class="opt">Multi-turn query handling and conversation state</td><td>09</td><td class="txt">Define follow-up rewriting, memory limits, query context, and how a new turn changes retrieval.</td></tr>
+            <tr id="issue-generation"><td class="opt">Generation model and streaming response contract</td><td>10</td><td class="txt">Choose the generation model and define streaming events, structured answers, errors, and cancellation.</td></tr>
+            <tr id="issue-context"><td class="opt">Context assembly and prompt contract</td><td>11</td><td class="txt">Define context ordering, token budgets, citation IDs, disagreement handling, and no-evidence behavior.</td></tr>
+            <tr id="issue-evaluation"><td class="opt">Retrieval and answer quality evaluation gates</td><td>13</td><td class="txt">Turn the evaluation research into thresholds for recall, citation accuracy, faithfulness, refusal, and regression testing.</td></tr>
+            <tr id="issue-observability"><td class="opt">RAG observability for the demo</td><td>14</td><td class="txt">Define the Phoenix spans, fields, retention, failure views, and the handoff from local demo to production telemetry.</td></tr>
+            <tr id="issue-corpus"><td class="opt">Corpus provenance and ingestion acceptance</td><td>Corpus</td><td class="txt">Own corpus manifests, parser artifacts, empty-output failures, reproducibility, and the acceptance checks before indexing.</td></tr>
+          </tbody>
+        </table></div>
+
+        <div class="callout warn">
+          <span class="lbl">Coverage audit</span>
+          <p>Every existing issue name now has a matching location: #21 maps to <strong>Guardrails</strong>, #24 to citations and the chat surface, #25 to production concerns, #26 to the full architecture chain, #10 to <strong>Chunking</strong>, and #14 to <strong>Vector store</strong>.</p>
+          <p>The proposed titles cover the remaining focused gaps. The corpus is also named because it has no dedicated issue, even though the corpus itself is already present.</p>
+        </div>
+      </section>
+
+      <section id="corpus">
+        <h2><span class="idx">Set</span> The corpus <span class="state set">Set</span></h2>
+        <p><strong>27 open-access research papers on the biology of aging</strong> — mechanisms of aging, biomarkers of biological age, and interventions that aim to extend healthspan. Chosen because answering questions across a body of research literature is a use case a client plausibly has, and because it is genuinely hard: long documents, dense technical language, heavy tables, and papers that contradict each other.</p>
+
+        <div class="facts">
+          <div><span class="v">27</span><span class="k">papers</span></div>
+          <div><span class="v">425</span><span class="k">pages</span></div>
+          <div><span class="v">7</span><span class="k">papers with displayed equations</span></div>
+          <div><span class="v">6</span><span class="k">contradiction pairs</span></div>
+          <div><span class="v">24</span><span class="k">evaluation questions</span></div>
+        </div>
+
+        <p>Everything is from the PubMed Central Open Access subset, fetched from Europe PMC. No paywall was bypassed.</p>
+        <div class="callout note"><span class="lbl">Suggested issue</span><p><a href="#issue-corpus">Corpus provenance and ingestion acceptance</a>.</p></div>
+
+        <h3>Why this set is hard on purpose</h3>
+        <ul class="list-airy">
+          <li><b>Dense topical overlap.</b> Six papers cover epigenetic clocks, five cover senescence, four evaluate a small-molecule drug. Keyword-matching “aging” retrieves everything, so it retrieves nothing useful.</li>
+          <li><b>Six contradiction pairs.</b> Do senolytics reverse aging? Papers 015/016 say yes, 017 says no. Does chemical reprogramming rejuvenate? 019 says yes, 020 finds it toxic. Is metformin a geroprotector? 012 is critical, 013 finds rapamycin works and metformin does not. A question can be answered two opposite ways depending on what got retrieved — which makes faithfulness measurable rather than a matter of opinion.</li>
+          <li><b>Named-entity traps.</b> rapamycin vs trametinib · dasatinib vs quercetin vs fisetin · PhenoAge vs GrimAge vs DunedinPoAm. Semantic similarity alone blurs these; they are exactly where lexical matching earns its place.</li>
+          <li><b>Answers that live only in tables.</b> “Which biomarker predicted mortality best” is answerable from one table in paper 009 and nowhere else. That single question tests the whole parsing layer.</li>
+          <li><b>Wildly uneven length.</b> A 1-page PNAS letter next to a 32-page research article. Any chunking strategy has to survive both.</li>
+        </ul>
+
+        <h3>How it is stored</h3>
+        <p><strong>The PDFs are not committed to the repository.</strong> The script <code>scripts/fetch_corpus.py</code> rebuilds the corpus from source, pinned by PubMed Central ID, and verifies every file by extracting text from every page. Re-downloads are byte-identical to the originals. Keeps the repo small and makes the corpus provenance explicit rather than a folder of mystery PDFs.</p>
+      </section>
+
+      <section id="c1">
+        <h2><span class="idx">01</span> Product shape <span class="state open">Open</span></h2>
+        <div class="callout note"><span class="lbl">GitHub coverage</span><p><strong><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/26">Issue #26</a> is open.</strong> It covers the architecture and build-slice boundary for product shape, but it has no final product-shape decision yet.</p><p>Suggested issue: <a href="#issue-product-shape">Product shape and demo scope</a>.</p></div>
+        <p class="determines"><b>Determines</b> whether ingestion is a build step nobody sees or a live feature with upload UI, progress, and background jobs — and therefore how much of the build is retrieval work versus plumbing.</p>
+
+        <div class="table-scroll"><table class="opts">
+          <thead><tr><th>Option</th><th>What you get</th><th>What it costs</th></tr></thead>
+          <tbody>
+            <tr>
+              <td>Ship the corpus only</td>
+              <td>Index pre-built. Reviewer clones, runs one command, asks a question in ten seconds. All build time goes into retrieval and answer quality.</td>
+              <td>No upload feature. “Creativity in UI/UX and product innovation” has to be earned entirely in the chat surface.</td>
+            </tr>
+            <tr>
+              <td>Upload only</td>
+              <td>Honest to the brief's wording — the user brings a document collection. Shows the full ingestion path working live.</td>
+              <td>Reviewer sees nothing until they find files and wait. Needs progress UI, background jobs, and per-session isolation.</td>
+            </tr>
+            <tr>
+              <td>Both</td>
+              <td>Corpus preloaded so the demo is instant; upload works as a live feature on top. Strongest demo and strongest story.</td>
+              <td>Two ingestion paths to keep correct and tested. Job queue, progress streaming, and a document-management surface.</td>
+            </tr>
+          </tbody>
+        </table></div>
+
+        <div class="decider">
+          <span class="lbl">What settles it</span>
+          <p>How the first 60 seconds of a reviewer's experience should go, and how much build time we are willing to move out of retrieval quality and into ingestion UX. They grade both, but the retrieval and reasoning list is longer and more specific.</p>
+        </div>
+      </section>
+
+      <section id="c2">
+        <h2><span class="idx">02</span> Framework or compose it ourselves <span class="state open">Open</span></h2>
+        <div class="callout note"><span class="lbl">GitHub coverage</span><p><strong><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/26">Issue #26</a> is open.</strong> It covers the architecture document, not a final framework decision.</p><p>Suggested issue: <a href="#issue-llamaindex">LlamaIndex architecture boundary</a>.</p></div>
+        <p class="determines"><b>Determines</b> whether choices 03&ndash;14 are ours to make and defend, or arrive as a framework's defaults. Highest-leverage decision on the page.</p>
+
+        <p>The framing that started this &mdash; framework means losing control &mdash; turned out to be wrong. <a href="#llamaindex">Section 02a</a> checks it against the brief's own grading list. Read that first; this table is the wider field.</p>
+
+        <div class="table-scroll"><table class="matrix wide">
+          <thead>
+            <tr>
+              <th>Option</th>
+              <th>Stars</th>
+              <th>Licence</th>
+              <th class="ctr">To working</th>
+              <th class="ctr">Control kept</th>
+              <th class="ctr">Debuggable</th>
+              <th class="ctr">Lightness</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="opt">Plain Python<span class="sub">no framework</span></td>
+              <td><span class="tag">n/a</span></td>
+              <td><span class="tag ok">none</span></td>
+              <td class="ctr"><span class="meter warn"><i class="on"></i><i></i><i></i><i></i><i></i></span></td>
+              <td class="ctr"><span class="meter"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></span></td>
+              <td class="ctr"><span class="meter"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></span></td>
+              <td class="ctr"><span class="meter"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></span></td>
+            </tr>
+            <tr>
+              <td class="opt"><a href="https://github.com/run-llama/llama_index" target="_blank" rel="noopener">llama-index-core</a><span class="sub">explicit composition</span></td>
+              <td>51.1k</td>
+              <td><span class="tag ok">MIT</span></td>
+              <td class="ctr"><span class="meter"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i></span></td>
+              <td class="ctr"><span class="meter"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i></span></td>
+              <td class="ctr"><span class="meter"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i></span></td>
+              <td class="ctr"><span class="meter"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i></span></td>
+            </tr>
+            <tr>
+              <td class="opt"><a href="https://github.com/run-llama/llama_index" target="_blank" rel="noopener">llama-index</a><span class="sub">starter bundle</span></td>
+              <td>51.1k</td>
+              <td><span class="tag ok">MIT</span></td>
+              <td class="ctr"><span class="meter"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></span></td>
+              <td class="ctr"><span class="meter warn"><i class="on"></i><i class="on"></i><i></i><i></i><i></i></span></td>
+              <td class="ctr"><span class="meter warn"><i class="on"></i><i class="on"></i><i></i><i></i><i></i></span></td>
+              <td class="ctr"><span class="meter warn"><i class="on"></i><i class="on"></i><i></i><i></i><i></i></span></td>
+            </tr>
+            <tr>
+              <td class="opt"><a href="https://github.com/deepset-ai/haystack" target="_blank" rel="noopener">Haystack</a><span class="sub">strict pipelines</span></td>
+              <td>~24k</td>
+              <td><span class="tag ok">Apache-2.0</span></td>
+              <td class="ctr"><span class="meter"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i></span></td>
+              <td class="ctr"><span class="meter"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i></span></td>
+              <td class="ctr"><span class="meter"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i></span></td>
+              <td class="ctr"><span class="meter"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i></span></td>
+            </tr>
+            <tr>
+              <td class="opt"><a href="https://github.com/langchain-ai/langchain" target="_blank" rel="noopener">LangChain</a><span class="sub">+ LangGraph</span></td>
+              <td>~125k</td>
+              <td><span class="tag ok">MIT</span></td>
+              <td class="ctr"><span class="meter"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i></span></td>
+              <td class="ctr"><span class="meter"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i></span></td>
+              <td class="ctr"><span class="meter warn"><i class="on"></i><i class="on"></i><i></i><i></i><i></i></span></td>
+              <td class="ctr"><span class="meter warn"><i class="on"></i><i class="on"></i><i></i><i></i><i></i></span></td>
+            </tr>
+            <tr>
+              <td class="opt"><a href="https://github.com/HKUDS/RAG-Anything" target="_blank" rel="noopener">RAG-Anything</a><span class="sub">on LightRAG</span></td>
+              <td>22.4k</td>
+              <td><span class="tag ok">MIT</span></td>
+              <td class="ctr"><span class="meter"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i></span></td>
+              <td class="ctr"><span class="meter warn"><i class="on"></i><i></i><i></i><i></i><i></i></span></td>
+              <td class="ctr"><span class="meter warn"><i class="on"></i><i></i><i></i><i></i><i></i></span></td>
+              <td class="ctr"><span class="meter warn"><i class="on"></i><i></i><i></i><i></i><i></i></span></td>
+            </tr>
+            <tr>
+              <td class="opt"><a href="https://github.com/infiniflow/ragflow" target="_blank" rel="noopener">RAGFlow</a><span class="sub">product, not library</span></td>
+              <td>~70k</td>
+              <td><span class="tag ok">Apache-2.0</span></td>
+              <td class="ctr"><span class="meter"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i></span></td>
+              <td class="ctr"><span class="meter warn"><i class="on"></i><i></i><i></i><i></i><i></i></span></td>
+              <td class="ctr"><span class="meter warn"><i class="on"></i><i class="on"></i><i></i><i></i><i></i></span></td>
+              <td class="ctr"><span class="meter warn"><i class="on"></i><i></i><i></i><i></i><i></i></span></td>
+            </tr>
+          </tbody>
+        </table></div>
+        <div class="legend">
+          <span><b>Meters</b> five bars, more filled is better</span>
+          <span><b>Control kept</b> graded decisions still ours</span>
+          <span><b>Lightness</b> install and deploy weight</span>
+          <span><b>Orange</b> a weak score, not a different scale</span>
+        </div>
+
+        <div class="accordion">
+          <details class="why">
+            <summary>Plain Python &mdash; every layer written by hand</summary>
+            <div class="body">
+              <p><span class="plus">For</span> Every choice is visibly ours, and the retrieval loop becomes a code sample rather than configuration. Nothing to debug through. Five dependencies instead of fifty.</p>
+              <p><span class="minus">Against</span> Slowest to a working demo. Batching, retries, fusion and the evaluation metrics are all ours to write, and every hour there is an hour not spent on the frontend &mdash; which is graded too, and far more visible.</p>
+            </div>
+          </details>
+          <details class="why">
+            <summary>Haystack &mdash; components and explicit connections</summary>
+            <div class="body">
+              <p><span class="plus">For</span> The pipeline is a declared graph, so the architecture diagram the README asks for is close to a printout of the code. Clean component model, good production posture.</p>
+              <p><span class="minus">Against</span> More ceremony than a single-corpus app justifies, and noticeably fewer document-centric conveniences than LlamaIndex.</p>
+            </div>
+          </details>
+          <details class="why">
+            <summary>LangChain / LangGraph &mdash; the ecosystem play</summary>
+            <div class="body">
+              <p><span class="plus">For</span> Largest ecosystem by far. LangGraph is genuinely strong if choice 09 lands on an agent loop rather than a straight retrieve-then-answer path.</p>
+              <p><span class="minus">Against</span> The plain RAG path is not where it is best, and the indirection is heavy. Tracing pulls toward LangSmith, which is cloud-only with a monthly trace cap.</p>
+            </div>
+          </details>
+          <details class="why">
+            <summary>RAG-Anything / LightRAG &mdash; the whole vertical</summary>
+            <div class="body">
+              <p><span class="plus">For</span> Built for exactly this document type. Graph retrieval is genuinely better at "what does the literature collectively say about X", which is the strongest question this corpus can be asked.</p>
+              <p><span class="minus">Against</span> Graph construction runs LLM calls per chunk. It owns parsing, chunking, retrieval and prompting, so four graded answers stop being ours. Hardest thing here to debug, and it drags the whole architecture with it.</p>
+            </div>
+          </details>
+          <details class="why">
+            <summary>RAGFlow &mdash; deep document understanding, as a service</summary>
+            <div class="body">
+              <p><span class="plus">For</span> The best answer if the bottleneck turns out to be messy PDFs and scans. Strong out-of-the-box parsing, visual pipeline builder.</p>
+              <p><span class="minus">Against</span> More product than library. Heavy deployment, and the submission becomes a client of RAGFlow rather than the thing we engineered.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="decider">
+          <span class="lbl">What settles it</span>
+          <p>Two questions, not one. <strong>Is the retrieval code itself part of what we are showing</strong>, or is it plumbing better bought so the hours go into the frontend and the evaluation? And if we buy it, <strong>core with every argument named, or the bundle with defaults?</strong> The second answers itself. The first is the real call &mdash; see 02a.</p>
+        </div>
+      </section>
+
+      <!-- ───────────────────────── 02a ───────────────────────── -->
+      <section id="llamaindex">
+        <h2><span class="idx">02a</span> LlamaIndex, examined <span class="state open">Open</span></h2>
+        <p class="determines"><b>The question</b> if a framework decides the things we are graded on, it costs us the submission. So: take the strongest document-RAG library and check it, line by line, against the brief's own list.</p>
+
+        <h3>Does it take our answers away?</h3>
+
+        <div class="table-scroll"><table class="matrix wide">
+          <thead>
+            <tr><th>What the brief grades</th><th>What LlamaIndex ships</th><th>Whose call</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="opt">Chunking</td>
+              <td class="txt">Ten-plus <a href="https://developers.llamaindex.ai/python/framework/module_guides/loading/node_parsers/modules/" target="_blank" rel="noopener">node parsers</a> &mdash; SentenceSplitter, TokenTextSplitter, SemanticSplitterNodeParser, MarkdownNodeParser, HierarchicalNodeParser, SentenceWindowNodeParser &mdash; plus a wrapper around <a href="https://github.com/chonkie-inc/chonkie" target="_blank" rel="noopener">Chonkie</a></td>
+              <td><span class="verdict ours">Ours</span><br><span class="tag">constructor arg</span></td>
+            </tr>
+            <tr>
+              <td class="opt">Embedding model</td>
+              <td class="txt">300+ integration packages. Any local or hosted provider, swapped in one line</td>
+              <td><span class="verdict ours">Ours</span><br><span class="tag">constructor arg</span></td>
+            </tr>
+            <tr>
+              <td class="opt">Vector database</td>
+              <td class="txt">Every major store as its own installable integration. No preferred store, no lock-in</td>
+              <td><span class="verdict ours">Ours</span><br><span class="tag">constructor arg</span></td>
+            </tr>
+            <tr>
+              <td class="opt">Retrieval approach</td>
+              <td class="txt">QueryFusionRetriever, BM25Retriever, hybrid with alpha tuning, reranker post-processors, AutoMergingRetriever</td>
+              <td><span class="verdict ours">Ours</span><br><span class="tag">constructor arg</span></td>
+            </tr>
+            <tr>
+              <td class="opt">Prompt engineering</td>
+              <td class="txt">Response synthesizers (compact, refine, tree_summarize). Every prompt template overridable</td>
+              <td><span class="verdict theirs">Ours &mdash; but</span><br><span class="tag warn">default is invisible</span></td>
+            </tr>
+            <tr>
+              <td class="opt">Context management</td>
+              <td class="txt"><a href="https://developers.llamaindex.ai/python/framework/optimizing/advanced_retrieval/query_transformations/" target="_blank" rel="noopener">Query transformations</a> &mdash; HyDE, sub-question decomposition, multi-step. Token budgeting in the synthesizer</td>
+              <td><span class="verdict ours">Ours</span><br><span class="tag">constructor arg</span></td>
+            </tr>
+            <tr>
+              <td class="opt">Guardrails</td>
+              <td class="txt">Nothing meaningful. No refusal gate, no grounding enforcement, no score threshold</td>
+              <td><span class="verdict none">Ours, unbuilt</span><br><span class="tag">either way</span></td>
+            </tr>
+            <tr>
+              <td class="opt">Quality controls</td>
+              <td class="txt"><a href="https://developers.llamaindex.ai/python/framework/module_guides/evaluating/" target="_blank" rel="noopener">RetrieverEvaluator</a> (hit rate, MRR) plus Faithfulness, Correctness, Relevancy, Guideline Adherence, SemanticSimilarity</td>
+              <td><span class="verdict ours">Ours to run</span><br><span class="tag ok">metrics written</span></td>
+            </tr>
+            <tr>
+              <td class="opt">Observability</td>
+              <td class="txt"><a href="https://developers.llamaindex.ai/python/framework/module_guides/observability/instrumentation/" target="_blank" rel="noopener">Instrumentation module</a> &mdash; spans, events, dispatchers. OpenTelemetry plus native partner integrations</td>
+              <td><span class="verdict ours">Ours to wire</span><br><span class="tag ok">hooks provided</span></td>
+            </tr>
+          </tbody>
+        </table></div>
+
+        <div class="decider">
+          <span class="lbl">The answer</span>
+          <p>It takes away <strong>none</strong> of the nine. Every one is an explicit argument we pass. What it removes is the labour of <em>implementing the alternatives</em> &mdash; which makes comparing them cheaper, not harder. Testing four chunking strategies against a golden set is a day of work by hand and an afternoon with the library.</p>
+        </div>
+
+        <h3>So is there any reason not to use it?</h3>
+        <p>Yes &mdash; five, and one of them is serious.</p>
+
+        <div class="accordion">
+          <details class="why">
+            <summary>1 &mdash; The code stops being the work sample <span class="tag warn">the serious one</span></summary>
+            <div class="body">
+              <p>The brief grades <em>"clean, readable, well-structured code that others can understand."</em> A repository that is mostly configuration of somebody else's abstractions shows less engineering than one where the ingest and retrieval loop is visibly ours. A reviewer reading <code>SentenceSplitter(chunk_size=512)</code> cannot tell whether that number was chosen or inherited.</p>
+              <p>This is the only argument here that a framework cannot answer, because it is not about capability.</p>
+            </div>
+          </details>
+          <details class="why">
+            <summary>2 &mdash; An abstraction between us and the bug</summary>
+            <div class="body">
+              <p>When retrieval returns the wrong chunk, debugging goes through the library's layers rather than through our own two hundred lines. At this corpus size a hand-rolled pipeline is small enough to hold in your head; the framework never is.</p>
+            </div>
+          </details>
+          <details class="why">
+            <summary>3 &mdash; The defaults are right there</summary>
+            <div class="body">
+              <p><code>VectorStoreIndex.from_documents(docs).as_query_engine()</code> is two lines and a working RAG system. The risk was never that the framework removes our choices &mdash; it is that it makes <em>not choosing</em> frictionless, and then the README has nothing to say. Avoidable, but only by discipline.</p>
+            </div>
+          </details>
+          <details class="why">
+            <summary>4 &mdash; Dependency weight and version churn</summary>
+            <div class="body">
+              <p>Even <code>llama-index-core</code> carries a real dependency tree, and the project moves fast enough that pinning matters. A hand-rolled pipeline over Qdrant and an embedding model is roughly five dependencies.</p>
+            </div>
+          </details>
+          <details class="why">
+            <summary>5 &mdash; It does not help where this corpus is actually hard</summary>
+            <div class="body">
+              <p>Guardrails: nothing shipped. Getting both sides of a contradiction into one context: mostly custom either way. Making a citation point at a PDF page: ours. The layers where these twenty papers make life difficult are largely the layers the framework does not cover &mdash; so the saving is real but it lands on the easy parts.</p>
+            </div>
+          </details>
+        </div>
+
+        <h3>The distinction that carries the decision</h3>
+        <pre><code>llama-index          starter bundle, pre-selected integrations, defaults on
+llama-index-core     base package, every integration added deliberately</code></pre>
+        <p>Taking core and naming every argument gives the library's breadth with none of the silent defaults, and the resulting code reads as explicit composition rather than framework magic.</p>
+
+        <div class="decider">
+          <span class="lbl">Where this lands</span>
+          <p>There is a middle path that answers objection 1 without giving up the rest: <strong>take the commodity pieces from the library &mdash; readers, node parsers, BM25, fusion, the evaluation metrics &mdash; and write the orchestration ourselves</strong>, so the ingest and answer paths are our code calling named components. That is defensible in the README as a deliberate boundary rather than a default, and it keeps the hours for the frontend. <strong>Still Cha's call.</strong></p>
+        </div>
+      </section>
+
+      <!-- ───────────────────────── 03 ───────────────────────── -->
+      <section id="c3">
+        <h2><span class="idx">03</span> PDF parsing <span class="state open">Open</span></h2>
+        <div class="callout note"><span class="lbl">GitHub coverage</span><p><strong><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/26">Issue #26</a> is open.</strong> It carries PDF parsing as part of the architecture chain. No focused repository issue is mapped to this choice.</p><p>Suggested issue: <a href="#issue-parsing">PDF parsing and provenance gates</a>.</p><p>The current decision page records Docling as the parser, with formula and node-level provenance tests still open. <a href="decisions.html#parsing">Decision page</a> · <a href="research/parsing.html">Research</a>.</p></div>
+        <p class="determines"><b>Determines</b> whether heading hierarchy, table structure, two-column reading order and page numbers survive. Sets the ceiling on everything downstream &mdash; nothing later recovers what is lost here.</p>
+
+        <p>Separable from choice 02: even inside a framework, the parser is a reader you plug in. What this corpus throws at it:</p>
+
+        <ul class="chips">
+          <li>two-column Nature / PNAS / Cell layouts</li>
+          <li>clinical-trial outcome tables</li>
+          <li>regression coefficient tables</li>
+          <li>LaTeX-set equations</li>
+          <li>interleaved figure captions</li>
+          <li>137 KB to 12 MB per document</li>
+          <li>1 to 32 pages</li>
+        </ul>
+
+        <div class="table-scroll"><table class="matrix wide">
+          <thead>
+            <tr>
+              <th>Parser</th>
+              <th class="ctr">Headings</th>
+              <th class="ctr">Tables</th>
+              <th class="ctr">2-column</th>
+              <th class="ctr">Formulas</th>
+              <th class="ctr">Speed</th>
+              <th class="ctr">Lightness</th>
+              <th>Licence</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="opt"><a href="https://github.com/docling-project/docling" target="_blank" rel="noopener">Docling</a><span class="sub">IBM</span></td>
+              <td class="ctr"><span class="meter"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></span></td>
+              <td class="ctr"><span class="meter"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></span></td>
+              <td class="ctr"><span class="meter"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i></span></td>
+              <td class="ctr"><span class="meter"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i></span></td>
+              <td class="ctr"><span class="meter warn"><i class="on"></i><i class="on"></i><i></i><i></i><i></i></span></td>
+              <td class="ctr"><span class="meter"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i></span></td>
+              <td><span class="tag ok">MIT</span></td>
+            </tr>
+            <tr>
+              <td class="opt"><a href="https://github.com/opendatalab/MinerU" target="_blank" rel="noopener">MinerU</a><span class="sub">OpenDataLab</span></td>
+              <td class="ctr"><span class="meter"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i></span></td>
+              <td class="ctr"><span class="meter"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i></span></td>
+              <td class="ctr"><span class="meter"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></span></td>
+              <td class="ctr"><span class="meter"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></span></td>
+              <td class="ctr"><span class="meter warn"><i class="on"></i><i class="on"></i><i></i><i></i><i></i></span></td>
+              <td class="ctr"><span class="meter warn"><i class="on"></i><i></i><i></i><i></i><i></i></span></td>
+              <td><span class="tag warn">AGPL-3.0</span></td>
+            </tr>
+            <tr>
+              <td class="opt"><a href="https://github.com/datalab-to/marker" target="_blank" rel="noopener">Marker</a><span class="sub">Datalab</span></td>
+              <td class="ctr"><span class="meter"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i></span></td>
+              <td class="ctr"><span class="meter"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i></span></td>
+              <td class="ctr"><span class="meter"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i></span></td>
+              <td class="ctr"><span class="meter"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i></span></td>
+              <td class="ctr"><span class="meter"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i></span></td>
+              <td class="ctr"><span class="meter"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i></span></td>
+              <td><span class="tag warn">GPL-3.0</span></td>
+            </tr>
+            <tr>
+              <td class="opt"><a href="https://github.com/pymupdf/pymupdf4llm" target="_blank" rel="noopener">PyMuPDF4LLM</a><span class="sub">no ML</span></td>
+              <td class="ctr"><span class="meter warn"><i class="on"></i><i class="on"></i><i></i><i></i><i></i></span></td>
+              <td class="ctr"><span class="meter warn"><i class="on"></i><i class="on"></i><i></i><i></i><i></i></span></td>
+              <td class="ctr"><span class="meter warn"><i class="on"></i><i></i><i></i><i></i><i></i></span></td>
+              <td class="ctr"><span class="meter warn"><i class="on"></i><i></i><i></i><i></i><i></i></span></td>
+              <td class="ctr"><span class="meter"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></span></td>
+              <td class="ctr"><span class="meter"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></span></td>
+              <td><span class="tag warn">AGPL-3.0</span></td>
+            </tr>
+            <tr>
+              <td class="opt"><a href="https://github.com/Unstructured-IO/unstructured" target="_blank" rel="noopener">unstructured</a><span class="sub">open version</span></td>
+              <td class="ctr"><span class="meter"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i></span></td>
+              <td class="ctr"><span class="meter warn"><i class="on"></i><i class="on"></i><i></i><i></i><i></i></span></td>
+              <td class="ctr"><span class="meter"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i></span></td>
+              <td class="ctr"><span class="meter warn"><i class="on"></i><i></i><i></i><i></i><i></i></span></td>
+              <td class="ctr"><span class="meter"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i></span></td>
+              <td class="ctr"><span class="meter"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i></span></td>
+              <td><span class="tag ok">Apache-2.0</span></td>
+            </tr>
+            <tr>
+              <td class="opt"><a href="https://www.llamaindex.ai/llamaparse" target="_blank" rel="noopener">LlamaParse</a><span class="sub">hosted API</span></td>
+              <td class="ctr"><span class="meter"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></span></td>
+              <td class="ctr"><span class="meter"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></span></td>
+              <td class="ctr"><span class="meter"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></span></td>
+              <td class="ctr"><span class="meter"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i></span></td>
+              <td class="ctr"><span class="meter"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i></span></td>
+              <td class="ctr"><span class="meter"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></span></td>
+              <td><span class="tag flag">paid API</span></td>
+            </tr>
+          </tbody>
+        </table></div>
+        <div class="legend">
+          <span><b>Meters</b> five bars, more filled is better</span>
+          <span><b>Lightness</b> install weight &mdash; five means nothing to install</span>
+          <span><b>Orange</b> a weak score, not a different scale</span>
+          <span><b>Source</b> published benchmarks and tool docs</span>
+        </div>
+
+        <div class="callout warn">
+          <span class="lbl">Licence is not a footnote here</span>
+          <p>Three of the six are copyleft: <strong>MinerU and PyMuPDF4LLM are AGPL-3.0</strong>, <strong>Marker is GPL-3.0</strong>. Workable for a public repository, but it propagates &mdash; and it is a real strike against the two strongest scientific-PDF parsers on the list. Docling (MIT) and unstructured (Apache-2.0) are the only permissive open options.</p>
+        </div>
+
+        <div class="accordion">
+          <details class="why">
+            <summary>Docling &mdash; the permissive all-rounder</summary>
+            <div class="body">
+              <p><span class="plus">For</span> Markdown with real heading hierarchy, which is what choice 04's structural option depends on. TableFormer is the strongest open table extractor on nested tables. Pure-Python install, runs on CPU, MIT, IBM-maintained.</p>
+              <p><span class="minus">Against</span> Slower per page than the lightweight options. Formula handling is weaker than MinerU's, which matters for a corpus with LaTeX-set equations.</p>
+            </div>
+          </details>
+          <details class="why">
+            <summary>MinerU &mdash; built for exactly these documents</summary>
+            <div class="body">
+              <p><span class="plus">For</span> Purpose-built for academic PDFs. Best multi-column layout detection here, and the only one with dedicated formula recognition. On capability alone it is the closest fit.</p>
+              <p><span class="minus">Against</span> Heaviest install by far &mdash; model weights, optional GPU, a much fatter container, and more to go wrong in someone else's setup. AGPL-3.0.</p>
+            </div>
+          </details>
+          <details class="why">
+            <summary>Marker &mdash; the fast middle</summary>
+            <div class="body">
+              <p><span class="plus">For</span> Meaningfully faster than Docling and MinerU because its models are lighter, with good structure fidelity and solid formula handling.</p>
+              <p><span class="minus">Against</span> Weaker than Docling on nested tables, which is where this corpus hides several answers. GPL-3.0.</p>
+            </div>
+          </details>
+          <details class="why">
+            <summary>PyMuPDF4LLM &mdash; instant, and probably too weak</summary>
+            <div class="body">
+              <p><span class="plus">For</span> Trivial install, no ML, near-instant. Would turn ingestion of the whole 425-page corpus into seconds and remove a class of setup problem.</p>
+              <p><span class="minus">Against</span> No layout intelligence. Two-column reading order is unreliable and tables flatten into noise &mdash; and it fails <em>silently</em>, producing plausible text with two columns interleaved. On this corpus that is the worst failure mode available. AGPL-3.0.</p>
+            </div>
+          </details>
+          <details class="why">
+            <summary>unstructured &mdash; an ETL layer more than a parser</summary>
+            <div class="body">
+              <p><span class="plus">For</span> Broadest format coverage, Apache-2.0, built as an ingestion pipeline &mdash; useful if choice 01 lands on user uploads of mixed formats.</p>
+              <p><span class="minus">Against</span> The high-accuracy path is the hosted API. The open version is noticeably weaker on precisely the two-column, table-heavy layouts here.</p>
+            </div>
+          </details>
+          <details class="why">
+            <summary>LlamaParse &mdash; best output, at a price</summary>
+            <div class="body">
+              <p><span class="plus">For</span> Excellent table and layout handling with nothing to install. Removes the parsing risk entirely in exchange for an API call.</p>
+              <p><span class="minus">Against</span> API key, per-page cost, and documents leave the machine &mdash; a hard dependency in "quick setup instructions", and an awkward property for a system whose premise is a private document collection.</p>
+            </div>
+          </details>
+        </div>
+
+        <h3>The three questions that actually decide it</h3>
+        <p>Everything else on the matrix is speed and install weight. These three are pass/fail:</p>
+
+        <div class="gates">
+          <div class="gate">
+            <span class="q">Does it emit heading hierarchy?</span>
+            <span class="a">If not, structural chunking is off the table and choice 04 collapses to recursive or semantic.</span>
+          </div>
+          <div class="gate">
+            <span class="q">Does it carry page numbers?</span>
+            <span class="a">If not, a citation cannot point at a page. For research papers a citation the reader cannot check is decoration.</span>
+          </div>
+          <div class="gate">
+            <span class="q">Do tables survive as structure?</span>
+            <span class="a">If not, "which biomarker predicted mortality best" is unanswerable — that answer lives in one table in paper 009 and nowhere else.</span>
+          </div>
+        </div>
+
+        <div class="decider">
+          <span class="lbl">What settles it</span>
+          <p>Capability points at MinerU; licence points away from it. Docling is the only option that clears all three gates <em>and</em> carries a permissive licence, which makes it the one to beat rather than the obvious winner. Whether the formula and multi-column gap against MinerU is real on <em>these twenty papers</em> or only real on a benchmark is cheap to find out &mdash; the corpus is already on disk.</p>
+        </div>
+      </section>
+
+      <!-- ───────────────────────── 04 ───────────────────────── -->
+      <section id="c4">
+        <h2><span class="idx">04</span> Chunking <span class="state open">Open</span></h2>
+        <div class="callout note"><span class="lbl">GitHub coverage</span><p><strong><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/10">Issue #10</a> is closed.</strong> The recorded answer remains provisional: use Docling HybridChunker with flat retrieval until the corpus gates pass.</p><p><a href="research/chunking.html">Chunking research</a>.</p></div>
+        <p class="determines"><b>Determines</b> what a retrieval hit physically is — and therefore whether a hit contains enough context to answer with, or so much that the signal is diluted.</p>
+
+        <div class="table-scroll"><table class="opts">
+          <thead><tr><th>Option</th><th>What you get</th><th>What it costs</th></tr></thead>
+          <tbody>
+            <tr>
+              <td>Fixed-size windows</td>
+              <td>Dead simple, uniform, predictable token budgets.</td>
+              <td>Cuts through sentences, tables and arguments. The baseline everything else is measured against.</td>
+            </tr>
+            <tr>
+              <td>Recursive character</td>
+              <td>Splits on paragraph, then sentence, then character. Cheap, deterministic, respects obvious boundaries.</td>
+              <td>Blind to document structure. A methods section and a discussion section chunk identically.</td>
+            </tr>
+            <tr>
+              <td>Structural / section</td>
+              <td>Uses the document's own headings as hard boundaries; a chunk never crosses a section. Free, deterministic, and research papers have unusually good structure (Abstract, Methods, Results, Discussion).</td>
+              <td>Entirely dependent on choice 03 producing real headings. Section lengths vary enormously, so it needs a size cap and a split rule anyway.</td>
+            </tr>
+            <tr>
+              <td>Semantic</td>
+              <td>Places boundaries where embedding similarity drops. Works on any text, including unstructured output.</td>
+              <td>Costs an embedding pass over every sentence at ingest. Boundaries are hard to explain and harder to debug.</td>
+            </tr>
+            <tr>
+              <td>Neural boundary model</td>
+              <td>A trained model predicts paragraph boundaries directly (Chonky and similar). Better than heuristics on prose with no markup.</td>
+              <td>Another model to ship and run. Trained on general prose, not scientific papers.</td>
+            </tr>
+            <tr>
+              <td>Late chunking</td>
+              <td>Embed the long document first, then pool per chunk, so every chunk vector carries whole-document context. Strong on documents full of pronouns and back-references.</td>
+              <td>Needs a long-context embedding model, which constrains choice 06. Less widely proven.</td>
+            </tr>
+            <tr>
+              <td>Parent–child</td>
+              <td>Match on small precise chunks, hand the model the larger parent. Decouples match size from context size.</td>
+              <td>Two indexes, more machinery. Choice 05 can achieve most of the same effect more cheaply.</td>
+            </tr>
+          </tbody>
+        </table></div>
+
+        <div class="decider">
+          <span class="lbl">What settles it</span>
+          <p>Choice 03, almost entirely. If the parser gives clean headings, structural chunking is available, free, and easy to defend. If it gives a wall of text, the real contest is between recursive and semantic. Deciding chunking before parsing would be deciding it blind.</p>
+        </div>
+
+        <div class="aside">
+          <span class="lbl">Number from earlier work</span>
+          <p>On a 28-page Wikipedia corpus, structural chunking scored MRR 0.82 against 0.73 for LLM-written contextual chunking, which cost $1.70 to produce. Parent–child was far behind both. That was markup-native input with perfect headings and a retrieval-only evaluation — worth knowing, not worth assuming. Research PDFs are a different input.</p>
+        </div>
+      </section>
+
+      <section id="c5">
+        <h2><span class="idx">05</span> Chunk metadata &amp; the citation unit <span class="state open">Open</span></h2>
+        <div class="callout note"><span class="lbl">GitHub coverage</span><p><strong><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/24">Issue #24</a> is open.</strong> It covers exact-spot PDF citations and source presentation. Issue #26 also covers the metadata boundary at architecture level.</p><p>No final citation-unit decision is recorded yet.</p><p>Suggested issue: <a href="#issue-citation">Citation metadata contract</a>.</p></div>
+        <p class="determines"><b>Determines</b> what a source looks like in the UI, whether a reader can verify a claim, and what we can filter retrieval by.</p>
+
+        <p>Two separable decisions. <strong>What we store on every chunk</strong>: document ID, title, first author, year, DOI, page number, section path, character offsets. Each one is either a filter, a citation field, or dead weight. <strong>What the user is shown as the source</strong>:</p>
+
+        <div class="table-scroll"><table class="opts">
+          <thead><tr><th>Option</th><th>What you get</th><th>What it costs</th></tr></thead>
+          <tbody>
+            <tr>
+              <td>Show the chunk</td>
+              <td>Zero extra work — the retrieved text is the citation.</td>
+              <td>Chunks read as fragments. A reader lands mid-argument with no way to check the surrounding claim.</td>
+            </tr>
+            <tr>
+              <td>Match small, show the section around it</td>
+              <td>The chunk only has to be good enough to match; the reader gets the coherent passage around it, with the matched span highlighted. Removes most of the pressure from getting chunk size exactly right.</td>
+              <td>Needs character offsets tracked through the whole pipeline, from parser output to stored chunk.</td>
+            </tr>
+            <tr>
+              <td>Link to the PDF page</td>
+              <td>The strongest possible answer to “how do I know that is true” — the reader sees the actual page of the actual paper, with the DOI beside it.</td>
+              <td>Needs reliable page numbers from choice 03, PDF serving, and a viewer in the frontend. The most frontend work of the three.</td>
+            </tr>
+          </tbody>
+        </table></div>
+
+        <div class="decider">
+          <span class="lbl">What settles it</span>
+          <p>These are research papers, so a citation the reader cannot check is decoration. Page number plus section path is the floor. The real question is whether showing the actual PDF page is worth the frontend time, given that it is also the single most convincing thing in a demo.</p>
+        </div>
+      </section>
+
+      <section id="c6">
+        <h2><span class="idx">06</span> Embedding model <span class="state open">Open</span></h2>
+        <div class="callout note"><span class="lbl">GitHub coverage</span><p><strong><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/25">Issue #25</a> is open.</strong> It covers production model serving and capacity. Issue #26 covers the embedding slot in the architecture chain.</p><p>The current decision page records Qwen3-Embedding-0.6B as the local reference. <a href="decisions.html#embedding">Decision page</a>.</p><p>Suggested issue: <a href="#issue-embedding">Embedding benchmark and model selection</a>.</p></div>
+        <p class="determines"><b>Determines</b> the retrieval quality ceiling, the ingest cost, the vector dimensions the store carries, and whether a reviewer needs an API key to run anything.</p>
+
+        <div class="table-scroll"><table class="opts">
+          <thead><tr><th>Option</th><th>What you get</th><th>What it costs</th></tr></thead>
+          <tbody>
+            <tr>
+              <td>Local, small<span class="sub">bge-small-en-v1.5, 384d</span></td>
+              <td>No API key, no network, no cost, fast on CPU. Ingest of the whole corpus runs offline. Reviewer setup is a single command.</td>
+              <td>Meaningfully below the frontier on retrieval benchmarks. 384 dimensions is a real information ceiling on dense technical prose.</td>
+            </tr>
+            <tr>
+              <td>Local, larger<span class="sub">bge-base, nomic-embed-v1.5, Qwen3-Embedding-0.6B</span></td>
+              <td>Still no key, noticeably better retrieval, 768–1024 dimensions. Nomic handles long inputs, which matters for late chunking.</td>
+              <td>Slower ingest, more memory, a larger model download in the setup path.</td>
+            </tr>
+            <tr>
+              <td>API<span class="sub">OpenAI text-embedding-3, Voyage 4, Cohere embed v4</span></td>
+              <td>Best available retrieval quality with no local compute. Voyage's free tier covers a corpus this size outright.</td>
+              <td>Adds a key to setup, a network dependency to ingest, and a vendor to the architecture. Re-indexing means re-paying.</td>
+            </tr>
+            <tr>
+              <td>Biomedical-domain<span class="sub">MedCPT, BioLORD, SPECTER2</span></td>
+              <td>Trained on exactly this literature. Best at the entity distinctions this corpus is full of — where a general model may treat two different drugs as near-identical.</td>
+              <td>Narrow. Degrades on anything outside biomedicine, which breaks the product the moment a user uploads something else.</td>
+            </tr>
+          </tbody>
+        </table></div>
+
+        <div class="decider">
+          <span class="lbl">What settles it</span>
+          <p>Two things. First, whether “quick setup” is allowed to require API keys at all — and note that choice 10 almost certainly requires one anyway, so the zero-key argument may already be lost. Second, whether we intend to measure this or assert it: the difference between “we chose X” and “we chose X and here is the retrieval score against Y” is exactly the kind of thing this assignment rewards.</p>
+        </div>
+      </section>
+
+      <section id="c7">
+        <h2><span class="idx">07</span> Vector store <span class="state set">Set</span></h2>
+        <div class="callout note"><span class="lbl">Decision from closed issue</span><p><strong><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/14">Issue #14</a> is closed.</strong> <strong>Decision:</strong> use LanceDB for the local Docker demo.</p><p><strong>TL;DR:</strong> It is embedded, supports dense plus BM25 hybrid search, and has a mature LlamaIndex integration. <a href="research/vector-database.html">Research</a> · <a href="decisions.html#vector-database">Decision page</a>.</p><p><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/25">Issue #25</a> remains open for the managed production path.</p></div>
+        <p class="determines"><b>Determines</b> whether hybrid retrieval is one query or three plus fusion code we maintain, what runs in the compose file, and how metadata filtering performs.</p>
+
+        <div class="table-scroll"><table class="opts">
+          <thead><tr><th>Option</th><th>What you get</th><th>What it costs</th></tr></thead>
+          <tbody>
+            <tr>
+              <td>Qdrant</td>
+              <td>Native named dense + sparse vectors with built-in fusion, so hybrid search is a single round trip. Strong payload filtering and indexes. Runs embedded from a local path or as a container.</td>
+              <td>Another service in the deployment story if run as a container.</td>
+            </tr>
+            <tr>
+              <td>pgvector</td>
+              <td>One database for vectors and application data. Universally understood, trivially deployable on every hyperscaler — which matters for the productionization section of the README.</td>
+              <td>Hybrid search means wiring full-text search, vector search and fusion by hand. More code, and it is code we would have to justify.</td>
+            </tr>
+            <tr>
+              <td>Chroma</td>
+              <td>Fastest thing to get running. Almost no setup, good developer experience.</td>
+              <td>Weakest at ranked hybrid retrieval, which is likely where choice 08 lands.</td>
+            </tr>
+            <tr>
+              <td>LanceDB</td>
+              <td>Embedded, no server, columnar storage, full-text search included. Nothing to deploy.</td>
+              <td>Smaller ecosystem. Less obvious as a production answer.</td>
+            </tr>
+            <tr>
+              <td>Weaviate / Milvus</td>
+              <td>Full-featured, hybrid built in, genuinely production-grade at scale.</td>
+              <td>Considerably more infrastructure than 2,000 chunks justifies.</td>
+            </tr>
+            <tr>
+              <td>In-process<span class="sub">FAISS / numpy</span></td>
+              <td>No dependency at all. At this corpus size, brute-force cosine over every vector is fast enough to be indistinguishable from an index.</td>
+              <td>Reads as a toy, and reviewers grade the productionization story. No filtering, no persistence, no hybrid.</td>
+            </tr>
+          </tbody>
+        </table></div>
+
+        <div class="decider">
+          <span class="lbl">What settles it</span>
+          <p>Whether choice 08 needs hybrid retrieval. If it does, native fusion in one query is worth a lot and pgvector becomes expensive in hand-written code. If dense-only is enough, an embedded store with nothing to deploy wins on simplicity. Honest note: at 2,000 chunks, every option here is fast. This is a decision about the architecture story and the code we have to write, not about performance.</p>
+        </div>
+      </section>
+
+      <section id="c8">
+        <h2><span class="idx">08</span> Retrieval strategy <span class="state open">Open</span></h2>
+        <div class="callout note"><span class="lbl">GitHub coverage</span><p><strong><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/26">Issue #26</a> is open.</strong> It covers retrieval in the architecture and build slices. No focused issue or final retrieval decision is recorded.</p><p>Suggested issue: <a href="#issue-retrieval">Retrieval strategy and hybrid fusion</a>.</p></div>
+        <p class="determines"><b>Determines</b> what text actually reaches the model — the single thing that most decides whether an answer is right.</p>
+
+        <p>This corpus has two properties that push in different directions, and the strategy has to handle both.</p>
+        <ul class="list-airy">
+          <li><b>Entity traps push toward lexical matching.</b> “rapamycin” and “trametinib” are near-neighbours in embedding space and completely different drugs. Dense retrieval alone blurs exactly the distinctions these questions turn on.</li>
+          <li><b>Contradiction pairs push toward diversity.</b> Ask “do senolytics reverse aging” and plain top-k by similarity can return five chunks that all agree, because they are the most similar chunks — and the model will then answer with total confidence and be half wrong. Getting both sides in front of the model is a retrieval problem, not a prompting problem.</li>
+        </ul>
+
+        <div class="table-scroll"><table class="opts">
+          <thead><tr><th>Option</th><th>What you get</th><th>What it costs</th></tr></thead>
+          <tbody>
+            <tr>
+              <td>Dense top-k</td>
+              <td>The simplest thing that works. One query, no fusion, easy to reason about.</td>
+              <td>Misses exact terms, drug names and acronyms. No defence against retrieving five chunks that all say the same thing.</td>
+            </tr>
+            <tr>
+              <td>Hybrid dense + sparse</td>
+              <td>BM25 catches the exact entity, dense catches the paraphrase, reciprocal rank fusion merges them. Directly addresses the entity traps.</td>
+              <td>Sparse index to build and keep in sync. Fusion weighting is another knob with no obvious right value.</td>
+            </tr>
+            <tr>
+              <td>+ Reranker</td>
+              <td>A cross-encoder rescores the top 50 down to the top 5, reading query and passage together. Usually the largest single quality gain available.</td>
+              <td>Another model, and latency on every query. An API reranker adds a second vendor; a local one adds weight.</td>
+            </tr>
+            <tr>
+              <td>+ Diversity / per-document cap</td>
+              <td>Limits how many chunks any one paper can contribute, so opposing findings survive into the context. The direct answer to the contradiction problem.</td>
+              <td>Can dilute results for questions that genuinely live in a single paper. Needs tuning against real questions.</td>
+            </tr>
+            <tr>
+              <td>+ Query rewriting</td>
+              <td>The model turns a vague or conversational question into a good retrieval query. Overlaps heavily with choice 09.</td>
+              <td>An LLM call before every search: latency and cost on the critical path, and a new failure mode when the rewrite is wrong.</td>
+            </tr>
+            <tr>
+              <td>Graph traversal</td>
+              <td>Retrieve by walking entity relationships rather than similarity. Genuinely better at “what does the literature collectively say about X”.</td>
+              <td>Expensive graph construction at ingest and a large jump in system complexity. Effectively pulls choice 02 toward a framework.</td>
+            </tr>
+          </tbody>
+        </table></div>
+
+        <div class="decider">
+          <span class="lbl">What settles it</span>
+          <p>Whether we treat “surface the disagreement” as a core product behaviour or an edge case. If it is core — and this corpus was picked because it is — then plain top-k is not enough, and the choice is which of the additions above earns its latency. Each one is independently switchable, so this can be built as a baseline plus measured increments rather than one big bet.</p>
+        </div>
+      </section>
+
+      <section id="c9">
+        <h2><span class="idx">09</span> Multi-turn handling <span class="state open">Open</span></h2>
+        <div class="callout note"><span class="lbl">GitHub coverage</span><p><strong><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/26">Issue #26</a> is open.</strong> It covers multi-turn behavior only as part of the broader architecture. No focused issue or final decision is recorded.</p><p>Suggested issue: <a href="#issue-multiturn">Multi-turn query handling and conversation state</a>.</p></div>
+        <p class="determines"><b>Determines</b> whether the thing is actually conversational. The brief says “conversational AI assistant”, and a demo gets judged on a conversation, not a single question.</p>
+
+        <p>The failing case is short: ask “what did Hickson find about senolytics”, then ask “what about the other trial”. Retrieving on that second message alone returns nothing useful, because on its own it means nothing.</p>
+
+        <div class="table-scroll"><table class="opts">
+          <thead><tr><th>Option</th><th>What you get</th><th>What it costs</th></tr></thead>
+          <tbody>
+            <tr>
+              <td>No history</td>
+              <td>Every message retrieves independently. Simplest, fastest, fully stateless.</td>
+              <td>Follow-up questions break. This is the first thing a reviewer will accidentally test.</td>
+            </tr>
+            <tr>
+              <td>Concatenate recent turns</td>
+              <td>Prepend the last few messages to the retrieval query. Two lines of code, no extra model call, fixes the common case.</td>
+              <td>Drags stale topics into the query. Three turns later the search is polluted by an abandoned subject.</td>
+            </tr>
+            <tr>
+              <td>LLM query rewriting</td>
+              <td>A small model rewrites the follow-up into a standalone question before retrieval. The standard solution, and it works well.</td>
+              <td>An extra model call before every search — latency the user feels, plus a new way to fail silently when the rewrite drops a constraint.</td>
+            </tr>
+            <tr>
+              <td>Carry context forward</td>
+              <td>Keep previously retrieved chunks in the window alongside new ones. No extra call, and follow-ups about already-discussed material are instant.</td>
+              <td>Context grows every turn. Needs an eviction rule, and stale chunks compete with fresh ones.</td>
+            </tr>
+            <tr>
+              <td>Agentic loop</td>
+              <td>The model decides whether to retrieve, how, and whether to search again after seeing results. Handles multi-part questions properly.</td>
+              <td>Several model calls per answer, unpredictable latency, and much harder to evaluate deterministically.</td>
+            </tr>
+          </tbody>
+        </table></div>
+
+        <div class="decider">
+          <span class="lbl">What settles it</span>
+          <p>How much per-turn latency the chat can absorb before it stops feeling responsive, and whether we want a deterministic retrieval path we can evaluate — an agentic loop is much harder to score against a fixed question set, which pulls directly against choice 13.</p>
+        </div>
+      </section>
+
+      <section id="c10">
+        <h2><span class="idx">10</span> Generation model <span class="state open">Open</span></h2>
+        <div class="callout note"><span class="lbl">GitHub coverage</span><p><strong><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/25">Issue #25</a> is open.</strong> It covers production model serving. Issue #26 covers the generation slot in the build-slice chain.</p><p>No final generation-model decision is recorded.</p><p>Suggested issue: <a href="#issue-generation">Generation model and streaming response contract</a>.</p></div>
+        <p class="determines"><b>Determines</b> answer quality, per-answer cost, streaming latency, and how reliably instructions about citing and refusing are actually obeyed. Named explicitly in the brief as something to justify.</p>
+
+        <div class="table-scroll"><table class="opts">
+          <thead><tr><th>Option</th><th>What you get</th><th>What it costs</th></tr></thead>
+          <tbody>
+            <tr>
+              <td>Claude Sonnet 5</td>
+              <td>Strong instruction-following on citation format and refusal rules, good long-context handling with many sources, fast streaming. The balanced default.</td>
+              <td>API key and per-token cost.</td>
+            </tr>
+            <tr>
+              <td>Claude Haiku 4.5</td>
+              <td>Much cheaper and faster. Well suited to the smaller jobs around the edges: query rewriting, groundedness checking, routing.</td>
+              <td>Weaker at synthesising several conflicting sources into a careful answer.</td>
+            </tr>
+            <tr>
+              <td>Claude Opus 5</td>
+              <td>Best at exactly the hard case here: several papers disagreeing, and the answer needs to represent that accurately.</td>
+              <td>Highest cost and slowest. Hard to justify for every turn of a demo.</td>
+            </tr>
+            <tr>
+              <td>GPT-5.x / Gemini</td>
+              <td>Comparable frontier quality. Gemini's long context is generous if the design leans on large context windows.</td>
+              <td>Same key-and-cost profile. No particular advantage on this workload.</td>
+            </tr>
+            <tr>
+              <td>Local via Ollama</td>
+              <td>No key, no cost, runs entirely offline. Setup instructions stay a single command.</td>
+              <td>A visible drop in answer quality, especially on faithful multi-source synthesis — which is the thing being demonstrated.</td>
+            </tr>
+          </tbody>
+        </table></div>
+
+        <div class="decider">
+          <span class="lbl">What settles it</span>
+          <p>Whether one model serves every job or we split them — a cheap fast model for query rewriting and groundedness checks, a stronger one for the answer. Splitting is better engineering and is easy to explain, at the cost of a second model in the config. Worth deciding alongside choices 09 and 12, which are where the small jobs live.</p>
+        </div>
+      </section>
+
+      <section id="c11">
+        <h2><span class="idx">11</span> Context assembly &amp; prompt <span class="state open">Open</span></h2>
+        <div class="callout note"><span class="lbl">GitHub coverage</span><p><strong><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/24">Issue #24</a> is open.</strong> It covers streaming output and exact citation presentation. Issue #26 covers context assembly at architecture level.</p><p>No final prompt or context decision is recorded.</p><p>Suggested issue: <a href="#issue-context">Context assembly and prompt contract</a>.</p></div>
+        <p class="determines"><b>Determines</b> whether answers stay grounded, whether citations point at the right source, and what the system does when the retrieved passages disagree with each other.</p>
+
+        <p>Several smaller decisions travel together here:</p>
+        <ul class="list-airy">
+          <li><b>How many chunks, and how they are ordered.</b> By relevance, or reassembled into document order so an argument reads in sequence.</li>
+          <li><b>Whether metadata rides along.</b> Title, authors and year in the context let the model write “Hickson 2019 found…” instead of “one study found…”. Cheap, and it changes how the answer reads entirely.</li>
+          <li><b>Citation mechanism.</b> Inline markers the model emits, versus structured source objects the UI renders separately. The first is simpler; the second cannot be hallucinated.</li>
+          <li><b>Behaviour when nothing relevant comes back.</b> The most important prompt decision, and the one most often skipped.</li>
+          <li><b>Permission to report disagreement.</b> Unless the prompt explicitly allows “these papers conflict, here is each position”, the model will pick one and sound certain. On this corpus that is a wrong answer with full confidence, and it will happen in the demo.</li>
+        </ul>
+
+        <div class="decider">
+          <span class="lbl">What settles it</span>
+          <p>Whether structured citations are worth the extra plumbing. If the model emits “[1]” as text, it can invent a “[4]” that does not exist. If the UI renders sources from the retrieval result and the model references them by ID, a fabricated citation is structurally impossible. That is a guardrail bought with schema rather than with a prompt, and it is the kind of decision worth writing up.</p>
+        </div>
+      </section>
+
+      <section id="c12">
+        <h2><span class="idx">12</span> Guardrails <span class="state open">Open</span></h2>
+        <div class="callout note"><span class="lbl">GitHub coverage</span><p><strong><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/21">Issue #21: GUARDRAILS POLICY</a></strong> is the focused issue for this section. It covers policy scope, out-of-scope questions, unanswerable questions, and refusal behavior.</p><p><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/26">Issue #26</a> also carries guardrails in the architecture chain.</p></div>
+        <p class="determines"><b>Determines</b> what happens on questions the corpus cannot answer, questions that are out of scope, and content in the documents that tries to influence the model. Named explicitly in the brief.</p>
+
+        <div class="table-scroll"><table class="opts">
+          <thead><tr><th>Option</th><th>What you get</th><th>What it costs</th></tr></thead>
+          <tbody>
+            <tr>
+              <td>Prompt-level only</td>
+              <td>“Answer only from the provided sources; if they do not contain the answer, say so.” Free, and it does most of the work.</td>
+              <td>Nothing enforces it. Cannot be measured, and fails exactly when the retrieval was weak.</td>
+            </tr>
+            <tr>
+              <td>Retrieval score threshold</td>
+              <td>If the best match is below a score, refuse before generating. Deterministic, costs nothing, and catches out-of-scope questions early.</td>
+              <td>The threshold is arbitrary until measured, and similarity scores are not calibrated across queries.</td>
+            </tr>
+            <tr>
+              <td>Post-hoc groundedness check</td>
+              <td>A second model call verifies each claim is supported by a retrieved chunk. Catches real fabrication, and the check itself is demonstrable in the UI.</td>
+              <td>Doubles latency and cost per answer. Needs a decision about what to do on failure: warn, regenerate, or refuse.</td>
+            </tr>
+            <tr>
+              <td>Citation verification</td>
+              <td>Deterministically confirm every cited source ID was actually retrieved. Cheap, exact, no model involved.</td>
+              <td>Only catches invented citations, not claims that misrepresent a real source.</td>
+            </tr>
+            <tr>
+              <td>Input classification</td>
+              <td>Screen the question before spending retrieval and generation on it.</td>
+              <td>Another model call, and it fires on every message including the harmless ones.</td>
+            </tr>
+          </tbody>
+        </table></div>
+
+        <div class="decider">
+          <span class="lbl">What settles it</span>
+          <p>How much latency an answer can spend on safety we can actually show working. A guardrail nobody can see is worth less here than one the interface makes visible. Note the coupling to choice 01: with a shipped corpus, document content is trusted and prompt injection is close to theoretical. The moment users upload their own PDFs, it stops being theoretical.</p>
+        </div>
+      </section>
+
+      <section id="c13">
+        <h2><span class="idx">13</span> Evaluation <span class="state open">Open</span></h2>
+        <div class="callout note"><span class="lbl">GitHub coverage</span><p><strong><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/26">Issue #26</a> is open.</strong> It covers evaluation as a build slice, but no focused issue or final quality gate is recorded.</p><p><a href="research/evaluation.html">Evaluation research</a>.</p><p>Suggested issue: <a href="#issue-evaluation">Retrieval and answer quality evaluation gates</a>.</p></div>
+        <p class="determines"><b>Determines</b> whether every choice above is something we measured or something we asserted. “Quality Controls” is named in the brief, and this is where the README stops being opinion.</p>
+
+        <p>This corpus was chosen partly because it makes evaluation cheap: the six contradiction pairs are questions with a known right shape of answer, where a bad retrieval produces a detectably wrong result rather than a slightly worse one.</p>
+
+        <div class="table-scroll"><table class="opts">
+          <thead><tr><th>Option</th><th>What you get</th><th>What it costs</th></tr></thead>
+          <tbody>
+            <tr>
+              <td>Retrieval metrics on a labelled set</td>
+              <td>Hand-label questions with the sections that should be retrieved, then score hit rate, MRR, recall@k and precision@k. Deterministic, free, instant, and it turns every choice above into a comparison.</td>
+              <td>Labelling questions by hand. Measures retrieval only — an answer can still be wrong from perfect context.</td>
+            </tr>
+            <tr>
+              <td>Generation faithfulness</td>
+              <td>Score whether the answer is supported by the retrieved context. Covers the half the retrieval metrics cannot see.</td>
+              <td>Needs a judge model: tokens, run-to-run variance, and a judge whose own accuracy is unverified.</td>
+            </tr>
+            <tr>
+              <td>ragas</td>
+              <td>An off-the-shelf harness with the standard metric set already implemented.</td>
+              <td>Its precision and recall are LLM-judged rather than label-based — token cost and variance between runs, for metrics we could compute exactly against our own labels.</td>
+            </tr>
+            <tr>
+              <td>promptfoo / DeepEval</td>
+              <td>Config-driven, good CI story, assertion-style tests that fit the existing test discipline.</td>
+              <td>Another tool in the stack, and the interesting metrics still need custom code.</td>
+            </tr>
+            <tr>
+              <td>None, argued honestly</td>
+              <td>All the build time goes into the product. The brief does explicitly accept documenting what you would add next.</td>
+              <td>Every claim in the README becomes an assertion, in a submission judged on engineering rigour.</td>
+            </tr>
+          </tbody>
+        </table></div>
+
+        <div class="decider">
+          <span class="lbl">What settles it</span>
+          <p>Whether an evaluation exists at all is barely a question — some measurement is worth far more than none. The real decision is scope: retrieval-only is cheap, deterministic and immediately useful for comparing choices 03, 04, 06 and 08. Adding generation-side scoring costs a judge model and gets us the faithfulness numbers, which is the half that matters on a corpus full of contradictions.</p>
+        </div>
+      </section>
+
+      <section id="c14">
+        <h2><span class="idx">14</span> Observability <span class="state open">Open</span></h2>
+        <div class="callout note"><span class="lbl">GitHub coverage</span><p><strong><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/25">Issue #25</a> is open.</strong> It covers production observability. Issue #26 covers the observability slot in the architecture chain.</p><p>The current decision page records Arize Phoenix for the demo. <a href="decisions.html#observability">Decision page</a>.</p><p>Suggested issue: <a href="#issue-observability">RAG observability for the demo</a>.</p></div>
+        <p class="determines"><b>Determines</b> whether a bad answer can be diagnosed — which chunks were retrieved, with what scores, what the prompt actually contained, and where the latency went. Named in the brief.</p>
+
+        <div class="table-scroll"><table class="opts">
+          <thead><tr><th>Option</th><th>What you get</th><th>What it costs</th></tr></thead>
+          <tbody>
+            <tr>
+              <td>Phoenix<span class="sub">self-hosted</span></td>
+              <td>Purpose-built for RAG traces, OpenTelemetry-based, runs from a short compose file. No account, no free-tier ceiling, works for a reviewer offline.</td>
+              <td>Another container. Instrumentation has real pitfalls — synchronous span export can dominate ingest time if configured naively.</td>
+            </tr>
+            <tr>
+              <td>Langfuse</td>
+              <td>Strong UI, prompt management and evaluation built in, self-hostable. Broad adoption.</td>
+              <td>Heavier self-hosted footprint than Phoenix.</td>
+            </tr>
+            <tr>
+              <td>LangSmith</td>
+              <td>Best experience if already in the LangChain ecosystem.</td>
+              <td>Cloud only, needs an account, and the free tier has a monthly trace cap that a few evaluation runs can exhaust — at which point the whole workspace throttles.</td>
+            </tr>
+            <tr>
+              <td>Raw OpenTelemetry</td>
+              <td>No vendor at all. Exports to whatever a production environment already runs, which is the honest answer for the productionization section.</td>
+              <td>No RAG-aware UI. Reading traces is manual.</td>
+            </tr>
+            <tr>
+              <td>Structured logs only</td>
+              <td>Nothing to deploy. Retrieval scores and timings in the log are genuinely enough to debug at this scale.</td>
+              <td>Nothing to show a reviewer. Observability becomes a claim rather than a screenshot.</td>
+            </tr>
+          </tbody>
+        </table></div>
+
+        <div class="decider">
+          <span class="lbl">What settles it</span>
+          <p>Whether it has to work for a reviewer with no account and no signup — which rules out everything cloud-only. Beyond that, whether tracing is instrumentation we use while building, or a surface we intend to show off. If the latter, it belongs in the same compose file as the app.</p>
+        </div>
+      </section>
+
+      <section id="c15">
+        <h2><span class="idx">15</span> Frontend &amp; packaging <span class="state open">Open</span></h2>
+        <div class="callout note"><span class="lbl">GitHub coverage</span><p><strong><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/24">Issue #24</a> is open</strong> for the chat surface, and <strong><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/25">Issue #25</a> is open</strong> for production packaging. Issue #26 covers the build slice.</p><p>No final frontend or packaging decision is recorded.</p></div>
+        <p class="determines"><b>Determines</b> how the work is judged on sight, and how much setup friction stands between a reviewer and a working app. The brief asks for creativity in UI/UX and says outright that it expects a well designed application.</p>
+
+        <div class="table-scroll"><table class="opts">
+          <thead><tr><th>Option</th><th>What you get</th><th>What it costs</th></tr></thead>
+          <tbody>
+            <tr>
+              <td>Streamlit / Gradio</td>
+              <td>A working chat interface in an afternoon, in the same language as the backend. Maximum time left for retrieval quality.</td>
+              <td>Looks exactly like every other RAG demo, and the brief explicitly asks for design. Hard to build a real citation viewer in.</td>
+            </tr>
+            <tr>
+              <td>Next.js</td>
+              <td>Full control of the design, proper streaming, and room for the source panel and PDF viewer that make the citations convincing.</td>
+              <td>A second language and toolchain, a build step, and real frontend hours.</td>
+            </tr>
+            <tr>
+              <td>React + Vite</td>
+              <td>Same design freedom, lighter than Next, no server-rendering machinery that this app does not need.</td>
+              <td>Routing and data fetching are hand-rolled. Same frontend time cost.</td>
+            </tr>
+            <tr>
+              <td>Server-rendered + HTMX</td>
+              <td>One language, one process, one deployable. Streaming answers work fine over server-sent events.</td>
+              <td>Rich interaction — highlighting, a PDF pane, live source filtering — gets awkward fast.</td>
+            </tr>
+          </tbody>
+        </table></div>
+
+        <p class="mt-6"><strong>Packaging</strong> is a separate call: a single container, a compose file covering app plus vector store plus tracing, or plain local commands with no container at all. The brief asks for “ideally a simple containerised solution”, and the productionization section has to explain how this reaches a hyperscaler.</p>
+
+        <div class="decider">
+          <span class="lbl">What settles it</span>
+          <p>Where the differentiation is supposed to come from. Option 1 is the option everyone picks, so the engineering and the interface are the only places to stand out. Streamlit spends nothing on that and leaves more time for retrieval. A real frontend spends real hours and is the most visible thing in the submission. This is a budget decision more than a technical one, and it is worth making with eyes open rather than by default.</p>
+        </div>
+      </section>
+
+      <section id="next">
+        <h2><span class="idx">Next</span> How we work through this</h2>
+        <p>One decision at a time, in the order above, each one recorded here with the reasoning as it was actually made. The order matters: choice 04 cannot be decided honestly before 03, and 07 depends on what 08 needs.</p>
+        <div class="callout warn">
+          <span class="lbl">Deciding next</span>
+          <p><strong>01 Product shape</strong> — shipped corpus, upload, or both. It is first because it is the only one that changes what the product <em>is</em> rather than how it is built, and because choices 01 and 15 together set the budget that every remaining decision spends against.</p>
+        </div>
+        <p class="footnote">This document is the record of the decisions, not a plan to approve. When a choice is made, its section gets the answer and the reason, and the status flips to Set.</p>
+      </section>
+
+    </div>
+  </div>
+
+  <footer class="page">
+    <a class="backlink mb-0" href="index.html">← Main document</a>
+  </footer>
+
+</div>
+<!-- ds:js:start -->
+<script defer src="_assets/docs.js"></script>
+<!-- ds:js:end -->
+</body>
+</html>
+

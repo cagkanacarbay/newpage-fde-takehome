@@ -26,15 +26,28 @@
     <nav class="toc" aria-label="On this page">
       <p class="toc-title">Contents</p>
       <ol>
-        <li><a href="#corpus"><span class="n">01</span><span>Research corpus</span></a></li>
-        <li><a href="#research"><span class="n">02</span><span>Research</span></a></li>
-        <li><a href="#decisions"><span class="n">03</span><span>Decisions</span></a></li>
+        <li><a href="#technical-choices"><span class="n">01</span><span>Technical Choices</span></a></li>
+        <li><a href="#corpus"><span class="n">02</span><span>Research corpus</span></a></li>
+        <li><a href="#research"><span class="n">03</span><span>Research</span></a></li>
+        <li><a href="#decisions"><span class="n">04</span><span>Decisions</span></a></li>
       </ol>
     </nav>
 
     <div class="col">
+      <section id="technical-choices">
+        <h2><span class="idx">01</span> Technical Choices</h2>
+        <p class="lead">The working document for charting the path from zero to completion.</p>
+        <div class="stack-sm">
+          <a class="doc" href="technical-choices.html">
+            <span class="t">Technical Choices <span class="tag">current</span></span>
+            <span class="d">Broad research, specific choices, linked GitHub work, and proposed issues for uncovered parts.</span>
+            <span class="path">technical-choices.html</span>
+          </a>
+        </div>
+      </section>
+
       <section id="corpus">
-        <h2><span class="idx">01</span> Research corpus</h2>
+        <h2><span class="idx">02</span> Research corpus</h2>
         <p class="lead">The repository includes 27 open-access longevity papers for later ingestion and retrieval work.</p>
         <p>The corpus includes overlapping findings, tables, named entities, and mathematical models. It gives later work concrete source material and failure cases.</p>
         <div class="stack-sm">
@@ -47,7 +60,7 @@
       </section>
 
       <section id="research">
-        <h2><span class="idx">02</span> Research</h2>
+        <h2><span class="idx">03</span> Research</h2>
         <p class="lead">Measured results that inform system choices.</p>
         <div class="stack-sm">
           <a class="doc" href="research/parsing.html">
@@ -65,11 +78,16 @@
             <span class="d">LanceDB selected for the local Docker demo, with a managed path to revisit.</span>
             <span class="path">research/vector-database.html</span>
           </a>
+          <a class="doc" href="research/evaluation.html">
+            <span class="t">Evaluation options <span class="tag">decision pending</span></span>
+            <span class="d">Twenty-four deterministic retrieval checks grounded in the corpus.</span>
+            <span class="path">research/evaluation.html</span>
+          </a>
         </div>
       </section>
 
       <section id="decisions">
-        <h2><span class="idx">03</span> Decisions</h2>
+        <h2><span class="idx">04</span> Decisions</h2>
         <p class="lead">Current technical choices and the evidence that supports them.</p>
         <div class="stack-sm">
           <a class="doc" href="decisions.html">
