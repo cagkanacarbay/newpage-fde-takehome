@@ -78,7 +78,6 @@ Keep this map current as the repo grows, so it stays a reliable index of where t
 - `rules/` — durable rules referenced from this file.
 - `.agents/skills/` — vendored skills, symlinked into `.claude/skills/` and `.codex/skills/`.
 
-
 ## Worktrees and PRs
 
 **Every feature gets its own git worktree.** Multiple pieces of work run in parallel
@@ -113,13 +112,22 @@ mechanical issues and escalating judgment calls.
 architecture, and a link to every sub-document. Each part of the system gets its own
 HTML sub-document in `docs/`. Pages load shared assets from `docs/_assets/docs.css` and
 `docs/_assets/docs.js`. Inline CSS, inline JavaScript, and `style=` attributes are
-defects. A sub-doc not linked from the index is a defect.
+defects. Pages must render directly from the local filesystem with no CDN. A sub-doc
+not linked from the index is a defect.
+
+The documentation map is:
+
+- `docs/index.html` — entry point for the full documentation set.
+- `docs/research/<topic>.html` — complete measured evidence for one topic.
+- `docs/decisions.html` — current technical choices, with one section per choice.
+- `docs/_assets/` — shared CSS, JavaScript, templates, and documentation checks.
 
 Store measured evidence in `docs/research/<topic>.html`.
-Store the resulting technical choice in `docs/decisions/<topic>.html`.
-Link both pages from `docs/index.html`.
-Keep the research page factual and state its limits.
-Keep the decision page brief, link to its research page, and state when the choice must be revisited.
+Store all current technical choices in `docs/decisions.html`.
+Give each choice its own section in that page.
+Keep a decision summary brief and link its reasoning to the related research page.
+Use expandable details for required configuration, known limits, and conditions that would reopen the choice.
+Link both research pages and `docs/decisions.html` from `docs/index.html`.
 
 Start new docs from `docs/_assets/template.html`. Run
 `python3 docs/_assets/sync-design-system.py` after a docs change. The automatic docs
@@ -132,4 +140,3 @@ asset gate runs `docs/_assets/check-doc-assets.py --check` before an agent finis
   (`PLR09xx`) change only with human approval; refactor first.
 - `rules/testing.md` — testing conventions, e2e policy, bug-reproduction protocol.
 - `rules/verification.md` — how to verify rendered UI before reporting done.
-

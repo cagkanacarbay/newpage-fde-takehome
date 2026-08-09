@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Decisions - Live Long R&amp;D assistant</title>
+<!-- ds:css:start -->
+<link rel="stylesheet" href="_assets/docs.css">
+<!-- ds:css:end -->
+</head>
+<body>
+<div class="wrap">
+
+  <button class="theme-toggle" type="button" aria-label="Switch to dark">☾</button>
+  <a class="backlink" href="index.html">← System documentation</a>
+
+  <header class="page">
+    <h1>Decisions</h1>
+    <p class="standfirst">The current technical choices for the Live Long R&amp;D assistant.</p>
+  </header>
+
+  <div class="shell">
+    <nav class="toc" aria-label="On this page">
+      <p class="toc-title">Contents</p>
+      <ol>
+        <li><a href="#parsing"><span class="n">01</span><span>PDF parsing</span></a></li>
+      </ol>
+    </nav>
+
+    <div class="col">
+      <section id="parsing">
+        <h2><span class="idx">01</span> PDF parsing: Docling</h2>
+        <p class="lead">Use Docling to parse the research corpus. Keep MinerU only as a reproducible comparison baseline.</p>
+
+        <div class="rec">
+          <div class="rec-head">TL;DR</div>
+          <div class="rec-body">
+            <p><strong>What:</strong> Parse every source PDF with Docling and <code>HeadingHierarchyOptions(enabled=True)</code>.</p>
+            <p><strong>Why:</strong> Docling preserves page metadata and the key table, provides usable heading depth, runs locally, is MIT licensed, and was 40 times faster than MinerU on paper 014. <a href="research/parsing.html#headtohead">Research evidence</a>.</p>
+            <p><strong>Status:</strong> Provisional. Formula support and node-level page provenance still need direct tests. <a href="research/parsing.html#untested">Open research</a>.</p>
+          </div>
+        </div>
+
+        <h3>How we use Docling</h3>
+        <div class="accordion">
+          <details>
+            <summary>Enable heading hierarchy on every parse</summary>
+            <div class="body">
+              <p>Pass <code>HeadingHierarchyOptions(enabled=True)</code>.</p>
+              <p>Default Docling output makes every heading level 1. The option restores usable nested headings without another dependency. <a href="research/parsing.html#fix">Research evidence</a>.</p>
+            </div>
+          </details>
+
+          <details>
+            <summary>Keep page provenance through the node layer</summary>
+            <div class="body">
+              <p>Keep <code>page_no</code> from parser output through LlamaIndex nodes before we offer page-level citations.</p>
+              <p>Docling emitted page data for every measured item. Whether <code>DoclingReader</code> retains it in <code>node.metadata</code> remains untested. <a href="research/parsing.html#untested">Research evidence</a>.</p>
+            </div>
+          </details>
+
+          <details>
+            <summary>Fail ingestion when parsing returns no content</summary>
+            <div class="body">
+              <p>Reject an empty parser result even if the process exits successfully.</p>
+              <p>Docling can exit without output under a restrictive sandbox. <a href="research/parsing.html#right">Research evidence</a>.</p>
+            </div>
+          </details>
+
+          <details>
+            <summary>Do not hide known Docling defects</summary>
+            <div class="body">
+              <p>Paper 011 has a reading-order error. Paper 009 has two unbound table captions and one duplicated caption.</p>
+              <p>Do not add a repair until a regression test proves it. MinerU output is the comparison reference for both cases. <a href="research/parsing.html#headtohead">Research evidence</a>.</p>
+            </div>
+          </details>
+
+          <details>
+            <summary>Use MinerU only as the comparison baseline</summary>
+            <div class="body">
+              <p>Do not add MinerU to the application ingestion path.</p>
+              <p>MinerU preserves paper 011 reading order and table captions. It emits no heading level deeper than 2 and took 453.4 seconds where Docling took 11.4 seconds. <a href="research/parsing.html#minerucost">Research evidence</a>.</p>
+            </div>
+          </details>
+
+          <details>
+            <summary>Revisit the choice only after the remaining tests</summary>
+            <div class="body">
+              <p>Run both parsers on papers 021 through 027 before deciding formula support.</p>
+              <p>Reconsider Docling if MinerU preserves equations where Docling does not, if MinerU adds deeper headings, or if Docling regresses on hierarchy. Test Kreuzberg only if a material gap remains. <a href="research/parsing.html#reexamined">Research evidence</a>.</p>
+            </div>
+          </details>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <footer class="page">
+    <a class="backlink mb-0" href="index.html">← System documentation</a>
+  </footer>
+</div>
+<!-- ds:js:start -->
+<script defer src="_assets/docs.js"></script>
+<!-- ds:js:end -->
+</body>
+</html>

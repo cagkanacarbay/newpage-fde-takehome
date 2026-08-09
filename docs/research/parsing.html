@@ -1,0 +1,608 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PDF parsing research - Live Long R&amp;D assistant</title>
+<!-- ds:css:start -->
+<link rel="stylesheet" href="../_assets/docs.css">
+<!-- ds:css:end -->
+</head>
+<body>
+<div class="wrap">
+
+  <button class="theme-toggle" type="button" aria-label="Switch to dark">☾</button>
+  <a class="backlink" href="../index.html">← System documentation</a>
+
+  <header class="page">
+    <h1>PDF parsing research</h1>
+    <p class="standfirst">The full local evidence for the parser choice. The current choice is in <a href="../decisions/parsing.html">the parsing decision</a>.</p>
+    <div class="header-meta">
+      <span><b>Corpus</b> 27 papers, 425 pages</span>
+      <span><b>Test set</b> 4 papers</span>
+      <span><b>Compared</b> Docling and MinerU</span>
+      <span><b>Research run</b> 2026-07-26</span>
+      <span><b>Document updated</b> 2026-08-09</span>
+    </div>
+  </header>
+
+  <div class="shell">
+    <nav class="toc" aria-label="On this page">
+      <p class="toc-title">Contents</p>
+      <ol>
+        <li><a href="#job"><span class="n">01</span><span>What parsing must preserve</span></a></li>
+        <li><a href="#gates"><span class="n">02</span><span>The three gates</span></a></li>
+        <li><a href="#field"><span class="n">03</span><span>Six candidates</span></a></li>
+        <li><a href="#ruledout"><span class="n">04</span><span>Why five were ruled out</span></a></li>
+        <li><a href="#run"><span class="n">05</span><span>What was run</span></a></li>
+        <li><a href="#right"><span class="n">06</span><span>What Docling got right</span></a></li>
+        <li><a href="#hierarchy"><span class="n">07</span><span>The heading-hierarchy problem</span></a></li>
+        <li><a href="#geometry"><span class="n">08</span><span>Hierarchy from geometry</span></a></li>
+        <li><a href="#untested"><span class="n">10</span><span>What remains untested</span></a></li>
+        <li><a href="#fix"><span class="n">11</span><span>Docling's fix</span></a></li>
+        <li><a href="#headtohead"><span class="n">12</span><span>MinerU and Docling compared</span></a></li>
+        <li><a href="#minerucost"><span class="n">13</span><span>What MinerU costs</span></a></li>
+        <li><a href="#reexamined"><span class="n">14</span><span>Candidates re-examined</span></a></li>
+        <li><a href="#ruledout2"><span class="n">15</span><span>Why the others do not replace Docling</span></a></li>
+      </ol>
+    </nav>
+
+    <div class="col">
+      <section id="job">
+        <h2><span class="idx">01</span> What parsing has to deliver</h2>
+        <p class="lead">A reader converts a PDF into a <code>Document</code>. On a two-column research paper this is where most of the information is preserved or destroyed, silently, with no error either way.</p>
+
+        <p>The corpus is hostile to this stage by design: 27 papers, 425 pages, 137 KB to 12 MB. Two-column Nature, PNAS and Cell layouts where reading order is a guess. Outcome and regression tables, one holding an answer found nowhere else. A seven-paper batch (021-027) adds numbered, LaTeX-set equations as displayed math, not only among figure captions.</p>
+
+        <p>Chunking cannot use boundaries the parser never emitted. A citation cannot name a page it did not carry. Retrieval cannot find a table row that arrived as loose digits.</p>
+      </section>
+
+      <section id="gates">
+        <h2><span class="idx">02</span> The three gates</h2>
+        <p>At 27 documents parsed once, speed and install weight decide nothing. Three properties are pass/fail.</p>
+
+        <div class="gates">
+          <div class="gate">
+            <span class="q">Does it emit heading hierarchy?</span>
+            <p>Without it, structural chunking is off the table.</p>
+          </div>
+          <div class="gate">
+            <span class="q">Does it carry page numbers?</span>
+            <p>Without them a citation cannot point at a page, and checkable citations are the product.</p>
+          </div>
+          <div class="gate">
+            <span class="q">Do tables survive as structure?</span>
+            <p>Without them "which biomarker predicted mortality best" is unanswerable. That answer lives in one table in paper 009.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="field">
+        <h2><span class="idx">03</span> Six candidates <span class="state done">surveyed</span></h2>
+        <p class="determines"><b>Question</b> which readers could do this job, and what does each cost in capability, weight and licence?</p>
+
+        <div class="table-scroll"><table class="matrix wide">
+          <thead>
+            <tr><th>Parser</th><th>Maintainer</th><th>Licence</th><th>The one-line case</th><th class="ctr">Status</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="opt">Docling<span class="sub">local, ML</span></td><td>IBM</td><td><span class="tag ok">MIT</span></td>
+              <td class="txt">Permissive all-rounder. Strongest open table extractor. Pure-Python, CPU.</td>
+              <td class="ctr"><span class="state done">chosen</span></td>
+            </tr>
+            <tr>
+              <td class="opt">MinerU<span class="sub">local, ML</span></td><td>OpenDataLab</td><td><span class="tag warn">AGPL-3.0 at the time</span></td>
+              <td class="txt">Purpose-built for academic PDFs. Best multi-column detection, and the only one with formula recognition — measured on the benchmark papers in section 12, though formulas themselves remain untested.</td>
+              <td class="ctr"><span class="state done">later run</span></td>
+            </tr>
+            <tr>
+              <td class="opt">Marker<span class="sub">local, ML</span></td><td>Datalab</td><td><span class="tag warn">GPL-3.0</span></td>
+              <td class="txt">The fast middle. Lighter models, good structure fidelity.</td>
+              <td class="ctr"><span class="state">ruled out</span></td>
+            </tr>
+            <tr>
+              <td class="opt">PyMuPDF4LLM<span class="sub">local, no ML</span></td><td>Artifex</td><td><span class="tag warn">AGPL-3.0</span></td>
+              <td class="txt">Trivial install, near-instant. Whole corpus in seconds.</td>
+              <td class="ctr"><span class="state">ruled out</span></td>
+            </tr>
+            <tr>
+              <td class="opt">unstructured<span class="sub">open version</span></td><td>Unstructured</td><td><span class="tag ok">Apache-2.0</span></td>
+              <td class="txt">Broadest format coverage. An ETL layer more than a parser.</td>
+              <td class="ctr"><span class="state">ruled out</span></td>
+            </tr>
+            <tr>
+              <td class="opt">LlamaParse<span class="sub">hosted API</span></td><td>LlamaIndex</td><td><span class="tag warn">paid API</span></td>
+              <td class="txt">Excellent tables and layout, nothing to install.</td>
+              <td class="ctr"><span class="state">ruled out</span></td>
+            </tr>
+          </tbody>
+        </table></div>
+
+        <div class="callout">
+          <span class="lbl">Licence is not a footnote here</span>
+          <p>Three of the six are copyleft — <strong>MinerU and PyMuPDF4LLM are AGPL-3.0, Marker is GPL-3.0</strong> — which strikes two of the three strongest scientific-PDF parsers here. <strong>Docling (MIT) and unstructured (Apache-2.0) are the only permissive open options.</strong> That is most of why the field narrowed.</p>
+        </div>
+      </section>
+
+      <section id="ruledout">
+        <h2><span class="idx">04</span> Why five were ruled out</h2>
+        <p>Each on a specific property; the case <em>for</em> each is the one-line case in the table above. Four were never run — rejected on licence, deployment shape or a documented failure mode, and recorded so they can be reopened if a constraint changes. <strong>One of them, MinerU, has since been reopened, implemented and run</strong> — sections 12 and 13.</p>
+
+        <div class="accordion">
+          <details class="why">
+            <summary>MinerU — ruled out on licence and weight, then relicensed, built and run</summary>
+            <div class="body">
+              <p><span class="minus">Against, at the time</span> Heaviest install: model weights, optional GPU path, fatter container. <strong>AGPL-3.0.</strong> First to re-test if the licence constraint drops.</p>
+              <p><span class="plus">Since</span> The copyleft blocker went away, so MinerU was run against the same four papers on <strong>2026-07-26</strong>. It is no longer an untested candidate, but it is not the recommendation. Results in section 12.</p>
+            </div>
+          </details>
+
+          <details class="why">
+            <summary>Marker — fast and good, but weakest where the corpus hides its answers</summary>
+            <div class="body">
+              <p><span class="minus">Against</span> Weaker than Docling on <strong>nested tables</strong>, where several answers live. <strong>GPL-3.0.</strong></p>
+            </div>
+          </details>
+
+          <details class="why">
+            <summary>PyMuPDF4LLM — instant, and fails in the worst possible way</summary>
+            <div class="body">
+              <p><span class="minus">Against</span> No layout intelligence. It <strong>fails silently</strong>, emitting plausible text with the columns interleaved, which poisons the index. <strong>AGPL-3.0.</strong></p>
+            </div>
+          </details>
+
+          <details class="why">
+            <summary>unstructured — permissive, but the accuracy is in the hosted tier</summary>
+            <div class="body">
+              <p><span class="minus">Against</span> The high-accuracy path is the hosted API; the open version is weaker on two-column, table-heavy layouts.</p>
+            </div>
+          </details>
+
+          <details class="why">
+            <summary>LlamaParse — best output, wrong dependency</summary>
+            <div class="body">
+              <p><span class="minus">Against</span> API key, per-page cost, and <strong>documents leave the machine</strong> — wrong for a private research collection. Rejected on deployment shape, not quality.</p>
+            </div>
+          </details>
+        </div>
+      </section>
+
+      <section id="run">
+        <h2><span class="idx">05</span> What was actually run <span class="state open">measured</span></h2>
+        <p class="determines"><b>Question</b> can a local reader produce structure the rest of the pipeline can work with, and what does it cost?</p>
+
+        <p>In this first pass one parser was run: <strong>Docling</strong>, with <code>pdftotext -layout</code> supplying ground-truth reading order. Four papers, chosen to span the corpus rather than average it. The same four were later re-run under both Docling and MinerU — section 12.</p>
+
+        <div class="table-scroll"><table class="matrix wide">
+          <thead>
+            <tr><th>Paper</th><th class="ctr">Pages</th><th class="ctr">Chars</th><th>Why this one</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="opt">011 Maleszka<span class="sub">PNAS letter</span></td><td class="ctr">1</td><td class="ctr">6.5k</td><td class="txt">Shortest. Two-column, single page — hardest layout per unit of text.</td></tr>
+            <tr><td class="opt">003 Ajoolabady<span class="sub">review</span></td><td class="ctr">8</td><td class="ctr">49.7k</td><td class="txt">Mid-length prose review. Heading-heavy, few tables.</td></tr>
+            <tr><td class="opt">009 Vetter<span class="sub">research article</span></td><td class="ctr">13</td><td class="ctr">65.9k</td><td class="txt">Holds the table answering "which biomarker best predicted mortality" — nowhere else in the corpus.</td></tr>
+            <tr><td class="opt">014 Gkioni<span class="sub">Nature Aging</span></td><td class="ctr">32</td><td class="ctr">101.2k</td><td class="txt">Longest. Tests degradation with length. The last four pages are an appended Nature Reporting Summary, which matters in section 12.</td></tr>
+          </tbody>
+        </table></div>
+
+        <h3>What Docling costs</h3>
+        <div class="facts">
+          <div><span class="v">1.1 GB</span><span class="k">Python dependencies</span></div>
+          <div><span class="v">511 MB</span><span class="k">model weights</span></div>
+          <div><span class="v">~1–2 s</span><span class="k">per page</span></div>
+          <div><span class="v">5–8 min</span><span class="k">whole corpus, one-time</span></div>
+        </div>
+
+        <p>Measured: 003 (8 pp) 11.9 s, 009 (13 pp) 19.2 s, 014 (32 pp) 17.6 s, plus a one-time warm-up of 25–110 s on a cold install. 009 ran ~3× slower per page than 014 because its tables engaged TableFormer. Torch, OpenCV and EasyOCR are pulled in even with <code>do_ocr=False</code>. Ingestion runs once; the index is permanent.</p>
+
+        <p class="footnote">The 5–8 minute corpus figure was extrapolated when the corpus was 20 papers and 327 pages. It is now 27 papers and 425 pages, so treat it as a floor rather than a measurement.</p>
+      </section>
+
+      <section id="right">
+        <h2><span class="idx">06</span> What Docling got right</h2>
+        <ul class="list-airy">
+          <li><b>Table reconstruction.</b> The load-bearing capability, and the reason to accept the install weight. TableFormer rebuilt paper 009's answer table as correct 8-column markdown.</li>
+          <li><b>Furniture removal.</b> 52 <code>page_header</code> and 45 <code>page_footer</code> items correctly classified and stripped on paper 014, so none reaches a chunk.</li>
+          <li><b>Page provenance in the JSON.</b> 1604 of 1604 items on paper 014 carry a <code>page_no</code>. <span class="tag ok">gate 2 passed</span>.</li>
+        </ul>
+
+        <div class="callout">
+          <span class="lbl">Known defects</span>
+          <p>Reading the output surfaced a set of Docling defects. Each needs an automated regression test and a generalized fix before the parser output is trusted. None is fatal; two need checking before ingestion.</p>
+        </div>
+
+        <div class="callout">
+          <span class="lbl">Operational note</span>
+          <p>Docling <strong>exits 0 with no output and no error</strong> under a restrictive sandbox. The ingestion step needs an explicit assertion that it produced something.</p>
+        </div>
+      </section>
+
+      <section id="hierarchy">
+        <h2><span class="idx">07</span> The heading-hierarchy problem <span class="state done">since fixed — see 11</span></h2>
+
+        <div class="callout">
+          <span class="lbl">Superseded — read section 11 alongside this</span>
+          <p>This section is kept because it is <strong>why one config flag is load-bearing</strong>, not because it describes current behaviour. Everything below was measured with Docling's <em>default</em> options and still holds under them. With <code>HeadingHierarchyOptions(enabled=True)</code>, tested on 2026-07-26, paper 009 comes back as a genuine five-level structure and <strong>gate 1 passes</strong>. Turn the flag off and all of this returns.</p>
+        </div>
+
+        <p class="lead">On default options Docling flattened every heading to level 1, and structural chunking depends on heading levels existing. This was the most consequential finding here.</p>
+
+        <p><strong>102 of 102 headings came back as <code>level: 1</code></strong> across the four papers — 18, 31, 1 and 52. It is in the <code>DoclingDocument</code> JSON, not only the markdown export, so no rendering flag fixes it. Paper 009's headings, in order:</p>
+
+        <div class="table-scroll"><table class="matrix">
+          <thead><tr><th>Heading as emitted</th><th>What it should be</th></tr></thead>
+          <tbody>
+            <tr><td class="opt">Methods</td><td class="txt">level 2</td></tr>
+            <tr><td class="opt">Study population</td><td class="txt">level 3</td></tr>
+            <tr><td class="opt">Biomarkers · Mortality · Confounders · Imputation · Statistical analysis</td><td class="txt">level 3</td></tr>
+            <tr><td class="opt">Results</td><td class="txt">level 2</td></tr>
+            <tr><td class="opt">Study population<span class="sub">same text, different section</span></td><td class="txt">level 3</td></tr>
+            <tr><td class="opt">Discussion</td><td class="txt">level 2</td></tr>
+          </tbody>
+        </table></div>
+
+        <p><strong>"Study population" appears twice</strong>, under Methods and under Results. Flattened, the two are indistinguishable: a chunk-identity collision and a retrieval problem.</p>
+
+        <h3>The downstream effect, measured</h3>
+        <p><code>MarkdownNodeParser</code> derives <code>header_path</code> from heading levels. With every heading at level 1 it is <code>"/"</code> for <strong>100% of chunks</strong> — 19 of 19 on 003, 31 of 31 on 009, 48 of 48 on 014. <code>HierarchicalNodeParser</code> falls back to size-based splitting.</p>
+
+        <h3>This is upstream, not a misconfiguration</h3>
+        <p>Four confirmations: flat levels in the JSON, not only the export; a flat body tree (max nesting depth 1 across 161 direct children); no font or style fields to infer a level from; and a <strong>documented open limitation in Docling</strong> — discussions #386 and #1170, issue #287. The third-party <code>docling-hierarchical-pdf</code> exists solely to infer this hierarchy.</p>
+
+        <p>It was upstream, and upstream is where it got fixed. The same signal proposed in section 08 — glyph height — is what Docling's own option now uses internally.</p>
+      </section>
+
+      <section id="geometry">
+        <h2><span class="idx">08</span> Hierarchy is recoverable from geometry</h2>
+        <p>Docling exposes no typography, but it exposes a <strong>bounding box per item</strong>. Glyph height separates the levels cleanly on paper 009:</p>
+
+        <div class="table-scroll"><table class="matrix wide">
+          <thead><tr><th class="ctr">Height</th><th class="ctr">Count</th><th>Headings at this height</th><th>Real level</th></tr></thead>
+          <tbody>
+            <tr><td class="ctr">72.42</td><td class="ctr">1</td><td class="txt">the paper title</td><td><span class="tag ok">H1</span></td></tr>
+            <tr><td class="ctr">11.11</td><td class="ctr">2</td><td class="txt">RESEARCH, Open Access</td><td><span class="tag">journal furniture</span></td></tr>
+            <tr><td class="ctr">8.70</td><td class="ctr">8</td><td class="txt">Abstract, Introduction, Methods, Results, Discussion, Conclusions, Supplementary Information, Publisher's note</td><td><span class="tag ok">H2 — all correct</span></td></tr>
+            <tr><td class="ctr">7.80</td><td class="ctr">9</td><td class="txt">Study population, Biomarkers, Mortality, Confounders, Imputation, Statistical analysis, Analyses stratified by cause of death, Declarations</td><td><span class="tag ok">H3 — all correct</span></td></tr>
+            <tr><td class="ctr">6.35</td><td class="ctr">9</td><td class="txt">Abbreviations, Author contributions, Funding, Data availability, Ethical approval, Competing interests, References</td><td><span class="tag">back matter</span></td></tr>
+            <tr><td class="ctr">19.80</td><td class="ctr">2</td><td class="txt">two headings that wrap onto a second line</td><td><span class="tag warn">artifact</span></td></tr>
+          </tbody>
+        </table></div>
+
+        <p>The one defect: <strong>multi-line headings inflate</strong>, because the box spans both lines — correctable by normalising against line count. Every other level-2 and level-3 heading lands in the right bucket.</p>
+
+        <div class="callout">
+          <span class="lbl">What followed</span>
+          <p>The conclusion at the time: hierarchy is unobtainable from Docling by configuration, but <strong>reconstructable from bounding-box geometry in roughly twenty lines</strong>. That reconstruction was never written, because Docling shipped the same idea upstream — its <code>HeadingHierarchyOptions</code> font-size fallback is this signal, in the library rather than in our code (section 11). The analysis stands as the reason to trust the option, and as the fallback if it is ever removed.</p>
+        </div>
+      </section>
+
+      <section id="untested">
+        <h2><span class="idx">10</span> What is still untested</h2>
+        <p>Recorded so the write-up claims no more than was measured.</p>
+
+        <ul class="list-airy">
+          <li><b>Twenty-three of twenty-seven papers.</b> Four parsed, by both parsers. Reading order verified against the text's own argument sequence on exactly one.</li>
+          <li><b>Paragraph-level reading order on the multi-page papers.</b> On 003, 009 and 014 both parsers put the top-level sections in the right order, which was checked. Whether paragraphs <em>inside</em> a section stay ordered was not. Docling's scrambling on 011 is therefore a confirmed defect on one layout, not a bound on how often it happens.</li>
+          <li><b>Whether page provenance reaches node metadata.</b> <code>page_no</code> is in the Docling JSON — 100% of items on all four papers — but whether LlamaIndex's <code>DoclingReader</code> carries it to <code>node.metadata</code> is the direct test of whether a citation can name a page. Still not run. This is the single most load-bearing untested thing on the page.</li>
+          <li><b>Whether equations survive — still fully open, and the four benchmark papers cannot answer it.</b> Both parsers emitted zero <code>formula</code> items across 011, 003, 009 and 014, with MinerU's <code>formula_enable=True</code>. That is the expected result rather than a finding: the manifest records documents 001-020 as "prose- and table-heavy but rarely display typeset mathematics". <strong>Papers 021-027 are the real test</strong>, added for exactly this: each is confirmed (by extraction, not by inspection) to carry genuine displayed math, and a naive <code>pdftotext</code> pass already corrupts it — a dropped minus sign in paper 023's Langevin equation, an orphaned <code>=</code> in paper 025's regression objective, stranded equation numbers in 022 and 026. Neither parser has been run against any of the seven. Until they are, <strong>MinerU's formula recognition is neither confirmed nor refuted</strong>, and nothing in this document rests on it.</li>
+          <li><b>The geometry-based reconstruction.</b> Never written. Docling's own option replaced the need for it, so this is closed rather than pending — see section 08.</li>
+          <li><b>Whether the two Docling defects MinerU exposes are worth fixing.</b> Caption binding and reading order are repairable in our own code from data Docling already exposes (section 16), but no fix exists and none has been measured.</li>
+        </ul>
+      </section>
+
+      <section id="fix">
+        <h2><span class="idx">11</span> Docling's own fix, tested <span class="state done">gate 1 passed</span></h2>
+        <p class="lead">Version 2.106.0 patched the exact defect in section 07. It was run against the same four papers on 2.115.0, and it works: paper 009 comes back with five levels instead of one.</p>
+
+        <div class="callout">
+          <span class="lbl">The measurement</span>
+          <p>With <code>HeadingHierarchyOptions(enabled=True)</code>, paper 009's 31 headings distribute as <strong><code>{1:1, 2:6, 3:10, 4:5, 5:9}</code></strong> — exactly the shape section 07 said was missing. The other three papers: 003 <code>{1:1, 2:16, 3:1}</code>, 014 <code>{1:4, 2:5, 3:39}</code>, 011 <code>{1:1}</code> (a one-page letter with one heading).</p>
+        </div>
+
+        <p>Docling <strong>2.106.0</strong> (2026-06-23; current release is <strong>2.115.0</strong>) added <code>HeadingHierarchyOptions</code>, resolving <a href="https://github.com/docling-project/docling/issues/3633">issue #3633</a>. It rewrites the <code>level</code> field on <code>SectionHeaderItem</code> directly in the <code>DoclingDocument</code> JSON — not only the markdown export — from three signals, in order of precedence:</p>
+
+        <ol>
+          <li><b>PDF bookmarks / table of contents</b>, when the file carries one, override everything else.</li>
+          <li><b>Numbering markers</b> — a small grammar resolving sequences like "PART I → 1. → 1.1 → (a) → (i)".</li>
+          <li><b>Font-size proxy</b> from parsed cell heights, the fallback when no numbering exists — the same signal behind the geometry reconstruction in section 08, now upstream.</li>
+        </ol>
+
+        <div class="callout">
+          <span class="lbl">Not automatic</span>
+          <p>Disabled by default — needs <code>HeadingHierarchyOptions(enabled=True)</code>. No new dependency, no change to install weight.</p>
+        </div>
+
+        <div class="callout warn">
+          <span class="lbl">Where it can still miss</span>
+          <p>Style fallback struggles with multi-line or rotated headings. Scanned or VLM-parsed pages carry no font data and degrade to numbering-only — a risk for unnumbered top-level sections like "Abstract" or "Results," common in Nature/Cell house style. Publisher PDFs carrying a bookmark ToC or numbered subsections should be unaffected.</p>
+        </div>
+
+        <h3>What it fixed, and what it did not</h3>
+        <p>These have to be read together. Reporting only the first would overclaim.</p>
+
+        <ul class="list-airy">
+          <li><b>The collision that motivated gate 1 is gone.</b> "Study population" appears twice in paper 009, once under Methods and once under Results. Docling now places the two at <strong>different levels, 3 and 4</strong>, so the two chunks are distinguishable. This is the decisive result: the exact failure section 07 described no longer happens.</li>
+          <li><b>The levels are usable but not semantically correct.</b> The tree is <strong>depth-shifted, not faithful</strong>. Discussion and Conclusions land at level 3 beside the Methods subsections when they belong at level 2 with Methods and Results; the Results subsections sit at level 4 rather than 3; back matter runs to level 5. Hierarchy-aware chunking works on this. A reader expecting the paper's own outline does not get it.</li>
+          <li><b>Journal furniture leaks into the heading list.</b> Docling emits <strong>"RESEARCH" and "Open Access" as level-2 headings</strong>, above the paper title. They will land in <code>header_path</code> and travel into every chunk beneath them. MinerU's heading list excludes both.</li>
+        </ul>
+
+        <p>This was the cheapest available test — a config flag against the pipeline already built — and it clears gate 1. It does not settle the parser question on its own, because the same run surfaced two defects that only showed up next to a second parser. Section 12.</p>
+      </section>
+
+      <section id="headtohead">
+        <h2><span class="idx">12</span> MinerU vs Docling, measured <span class="state done">both run</span></h2>
+        <p class="determines"><b>Question</b> with MinerU's licence objection gone and both parsers now implemented, which one actually preserves more of these four papers?</p>
+
+        <p>MinerU <strong>3.4.4</strong>, <code>pipeline</code> backend, device auto-selected as <strong>mps</strong>. Docling <strong>2.115.0</strong> with <code>HeadingHierarchyOptions(enabled=True)</code>. Same four papers, same machine (Apple Silicon, macOS), run sequentially in filename order.</p>
+
+        <div class="table-scroll"><table class="matrix wide">
+          <thead>
+            <tr><th>Paper</th><th>Parser</th><th class="ctr">Secs</th><th class="ctr">Items</th><th class="ctr">Headings</th><th>Heading levels</th><th class="ctr">Page prov.</th><th class="ctr">Tables</th><th class="ctr">Formulas</th><th class="ctr">MD chars</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="opt">011<span class="sub">1 page</span></td><td>Docling</td><td class="ctr">1.1</td><td class="ctr">31</td><td class="ctr">1</td><td class="txt">{1:1}</td><td class="ctr">31/31</td><td class="ctr">0</td><td class="ctr">0</td><td class="ctr">6653</td></tr>
+            <tr><td class="opt">011</td><td>MinerU</td><td class="ctr">14.0</td><td class="ctr">30</td><td class="ctr">1</td><td class="txt">{1:1}</td><td class="ctr">30/30</td><td class="ctr">0</td><td class="ctr">0</td><td class="ctr">4222</td></tr>
+            <tr><td class="opt">003<span class="sub">8 pages</span></td><td>Docling</td><td class="ctr">12.7</td><td class="ctr">191</td><td class="ctr">18</td><td class="txt">{1:1, 2:16, 3:1}</td><td class="ctr">191/191</td><td class="ctr">0</td><td class="ctr">0</td><td class="ctr">50223</td></tr>
+            <tr><td class="opt">003</td><td>MinerU</td><td class="ctr">96.1*</td><td class="ctr">106</td><td class="ctr">17</td><td class="txt">{1:1, 2:16}</td><td class="ctr">106/106</td><td class="ctr">0</td><td class="ctr">0</td><td class="ctr">49104</td></tr>
+            <tr><td class="opt">009<span class="sub">13 pages</span></td><td>Docling</td><td class="ctr">17.5</td><td class="ctr">179</td><td class="ctr">31</td><td class="txt">{1:1, 2:6, 3:10, 4:5, 5:9}</td><td class="ctr">179/179</td><td class="ctr">3</td><td class="ctr">0</td><td class="ctr">65991</td></tr>
+            <tr><td class="opt">009</td><td>MinerU</td><td class="ctr">148.1</td><td class="ctr">139</td><td class="ctr">30</td><td class="txt">{1:1, 2:29}</td><td class="ctr">139/139</td><td class="ctr">2</td><td class="ctr">0</td><td class="ctr">61910</td></tr>
+            <tr><td class="opt">014<span class="sub">32 pages</span></td><td>Docling</td><td class="ctr">11.4</td><td class="ctr">238</td><td class="ctr">48</td><td class="txt">{1:4, 2:5, 3:39}</td><td class="ctr">238/238</td><td class="ctr">0</td><td class="ctr">0</td><td class="ctr">101321</td></tr>
+            <tr><td class="opt">014</td><td>MinerU</td><td class="ctr">453.4</td><td class="ctr">444</td><td class="ctr">57</td><td class="txt">{1:2, 2:55}</td><td class="ctr">444/444</td><td class="ctr">10</td><td class="ctr">0</td><td class="ctr">133654</td></tr>
+          </tbody>
+        </table></div>
+
+        <p class="footnote">* Both parsers ran 003 first, so 003 carries any warm-up. MinerU's 96.1 s includes a one-time model load measured separately at <strong>68.9 s</strong>, putting its actual parse cost near 27 s. Docling's explicit converter build took 0.1 s and its 12.7 s matches the 11.9 s recorded for 003 in the earlier session, so no significant warm-up was paid — its weights were already cached on disk. A cold Docling install still pays the one-time 25–110 s warm-up from section 05, which none of these numbers include. Item counts come from each parser's own content list and are not comparable with the 1604-item figure in section 06, which enumerated the full Docling item tree. The <b>Formulas</b> column reads zero throughout because none of these four papers contains displayed mathematics — it measures the corpus, not the parsers.</p>
+
+        <h3>The scoreboard</h3>
+
+        <div class="table-scroll"><table class="matrix wide">
+          <thead><tr><th>Property</th><th class="ctr">Winner</th><th>What was measured</th></tr></thead>
+          <tbody>
+            <tr><td class="opt">Gate 1 — heading hierarchy</td><td class="ctr"><span class="verdict ours">Docling</span></td><td class="txt">Docling reaches five levels on 009. <strong>MinerU never emits a level deeper than 2</strong> on any of the four papers — a hard ceiling.</td></tr>
+            <tr><td class="opt">Gate 2 — page provenance</td><td class="ctr"><span class="verdict none">tie</span></td><td class="txt">100% on every paper for both. MinerU carries <code>page_idx</code> on every content-list item; Docling carries <code>page_no</code>.</td></tr>
+            <tr><td class="opt">Gate 3 — tables</td><td class="ctr"><span class="verdict none">split</span></td><td class="txt">Both preserve the answer table on 009. Docling finds more tables there (3 vs 2); MinerU binds captions correctly and finds 10 appendix tables on 014 that Docling misses entirely.</td></tr>
+            <tr><td class="opt">Formulas</td><td class="ctr"><span class="verdict none">not testable here</span></td><td class="txt">Zero from both parsers on all four papers, with <code>formula_enable=True</code> on MinerU — <strong>as expected: none of these four contains displayed mathematics.</strong> The real test is papers 021-027; see section 10.</td></tr>
+            <tr><td class="opt">Reading order</td><td class="ctr"><span class="verdict theirs">MinerU</span></td><td class="txt">On paper 011 MinerU emits the argument in the correct sequence; Docling emits First → Third → Last → Second.</td></tr>
+            <tr><td class="opt">Speed</td><td class="ctr"><span class="verdict ours">Docling</span></td><td class="txt">11.4 s vs 453.4 s on 014 — <strong>40× slower</strong>, and MinerU was on MPS, its accelerated path.</td></tr>
+          </tbody>
+        </table></div>
+
+        <div class="legend">
+          <span><b>Docling</b> — teal</span>
+          <span><b>MinerU</b> — orange</span>
+          <span><b>tie / split / neither</b> — grey</span>
+        </div>
+
+        <h3>Gate 1 — Docling wins, and it is the collision that decides it</h3>
+        <p>MinerU has native heading levels, but a shallow ceiling. On paper 009 its 30 headings are <code>{1:1, 2:29}</code>: the title, then <em>everything else</em> at level 2 — Abstract, Introduction, Methods, Study population, Biomarkers, Statistical analysis, Results, Discussion, Conclusions and all back matter at the same depth.</p>
+
+        <p>That reproduces the exact failure section 07 described for flat Docling, one level up. <strong>"Study population" appears twice in paper 009</strong>, under Methods and under Results. Docling separates them at levels 3 and 4. MinerU puts both at level 2, where they are indistinguishable.</p>
+
+        <div class="table-scroll"><table class="matrix wide">
+          <thead><tr><th>Paper 009, in document order</th><th class="ctr">Docling</th><th class="ctr">MinerU</th></tr></thead>
+          <tbody>
+            <tr><td class="txt">RESEARCH · Open Access <em>— journal furniture</em></td><td class="ctr">2</td><td class="ctr">not emitted</td></tr>
+            <tr><td class="txt">The paper title</td><td class="ctr">1</td><td class="ctr">1</td></tr>
+            <tr><td class="txt">Abstract · Introduction · Methods · Results</td><td class="ctr">2</td><td class="ctr">2</td></tr>
+            <tr><td class="txt">Methods subsections — Study population, Biomarkers, Mortality, Confounders, Imputation, Statistical analysis</td><td class="ctr">3</td><td class="ctr">2</td></tr>
+            <tr><td class="txt">Results subsections — Study population, Association between mortality and individual biomarkers, Analyses stratified by cause of death, …</td><td class="ctr">4</td><td class="ctr">2</td></tr>
+            <tr><td class="txt">Discussion · Conclusions</td><td class="ctr">3</td><td class="ctr">2</td></tr>
+            <tr><td class="txt">Declarations and back matter</td><td class="ctr">4–5</td><td class="ctr">2</td></tr>
+          </tbody>
+        </table></div>
+
+        <p>Read the Docling column carefully: it is <strong>collision-free but depth-shifted</strong>, not a faithful section tree. Discussion and Conclusions share level 3 with the Methods subsections when they belong at level 2. That is enough for hierarchy-aware chunking and not enough to reconstruct the paper's outline. MinerU's one clear advantage here is that it leaves the journal furniture out.</p>
+
+        <h3>Reading order — MinerU wins on paper 011</h3>
+        <p>Paper 011 is the documented Docling failure from section 06. The letter's argument sequence is unambiguous because the ordinals are written into the text: <em>Insect diapause → In a recent Brief Report → First → Second → Third → Last → While this report</em>. Measured by character offset in each parser's markdown:</p>
+
+        <ul class="list-airy">
+          <li><b>MinerU</b> 193 &lt; 409 &lt; 754 &lt; 1583 &lt; 2559 &lt; 3218 &lt; 3568 — correct order.</li>
+          <li><b>Docling</b> emits <strong>First → Third → Last → Second</strong>. "Second" lands at 2818, after "Third" at 1795 and "Last" at 2463. Confirmed scrambled.</li>
+        </ul>
+
+        <div class="callout note">
+          <span class="lbl">Two limits on this finding</span>
+          <p><strong>The oracle.</strong> <code>pdftotext -layout</code> interleaves the two columns line by line, so its offsets are not a reading-order oracle. The argument sequence is, because the ordinals are explicit.</p>
+          <p><strong>The scope.</strong> On the three multi-page papers <em>both</em> parsers emit Abstract → Introduction → Methods → Results → Discussion in the right order. Docling's scrambling is specific to the dense single-page two-column letter, not systemic. It was not checked at paragraph level on the multi-page papers, so this is a floor on the defect, not a proof of its rarity.</p>
+        </div>
+
+        <h3>Tables — split, and one correction to make</h3>
+        <ul class="list-airy">
+          <li><b>The answer table survives in both.</b> On 009 MinerU emits it as HTML (<code>&lt;table&gt;&lt;tr&gt;&lt;td&gt;</code>), Docling as markdown. The answer — epigenetic clock, HR 1.40, highest of the biomarkers — is intact either way.</li>
+          <li><b>Caption binding: MinerU wins.</b> The defect recorded in section 06 is still live in Docling 2.115.0. On paper 009 <strong>Table 2 and Table 3 have zero captions bound</strong>, and Table 1's caption text is duplicated into the table body. MinerU binds captions correctly, as a separate <code>table_caption</code> field, on both tables it found.</li>
+          <li><b>Recall: split.</b> Docling finds 3 tables on 009 to MinerU's 2 — it also picks up the abbreviations table. On 014 MinerU finds 10 where Docling finds 0.</li>
+        </ul>
+
+        <div class="callout note">
+          <span class="lbl">Correction — paper 014 does have tables</span>
+          <p>This document has recorded 014 as containing zero tables. That is true of the <strong>article body only</strong>. All ten tables MinerU finds are on <strong>pages 28–31</strong>, in the Nature Reporting Summary appended to the paper, which is genuinely tabular — they are real, not hallucinated. They are also boilerplate, so recall here is not obviously a gain for retrieval.</p>
+        </div>
+
+        <h3>What this run could not test</h3>
+        <div class="callout warn">
+          <span class="lbl">Formulas — these four papers cannot answer the question</span>
+          <p>Both parsers emitted <strong>zero formula items</strong> on all four papers, with <code>formula_enable=True</code> on MinerU. That is the expected result, not a finding: <strong>none of these four papers contains displayed mathematics.</strong> The corpus manifest records documents 001-020 as "prose- and table-heavy but rarely display typeset mathematics", which is precisely why papers 021-027 were added. Formula recognition is the one capability this document has repeatedly credited to MinerU alone, and it stays <strong>untested</strong> — measuring it here would prove nothing in either direction. Papers 021-027 are the test; section 10 holds the open question, and nothing in section 16 rests on it.</p>
+        </div>
+      </section>
+
+      <section id="minerucost">
+        <h2><span class="idx">13</span> What MinerU costs <span class="state done">measured</span></h2>
+        <p>The capability comparison is close enough that cost decides it. Cost is not close.</p>
+
+        <div class="facts">
+          <div><span class="v">40×</span><span class="k">slower on paper 014</span></div>
+          <div><span class="v">453.4 s</span><span class="k">014, MinerU on MPS</span></div>
+          <div><span class="v">11.4 s</span><span class="k">014, Docling</span></div>
+          <div><span class="v">~2.6 GB</span><span class="k">pipeline model weights</span></div>
+        </div>
+
+        <p>Extrapolated over the corpus: <strong>Docling 5–8 minutes, MinerU roughly 1.5–2.5 hours</strong>. Both extrapolations were made against the 327-page figure, so both are floors — the corpus is now 425 pages. MinerU was running on MPS, its accelerated path, not CPU.</p>
+
+        <h3>Install and dependency pressure</h3>
+        <ul class="list-airy">
+          <li><b>The right extra is <code>mineru[pipeline]==3.4.4</code>.</b> <code>mineru[core]</code> was installed first and is wrong for us — it pulls gradio and the VLM torch path. The venv reaches 1.4 GB total; pipeline weights are ~2.6 GB downloaded from HuggingFace on first run (measured against the HF API; MinerU's own docs ask for 20 GB+ free disk).</li>
+          <li><b>It pulls the stack backwards.</b> Installing MinerU downgraded <strong>starlette 1.3.1 → 0.52.1, transformers 5.8.1 → 4.57.6, pypdfium2 5.12.1 → 5.10.1</strong>. Nothing broke — the full suite still passes — but it pins <code>transformers&gt;=4.57.3,&lt;5</code>, which will fight a future embedding model. <code>torchvision</code> is unpinned against <code>torch&gt;=2.6,&lt;3</code>, the classic MinerU install failure.</li>
+        </ul>
+
+        <h3>Operational hazards found while building it</h3>
+        <ul class="list-airy">
+          <li><b>It renders pages in a <code>ProcessPoolExecutor</code>.</b> On macOS, which spawns rather than forks, any entry point must be import-safe or the run dies with <code>BrokenProcessPool</code>. Hit directly on the first smoke run. Uvicorn is fine; ad-hoc scripts are not.</li>
+          <li><b>Silent empty output on macOS.</b> Open issues <strong>#5311 and #5324</strong>: every model stage reports 100%, then no pages and no exception, on larger PDFs. Workarounds are chunking to ~40 pages or <code>MINERU_PROCESSING_WINDOW_SIZE=16</code>. Not observed on our 32-page paper. This is the same failure shape already recorded for Docling under a sandbox. It needs a regression test that treats empty parser output as a failure.</li>
+          <li><b>OCR language has no <code>auto</code>.</b> <code>en</code> normalises to MinerU's <code>ch</code> model, which is the Latin+CJK recogniser — correct for English papers despite reading wrong.</li>
+          <li><b>The default backend is <code>hybrid-engine</code>, not <code>pipeline</code>.</b> Hybrid and VLM cannot run pure-CPU, so <code>pipeline</code> is selected explicitly.</li>
+        </ul>
+
+        <h3>Licence — the blocker is gone, the stability is not</h3>
+        <p>MinerU moved off AGPL-3.0 to the "MinerU Open Source License" (Apache-2.0 based) at 3.1.0. The copyleft objection that ruled it out in section 04 no longer applies to our pinned version. Three qualifications belong beside that:</p>
+
+        <div class="table-scroll"><table class="matrix">
+          <thead><tr><th>Date</th><th>LICENSE.md change</th></tr></thead>
+          <tbody>
+            <tr><td class="opt">2026-03-20</td><td class="txt">AGPL-3.0 → Apache-2.0</td></tr>
+            <tr><td class="opt">2026-03-28</td><td class="txt">reverted to AGPLv3</td></tr>
+            <tr><td class="opt">2026-04-14</td><td class="txt">Apache-2.0 again</td></tr>
+            <tr><td class="opt">2026-04-17</td><td class="txt">custom conditions added</td></tr>
+          </tbody>
+        </table></div>
+
+        <ul class="list-airy">
+          <li><b>The relicensing wobbled.</b> Four changes in under four weeks, including a reversion. Forward licence stability is an open risk, not a settled question.</li>
+          <li><b>Some weights are still AGPL.</b> <code>opendatalab/MinerU2.5-2509-1.2B</code> is tagged <strong>agpl-3.0 on HuggingFace today</strong>; only <code>MinerU2.5-Pro-2604/2605</code> are Apache-2.0. Anything at or below 3.0.x is AGPL code <em>and</em> AGPL weights. Our pipeline backend does not use those VLM weights, but any version bump needs the model tags re-checked.</li>
+          <li><b>An active obligation Docling does not carry.</b> Offering an <strong>online service</strong> built on MinerU requires prominently disclosing that MinerU is used. The other thresholds (100M monthly active users, $20M monthly revenue) are irrelevant at this scale; the disclosure is not.</li>
+        </ul>
+      </section>
+
+      <section id="reexamined">
+        <h2><span class="idx">14</span> Candidates re-examined <span class="state now">mapped</span></h2>
+        <p class="determines"><b>Question</b> raised by testing surfacing Docling's defects (section 06), not by licence alone this time: is there something that clears gate 1 without a workaround, and still holds up on tables?</p>
+
+        <div class="table-scroll"><table class="matrix wide">
+          <thead>
+            <tr><th>Parser</th><th>Licence</th><th>Heading hierarchy</th><th>Tables &amp; equations</th><th>Footprint</th><th class="ctr">Status</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="opt">Kreuzberg<span class="sub">Rust core, Python bindings</span></td>
+              <td><span class="tag ok">MIT</span></td>
+              <td class="txt">Reads the PDF's own tagged structure tree when present — the author's real hierarchy, not an inferred one.</td>
+              <td class="txt">Native table extraction; no independent benchmark against Docling yet.</td>
+              <td class="txt">No Torch/OpenCV/EasyOCR pull-in; self-reported 9–50× throughput vs. Docling.</td>
+              <td class="ctr"><span class="state now">worth testing</span></td>
+            </tr>
+            <tr>
+              <td class="opt">MinerU<span class="sub">run 2026-07-26</span></td>
+              <td><span class="tag flag">custom, Apache-based</span></td>
+              <td class="txt">Measured: correct two-column order on 011, but a hard ceiling at level 2 — no deeper hierarchy on any paper.</td>
+              <td class="txt">Tables good, captions bound correctly. Formula recognition still <strong>untested</strong> — the four benchmark papers carry no displayed mathematics.</td>
+              <td class="txt">Heaviest install of the group, and 40× slower than Docling on the longest paper.</td>
+              <td class="ctr"><span class="state done">run, not chosen</span></td>
+            </tr>
+            <tr>
+              <td class="opt">GROBID<span class="sub">science-miner</span></td>
+              <td><span class="tag ok">Apache-2.0</span></td>
+              <td class="txt">Purpose-built for scholarly TEI-XML — genuinely nested, its actual strength.</td>
+              <td class="txt">GriTS table-similarity score of 0.12 in one benchmark; cannot process figures at all.</td>
+              <td class="txt">Java service + Docker, not pure Python.</td>
+              <td class="ctr"><span class="state open">ruled out</span></td>
+            </tr>
+            <tr>
+              <td class="opt">PaddleOCR / PP-Structure<span class="sub">Baidu, v3</span></td>
+              <td><span class="tag ok">Apache-2.0</span></td>
+              <td class="txt">Claims hierarchy preservation; a nested heading-level schema is unconfirmed from docs alone.</td>
+              <td class="txt">A stated strength across V2→V3 iterations.</td>
+              <td class="txt">Lightest model storage of the group; PaddlePaddle, not Torch — thinner ecosystem, one broken official example found.</td>
+              <td class="ctr"><span class="state open">unproven</span></td>
+            </tr>
+            <tr>
+              <td class="opt">Nougat<span class="sub">Meta/FAIR</span></td>
+              <td><span class="tag warn">MIT code / CC-BY-NC weights</span></td>
+              <td class="txt">None — single markdown text stream, no structure at all.</td>
+              <td class="txt">Best-known open equation/LaTeX transcription; weak on complex tables.</td>
+              <td class="txt">Dormant since 2025-02-21.</td>
+              <td class="ctr"><span class="state open">ruled out</span></td>
+            </tr>
+            <tr>
+              <td class="opt">olmOCR 2<span class="sub">Ai2</span></td>
+              <td><span class="tag ok">Apache-2.0, code &amp; weights</span></td>
+              <td class="txt">Markdown heading convention only; no confirmed page-anchored provenance.</td>
+              <td class="txt">Tables as HTML, equations as LaTeX; 82.4 on its own benchmark.</td>
+              <td class="txt">7B VLM — needs a real GPU (20 GB+ VRAM) and vLLM.</td>
+              <td class="ctr"><span class="state open">ruled out</span></td>
+            </tr>
+            <tr>
+              <td class="opt">Surya<span class="sub">Datalab, Marker's lineage</span></td>
+              <td><span class="tag warn">Apache code / RAIL-restricted weights</span></td>
+              <td class="txt">Untested — same lineage as Marker, already found weaker than Docling on nested tables.</td>
+              <td class="txt">Single 650M VLM: layout, OCR, tables, reading order in one pass.</td>
+              <td class="txt">Lighter than a full pipeline; weights not unrestricted.</td>
+              <td class="ctr"><span class="state open">ruled out</span></td>
+            </tr>
+          </tbody>
+        </table></div>
+
+        <div class="legend">
+          <span><b>run, not chosen</b> — measured on this corpus, lost on the evidence (sections 12–13)</span>
+          <span><b>worth testing</b> — clears the licence/deployment bar, unproven on this corpus</span>
+          <span><b>ruled out</b> — a specific property fails the job in section 01</span>
+          <span><b>unproven</b> — no blocking defect found, but no verification either</span>
+        </div>
+      </section>
+
+      <section id="ruledout2">
+        <h2><span class="idx">15</span> Why the others don't replace Docling</h2>
+        <p>Each ruled out on a specific, confirmed property, not a hunch.</p>
+
+        <div class="accordion">
+          <details class="why">
+            <summary>GROBID — the best hierarchy of any candidate, but it can't do tables</summary>
+            <div class="body">
+              <p><span class="plus">For</span> Purpose-built for scholarly structure: real nested <code>&lt;div&gt;</code> sections from cascaded sequence-labeling models, not a layout heuristic. Apache-2.0, actively maintained.</p>
+              <p><span class="minus">Against</span> One benchmark measured its table extraction at a <strong>GriTS score of 0.12</strong>. It <strong>cannot process figures at all</strong>. The corpus's load-bearing answer lives in a table (paper 009) — this alone disqualifies it as a primary parser.</p>
+            </div>
+          </details>
+
+          <details class="why">
+            <summary>Nougat — dormant, non-commercial weights, no structure</summary>
+            <div class="body">
+              <p><span class="minus">Against</span> Code is MIT, but the released weights are <strong>CC-BY-NC</strong> — not open end-to-end. Last commit <strong>2025-02-21</strong>, effectively dormant. Output is a single markdown text stream with <strong>no section hierarchy and no page provenance</strong> — solves equations, nothing else this job needs.</p>
+            </div>
+          </details>
+
+          <details class="why">
+            <summary>PaddleOCR / PP-Structure — plausible on tables, unproven on hierarchy, friction on install</summary>
+            <div class="body">
+              <p><span class="plus">For</span> Apache-2.0. Lightest model footprint of the group by a wide margin; table recognition a stated strength across versions.</p>
+              <p><span class="minus">Against</span> Nested heading-<code>level</code> output not confirmed from documentation. Runs on PaddlePaddle, not Torch — a thinner English-language ecosystem, and the official PP-StructureV3 example was found broken in at least one open issue. Not ruled out on a hard defect — unproven, would need hands-on testing before trusting.</p>
+            </div>
+          </details>
+
+          <details class="why">
+            <summary>olmOCR 2 — the cleanest licence of any candidate, wrong operational shape</summary>
+            <div class="body">
+              <p><span class="plus">For</span> Apache-2.0 for code <em>and</em> weights, no thresholds or asterisks — the only fully unrestricted licence found. Tables as HTML, equations as LaTeX, forced JSON page metadata.</p>
+              <p><span class="minus">Against</span> A 7B vision-language model needs a real GPU (20 GB+ VRAM recommended) and vLLM to serve. Disproportionate for a one-time 20-paper batch that Docling clears CPU-only in 5–8 minutes. No confirmed page-anchored provenance per element.</p>
+            </div>
+          </details>
+
+          <details class="why">
+            <summary>Surya — Marker's own engine, already found wanting</summary>
+            <div class="body">
+              <p><span class="minus">Against</span> Code Apache-2.0, but released weights carry a modified <strong>RAIL-M</strong> licence (free under $5M funding/revenue, not unrestricted). Same lineage as Marker, already measured weaker than Docling on nested tables — no reason to expect standalone Surya to do better without testing, and the weights licence adds a reason not to bother first.</p>
+            </div>
+          </details>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <footer class="page">
+    <a class="backlink mb-0" href="../index.html">← System documentation</a>
+  </footer>
+</div>
+<!-- ds:js:start -->
+<script defer src="../_assets/docs.js"></script>
+<!-- ds:js:end -->
+</body>
+</html>

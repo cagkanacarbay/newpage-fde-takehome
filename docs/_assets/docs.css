@@ -584,13 +584,17 @@ footer.page { margin-top: var(--s16); }
 /* Tables live inside a white blob. No outer border, no vertical rules. */
 .table-scroll {
   overflow-x: auto;
+  max-width: 100%;
+  min-width: 0;
   margin: var(--s6) 0;
   border-radius: var(--r-xl);
   background: var(--surface);
   padding: var(--s3) var(--s5);
   -webkit-overflow-scrolling: touch;
 }
-.table-scroll table { margin: 0; }
+.table-scroll table { min-width: 100%; margin: 0; }
+.table-scroll table.wide { min-width: 44rem; }
+.table-scroll th, .table-scroll td { overflow-wrap: anywhere; }
 
 table {
   width: 100%;
@@ -648,6 +652,7 @@ table.map .grouplabel { font-size: 1rem; font-weight: 600; color: var(--orange);
   th, td { padding: var(--s4) var(--s3); }
   table { font-size: .95rem; }
   table.opts td:first-child { min-width: 120px; }
+  .table-scroll { padding: var(--s3) var(--s4); }
 }
 
 /* ------------------------------------------------------- rating meters --- */
@@ -679,7 +684,7 @@ table.map .grouplabel { font-size: 1rem; font-weight: 600; color: var(--orange);
 .step .n { display: block; font-size: .98rem; font-weight: 600; color: var(--orange); margin-bottom: var(--s3); }
 
 /* Numbered requirement list */
-.numbered { list-style: none; counter-reset: r; padding: 0; margin: 0; display: grid; gap: var(--s2); grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); max-width: none; }
+.numbered { list-style: none; counter-reset: r; padding: 0; margin: 0; display: grid; gap: var(--s2); grid-template-columns: minmax(0, 1fr); max-width: none; }
 .numbered { gap: var(--s5) var(--s8); }
 .numbered li {
   counter-increment: r;
@@ -698,6 +703,7 @@ table.map .grouplabel { font-size: 1rem; font-weight: 600; color: var(--orange);
 }
 .numbered li b { display: block; color: var(--text); font-weight: 600; }
 .numbered li span.d { color: var(--muted); }
+.numbered li b, .numbered li span.d { grid-column: 2; }
 
 /* Option rows */
 .optionlist { list-style: none; padding: 0; margin: 0; max-width: none; display: grid; gap: var(--s2); }
