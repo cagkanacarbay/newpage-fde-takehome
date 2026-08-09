@@ -13,6 +13,14 @@ The repository includes the 27-PDF research corpus in
 Use `uv run scripts/fetch_corpus.py` only to restore or refresh the corpus from
 its public sources.
 
+## Architecture overview
+
+<!-- Cha writes this section himself. Leave empty. He may ask the agent for specific parts. -->
+
+## Productionizing, scaling, and hyperscaler deployment
+
+<!-- Cha writes this section himself. Leave empty. He may ask the agent for specific parts. -->
+
 ## RAG/LLM approach and decisions
 
 <!-- Cha writes this section himself. Leave empty. He may ask the agent for specific parts.
@@ -22,6 +30,13 @@ its public sources.
 ### Framework
 
 Chose llamaindex as the framework for our RAG pipeline because the selected docs are scientific papers, PDFs, with lots of tables, equations, graphs, and llamaindex provides a good, simple way to parse and feed them into the pipeline. Provides the full set so we can run tests on our data and pick the best method to chunk, store, retrieve the data, plus build evals on the same pipeline. 
+
+### Parsing
+Considered multiple parsers to convert the 27 target PDFs into structured markdown. This is where a lot of RAG pipelines fail. Converting PDFs into markdown will have issues so a great parser is necessary. 
+
+Researched and tested multiple solutions for this. 
+
+### Chunking
 
 ## Key technical decisions and why
 
@@ -34,7 +49,7 @@ Chose llamaindex as the framework for our RAG pipeline because the selected docs
 ## Engineering standards followed (and skipped)
 
 ### Ruff linting and checks
-Enforcing code qualiy through automated ruff lint and checks that fire through hooks. 
+Enforcing code quality through automated ruff lint and checks that fire through hooks. 
 
 Each coding agent edit enforces the hooks to fire and check for violations. Violations get caught immediately so code quality from this perspective is deterministic.
 
@@ -48,6 +63,8 @@ Tests are cheap in the age of LLMs, so I take advantage of that by running them,
 ### Test Driven development
 Coding agents write all the code. The way they do this is a Red -> Green, Red -> Green, ... TDD methodology so they write one failing test, see it fail, write the code that passes the test, and then write another failing test. This forces the LLM to write better more useful tests. It doesn't mean all tests it writes are useful, but more so than not so the overall impact is gradually having a god set of tests that cover important aspects of the codebase.
 
+The thing about this is, with LLMs, tests are free. Having LLMs write these tests all the time increases the chances of catching issues early on. 
+
 ### Write a test when there is an issue found
 Any issue found, a bug, an unconsidered problem, gets its own test through the previously described TDD methodology. This makes sure real world bugs, problems encountered etc. then feed back into the system as improvements of the codebase. The tests run all the time, so these issues never come back.
 
@@ -59,3 +76,32 @@ This system takes work done by the LLM and runs it through a gauntlet of review,
 
 ### Automated UI Tests
 Whenever UI is updated, it is picked up through hooks, then a Codex agent goes in takes screenshots, works through the UI and visually verifies it. This fixed many simile UI issues out of the gate. I have this on for UI projects, but it can be token hog, so I'm looking at ways to control when and how its used more effectively. 
+
+## How AI tools were used in development
+
+Coding agents are my primary work surface.
+
+First we scope the work, discuss options, and architecture on HTML docs. See the docs for some artifacts.
+
+Agents run automatically for verification, review, and after code changes break tests, as described above. 
+The coding agents' coding capabilities are constrained by the myriad of tests, lints, rules, deterministic checks that force it to work in a certain way. 
+
+I am always looking at ways of doing this meta-work of constraining how the agent works. The agents are great at spewing out code. It's on me as the engineer to build the harness around it so that it can create code as fast as possible, but I trust that the code is up to my quality standards. Those standards and the speed to code must always be increasing, as both models and our ways to harness engineer improve. 
+
+## What I'd do differently with more time
+
+This projects was a demo that I based on a research paper stack I selected. What I'd do differently depends mostly on what the actual requirements of a work would be. I can define the problem I was working on more specifically, and place it in a hyphotetical customer environment and answer.
+
+Customer: Big pharma research company working on R&D across the longevity and related fields. Researchers looking to utilize AI to improve their R&D process. More specifically the ask from them is to have a dedicated assistant who has all the work from the emerging field, and can assist in identifying relevance to the researcher's own work in others' papers.
+
+Given this scenario I would:
+1. Build a pipeline that feeds in fresh papers into the system. The customer might want control over what papers get ingested, so this might be a simple UI that brings them relevant papers for them to choose from, OR it might be a UI where they give the system the papers. 
+2. Ship MVP. Observe customer behavior if possible. use customer behavior to create eval sets. 
+3. Add in a way for the customer to flag issues they run into. Ask AI -> AI returns wrong/hallucinated answer -> user flags it -> I fish out the reason, turn it into an eval -> similar issues get flagged by eval.
+4. Focus on understanding the customers' use case. It's easy to build a RAG pipeline that simply answers questions. But that's never the real goal of the customer. The customer wants a tool to make their work easier. What does that work entail? Does it cross these research papers as well as their own work? Is their work avaiable to be indexed? Do we need access controls? A boundary between their work and these papers? What is the actual goal of the researcher? What painful, time consuming tasks can our system look to eliminate or alleviate? Questions of this sort need to be understood and turned into solutions. 
+5. Authentication has not been considered as part of this work. In a real scenario we would deploy within the authentication paradigm of the customer.
+6. Work with the actual corpus, which would likely be thousands of papers, as well as other sorts of documents, to select each part of the pipeline. I'd run tests similar to the ones I've ran at a smaller scope in this repo, understand the corpus' nature, which chunking methodology provides better results in retrieveal and other tests. 
+
+## Screenshots
+
+<!-- Screenshots of the running application go here. -->
