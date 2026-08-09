@@ -60,3 +60,37 @@ def test_chunked_nodes_keep_exact_spot_citation_provenance() -> None:
         assert provenance
         assert all(prov["page_no"] >= 1 for prov in provenance)
         assert all({"l", "t", "r", "b"} <= prov["bbox"].keys() for prov in provenance)
+
+
+@pytest.mark.integration
+@pytest.mark.e2e
+@pytest.mark.xfail(
+    strict=True,
+    reason="Docling 2.115.0 does not bind every paper 009 table caption",
+)
+def test_docling_binds_every_paper_009_table_caption() -> None:
+    source = Path(
+        "data/corpus/longevity/009-vetter-2026-comparing-fourteen-biomarkers-of-aging.pdf"
+    )
+
+    [document] = parse_pdf(source)
+    tables = json.loads(document.get_content())["tables"]
+
+    assert len(tables) == 3
+    assert all(table["captions"] for table in tables)
+
+
+@pytest.mark.integration
+@pytest.mark.e2e
+@pytest.mark.xfail(
+    strict=True,
+    reason="Docling 2.115.0 scrambles paper 011 two-column reading order",
+)
+def test_docling_preserves_paper_011_two_column_reading_order() -> None:
+    source = Path("data/corpus/longevity/011-maleszka-2025-no-epigenetic-clock-in-insect.pdf")
+
+    [document] = parse_pdf(source)
+    text = document.get_content()
+    positions = [text.index(ordinal) for ordinal in ("First", "Second", "Third", "Last")]
+
+    assert positions == sorted(positions)
