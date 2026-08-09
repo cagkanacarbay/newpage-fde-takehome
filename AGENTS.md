@@ -43,7 +43,8 @@ The human updates the README unless otherwise stated.
 ## How you develop: TDD loop
 
 Red → green, one test at a time, then refactor — repeat. Use the `tdd` skill every time
-a feature is built or a bug is fixed. Write a brief before each test; after green,
+an application feature is built or an application bug is fixed. Documentation-only
+changes do not require application tests. Write a brief before each test; after green,
 review the test for weak assertions, internal mocks, and missing counter-examples. The
 method lives in the skill — this file does not restate it.
 
@@ -52,9 +53,10 @@ demonstrable on its own, rather than building a whole layer at a time.
 
 ## Testing
 
-Use `@pytest.mark.e2e` end-to-end tests when a change crosses a process or I/O
-boundary, and always to reproduce a bug before fixing it. Conventions, markers,
-mocking policy, and the reproduction protocol: `rules/testing.md`.
+Use `@pytest.mark.e2e` end-to-end tests for application changes that cross a process or
+I/O boundary, and always to reproduce an application bug before fixing it.
+Documentation-only changes do not require pytest or end-to-end tests.
+Conventions, markers, mocking policy, and the reproduction protocol: `rules/testing.md`.
 
 
 ## Environment
@@ -128,6 +130,9 @@ Give each choice its own section in that page.
 Keep a decision summary brief and link its reasoning to the related research page.
 Use expandable details for required configuration, known limits, and conditions that would reopen the choice.
 Link both research pages and `docs/decisions.html` from `docs/index.html`.
+Research tickets must create their primary artifact directly in `docs/research/` as HTML.
+Do not leave a Markdown research file as the only readable result.
+Link the HTML page from `docs/index.html` before resolving the ticket.
 
 Start new docs from `docs/_assets/template.html`. Run
 `python3 docs/_assets/sync-design-system.py` after a docs change. The automatic docs
