@@ -37,11 +37,13 @@ class LanceDBNodeStore:
         self._store = LanceDBVectorStore(uri=str(index_dir), table_name=table_name, mode="create")
 
     def add(self, nodes: list[BaseNode]) -> list[str]:
-        ids = self._store.add(nodes)
+        return self._store.add(nodes)
+
+    def finalize(self) -> None:
+        """Build the full-text leg after all documents are stored."""
         table = self._store.table
         assert table is not None  # add() creates the table when it does not exist
         table.create_index(self._store.text_key, config=FTS(), replace=True)
-        return ids
 
 
 def _create_node_parser() -> DoclingNodeParser:
@@ -57,6 +59,9 @@ class NodeStore(Protocol):
 
     def add(self, nodes: list[BaseNode]) -> list[str]:
         """Add nodes to the store and return their IDs."""
+
+    def finalize(self) -> None:
+        """Build indexes after all nodes have been added."""
 
 
 def _provenance_geometry(metadata: dict[str, Any]) -> tuple[list[int], list[dict[str, Any]]]:
@@ -152,6 +157,7 @@ def ingest_pdf(
     node_parser: NodeParser | None = None,
     embedder: Embedder | None = None,
     store: NodeStore | None = None,
+    finalize: bool = True,
 ) -> int:
     """Parse, chunk, contextualize, embed, and index one PDF. Return the chunk count."""
     documents = parse_pdf(source, reader=reader)
@@ -165,7 +171,10 @@ def ingest_pdf(
     for node, vector in zip(nodes, vectors, strict=True):
         node.embedding = vector
 
-    (store or LanceDBNodeStore(DEFAULT_INDEX_DIR)).add(nodes)
+    active_store = store or LanceDBNodeStore(DEFAULT_INDEX_DIR)
+    active_store.add(nodes)
+    if finalize:
+        active_store.finalize()
     return len(nodes)
 
 
@@ -198,9 +207,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     reader = create_reader()
     total = 0
     for pdf in sources:
-        count = ingest_pdf(pdf, reader=reader, embedder=embedder, store=store)
+        count = ingest_pdf(pdf, reader=reader, embedder=embedder, store=store, finalize=False)
         total += count
         print(f"{pdf.name}: {count} chunks")
+    store.finalize()
     print(f"Indexed {total} chunks from {len(sources)} document(s) into {args.index_dir}")
     return 0
 
