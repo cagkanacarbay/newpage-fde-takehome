@@ -1026,7 +1026,8 @@ llama-index-core     base package, every integration added deliberately</code></
 
         <div class="decider">
           <span class="lbl">What settles it</span>
-          <p>How much latency an answer can spend on safety we can actually show working. A guardrail nobody can see is worth less here than one the interface makes visible. Note the coupling to choice 01: with a shipped corpus, document content is trusted and prompt injection is close to theoretical. The moment users upload their own PDFs, it stops being theoretical.</p>
+          <p>The policy is set: filter retrieval, verify claims, and validate citations. The remaining implementation choices are a measured relevance threshold and the verifier model. Measure latency and verifier accuracy against answerable, irrelevant, and conflicting corpus questions.</p>
+          <p>The curated corpus can still contain instruction-like text. Treat every retrieved passage as data, never instructions. User uploads increase that risk but do not change the policy.</p>
         </div>
       </section>
 
