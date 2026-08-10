@@ -20,6 +20,7 @@ from llama_index.core.schema import (
     TextNode,
 )
 
+import live_long_rnd.ingest as ingest_module
 from live_long_rnd.ingest import ingest_pdf
 from live_long_rnd.parsing import CitationProvenanceError
 
@@ -97,10 +98,14 @@ class StubStore:
 
     def __init__(self) -> None:
         self.nodes: list[BaseNode] = []
+        self.finalize_count = 0
 
     def add(self, nodes: list[BaseNode]) -> list[str]:
         self.nodes.extend(nodes)
         return [node.node_id for node in nodes]
+
+    def finalize(self) -> None:
+        self.finalize_count += 1
 
 
 def _linked_node(document: Document, metadata: dict[str, Any]) -> TextNode:
@@ -266,6 +271,34 @@ def test_ingested_chunks_carry_dense_embeddings_and_return_count(tmp_path: Path)
     for stored in store.nodes:
         expected = float(len(stored.get_content()))
         assert stored.embedding == [expected] * 4
+    assert store.finalize_count == 1
+
+
+def test_directory_ingestion_finalizes_the_fts_index_once(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source_dir = tmp_path / "corpus"
+    source_dir.mkdir()
+    first_pdf = source_dir / "first.pdf"
+    second_pdf = source_dir / "second.pdf"
+    first_pdf.touch()
+    second_pdf.touch()
+    store = StubStore()
+    finalized_per_pdf: list[bool] = []
+
+    def ingest_stub(source: Path, *, finalize: bool, **_kwargs: object) -> int:
+        assert source in {first_pdf, second_pdf}
+        finalized_per_pdf.append(finalize)
+        return 1
+
+    monkeypatch.setattr(ingest_module, "LanceDBNodeStore", lambda _index_dir: store)
+    monkeypatch.setattr(ingest_module, "create_reader", lambda: StubReader())
+    monkeypatch.setattr(ingest_module, "ingest_pdf", ingest_stub)
+
+    assert ingest_module.main([str(source_dir)]) == 0
+    assert finalized_per_pdf == [False, False]
+    assert store.finalize_count == 1
 
 
 @pytest.mark.integration

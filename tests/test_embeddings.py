@@ -83,3 +83,23 @@ def test_openai_embedder_rejects_an_input_above_the_model_limit() -> None:
         embedder.embed([" aging" * 8_193])
 
     assert requests == []
+
+
+def test_openai_embedder_rejects_a_later_over_limit_input_before_any_request() -> None:
+    requests: list[httpx.Request] = []
+
+    def handle_request(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(500)
+
+    http_client = httpx.Client(transport=httpx.MockTransport(handle_request))
+    client = OpenAI(api_key="test-key", base_url="https://openai.test/v1", http_client=http_client)
+    embedder = OpenAIEmbedder(client=client)
+
+    with pytest.raises(
+        EmbeddingInputTooLongError,
+        match=re.escape("Embedding input 2049 has 8193 tokens; the maximum is 8192."),
+    ):
+        embedder.embed(["age"] * 2_048 + [" aging" * 8_193])
+
+    assert requests == []

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from collections.abc import Iterator, Sequence
+from collections.abc import Sequence
 from typing import Protocol
 
 import tiktoken
@@ -50,6 +50,7 @@ class OpenAIEmbedder:
         self._encoding = tiktoken.get_encoding(EMBEDDING_ENCODING_NAME)
 
     def embed(self, texts: Sequence[str]) -> list[list[float]]:
+        batches = self._validated_batches(texts)
         if self._client is None:
             if not self._api_key:
                 raise EmbeddingConfigurationError(
@@ -58,7 +59,7 @@ class OpenAIEmbedder:
                 )
             self._client = OpenAI(api_key=self._api_key)
         vectors: list[list[float]] = []
-        for batch in self._batches(texts):
+        for batch in batches:
             response = self._client.embeddings.create(
                 input=batch,
                 model=self._model_name,
@@ -70,7 +71,9 @@ class OpenAIEmbedder:
             )
         return vectors
 
-    def _batches(self, texts: Sequence[str]) -> Iterator[list[str]]:
+    def _validated_batches(self, texts: Sequence[str]) -> list[list[str]]:
+        """Validate every input and partition requests before contacting OpenAI."""
+        batches: list[list[str]] = []
         batch: list[str] = []
         batch_tokens = 0
         for input_number, text in enumerate(texts, start=1):
@@ -84,10 +87,11 @@ class OpenAIEmbedder:
                 len(batch) == EMBEDDING_REQUEST_MAX_INPUTS
                 or batch_tokens + text_tokens > EMBEDDING_REQUEST_MAX_TOKENS
             ):
-                yield batch
+                batches.append(batch)
                 batch = []
                 batch_tokens = 0
             batch.append(text)
             batch_tokens += text_tokens
         if batch:
-            yield batch
+            batches.append(batch)
+        return batches
