@@ -269,7 +269,8 @@
           </tbody>
         </table></div>
         <p><a href="https://docs.llamaindex.ai/en/stable/module_guides/evaluating/">LlamaIndex evaluation guide</a> · <a href="https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/">RAGAS metrics</a></p>
-        <p>A deterministic CI run needs a pinned local embedding model, a fixed index build, and a fixed retrieval depth. The depth stays k = 10 while the set is being calibrated; it tightens only after the first run's output has been reviewed.</p>
+        <p>Deterministic CI uses fixed embedding doubles and isolated indexes. Live evaluation records the OpenAI model, 3,072 dimensions, index build, and retrieval depth.</p>
+        <p>The depth stays k = 10 while the set is calibrated. Tighten it only after reviewing the first full-corpus run.</p>
       </section>
 
       <section id="open">

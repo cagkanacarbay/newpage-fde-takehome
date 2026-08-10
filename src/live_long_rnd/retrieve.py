@@ -11,12 +11,8 @@ from typing import Any, Protocol, TypedDict, cast
 import lancedb
 from lancedb.rerankers import RRFReranker
 
-from live_long_rnd.ingest import (
-    DEFAULT_INDEX_DIR,
-    DEFAULT_TABLE_NAME,
-    Embedder,
-    SentenceTransformerEmbedder,
-)
+from live_long_rnd.embeddings import Embedder, OpenAIEmbedder
+from live_long_rnd.index_config import DEFAULT_INDEX_DIR, DEFAULT_TABLE_NAME
 
 FUSION_CANDIDATE_MULTIPLIER = 4
 
@@ -122,7 +118,7 @@ def retrieve(
 ) -> list[RetrievalResult]:
     """Return top RRF-fused chunks, capped per source. Set the cap to None to disable it."""
     active_store = store if store is not None else LanceDBHybridStore(DEFAULT_INDEX_DIR)
-    active_embedder = embedder if embedder is not None else SentenceTransformerEmbedder()
+    active_embedder = embedder if embedder is not None else OpenAIEmbedder()
     [query_vector] = active_embedder.embed([query])
     candidate_limit = k if per_document_cap is None else k * FUSION_CANDIDATE_MULTIPLIER
     rows = active_store.hybrid_search(query, query_vector, limit=candidate_limit)

@@ -143,50 +143,50 @@
       </section>
 
       <section id="embedding">
-        <h2><span class="idx">03</span> Embedding reference: Qwen3-Embedding-0.6B</h2>
-        <p class="lead">Use Qwen3-Embedding-0.6B as the local reference benchmark for the 27-paper corpus.</p>
+        <h2><span class="idx">03</span> Embedding model: OpenAI text-embedding-3-large</h2>
+        <p class="lead">Use <code>text-embedding-3-large</code> for document and query vectors in the 27-paper corpus.</p>
 
         <div class="rec">
           <div class="rec-head">TL;DR</div>
           <div class="rec-body">
-            <p><strong>What:</strong> Run Qwen3-Embedding-0.6B locally on the laptop and use it as the reference embedding model for the demo.</p>
-            <p><strong>Why:</strong> It is small enough for local use, has a 1,024-dimensional output, and gives the project a repeatable dense-retrieval baseline. <a href="https://github.com/QwenLM/Qwen3-Embedding">Qwen model details</a>.</p>
-            <p><strong>Production:</strong> Use Qwen3-Embedding-8B when the corpus grows materially. It has higher published benchmark quality, but it needs a separate serving and capacity plan.</p>
-            <p><strong>Status:</strong> Decided for the demo. Production size remains an implementation and capacity decision.</p>
+            <p><strong>What:</strong> Request 3,072-dimensional vectors from OpenAI <code>text-embedding-3-large</code> during ingestion and retrieval.</p>
+            <p><strong>Why:</strong> The first local Qwen full-corpus run took 58 minutes and produced no index. Its termination was consistent with memory pressure. The OpenAI path removes local embedding weights and uses the API key already required for generation.</p>
+            <p><strong>Limits:</strong> Each final contextualized input must stay within 8,192 tokens. The adapter batches requests by input count and total tokens. <a href="https://developers.openai.com/api/reference/resources/embeddings/methods/create">OpenAI embeddings API reference</a>.</p>
+            <p><strong>Status:</strong> Decided for the demo. The verified build indexed 696 chunks from all 27 papers in about six minutes. It produced a 30 MB LanceDB index with 3,072-dimensional vectors.</p>
           </div>
         </div>
 
-        <h3>How we use the reference model</h3>
+        <h3>How we use the model</h3>
         <div class="accordion">
           <details>
-            <summary>Keep the local reference reproducible</summary>
+            <summary>Keep index and query vectors compatible</summary>
             <div class="body">
-              <p>Pin the Qwen3-Embedding-0.6B model revision when the ingestion code is added.</p>
-              <p>Use the same query instruction, document text, chunk set, normalization, and similarity metric for every comparison.</p>
+              <p>Set <code>model="text-embedding-3-large"</code> and <code>dimensions=3072</code> for every request.</p>
+              <p>Use the same adapter for ingestion and query retrieval. Never query an index built with another vector shape.</p>
             </div>
           </details>
 
           <details>
-            <summary>Use it for the small corpus</summary>
+            <summary>Keep contextual chunks inside the model limit</summary>
             <div class="body">
-              <p>The 27-paper corpus is small enough for laptop-local indexing and retrieval.</p>
-              <p>Score gold-paper recall, MRR, and distractor rank before adding a larger model.</p>
+              <p>Tokenize with <code>cl100k_base</code> and let Docling split structural units above 7,500 tokens.</p>
+              <p>Reject any final contextualized input above the 8,192-token model limit before making an API request.</p>
             </div>
           </details>
 
           <details>
-            <summary>Move to 8B for production scale</summary>
+            <summary>Keep local tests independent from OpenAI</summary>
             <div class="body">
-              <p>Use Qwen3-Embedding-8B for a full production corpus with many more documents when quality and retrieval scale justify dedicated serving.</p>
-              <p>Measure tokens per second, memory, batch throughput, index build time, and vector storage before deployment.</p>
+              <p>Use an OpenAI-compatible local endpoint for process tests and injected clients for adapter tests.</p>
+              <p>Use the real API only for the explicit full-corpus build and live retrieval verification.</p>
             </div>
           </details>
 
           <details>
-            <summary>Treat MTEB as a reference, not the final test</summary>
+            <summary>Reopen the choice from measured failures</summary>
             <div class="body">
-              <p>The <a href="https://www.codesota.com/benchmarks/mteb">CodeSOTA MTEB page</a> lists Qwen3-Embedding-0.6B at 64.34 aggregate and 64.7 retrieval, and Qwen3-Embedding-8B at 70.58 aggregate and 70.9 retrieval.</p>
-              <p>MTEB supports shortlisting. The project corpus remains the final quality test because its scientific terminology and distractors differ from broad public benchmarks.</p>
+              <p>Measure gold-paper recall, MRR, distractor rank, index time, input tokens, and query latency.</p>
+              <p>Reconsider the model if retrieval quality fails, policy blocks external processing, or corpus cost exceeds the deployment budget.</p>
             </div>
           </details>
         </div>

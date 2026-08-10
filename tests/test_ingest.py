@@ -1,11 +1,14 @@
 """Ingestion pipeline tests: provenance contract, contextual text, embeddings, storage."""
 
 import json
+import os
 import subprocess
 import sys
 from collections.abc import Sequence
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Any
+from threading import Thread
+from typing import Any, ClassVar
 
 import lancedb
 import pytest
@@ -19,6 +22,43 @@ from llama_index.core.schema import (
 
 from live_long_rnd.ingest import ingest_pdf
 from live_long_rnd.parsing import CitationProvenanceError
+
+
+class OpenAIEmbeddingsHandler(BaseHTTPRequestHandler):
+    """Local OpenAI-compatible endpoint for the ingestion process test."""
+
+    requests: ClassVar[list[dict[str, Any]]] = []
+
+    def do_POST(self) -> None:
+        body_size = int(self.headers["Content-Length"])
+        payload = json.loads(self.rfile.read(body_size))
+        self.requests.append(payload)
+        inputs = payload["input"]
+        if isinstance(inputs, str):
+            inputs = [inputs]
+        body = json.dumps(
+            {
+                "object": "list",
+                "data": [
+                    {
+                        "object": "embedding",
+                        "index": index,
+                        "embedding": [float(index + 1)] * 3072,
+                    }
+                    for index, _text in enumerate(inputs)
+                ],
+                "model": "text-embedding-3-large",
+                "usage": {"prompt_tokens": len(inputs), "total_tokens": len(inputs)},
+            }
+        ).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def log_message(self, _format: str, *args: object) -> None:
+        del args
 
 
 class StubReader:
@@ -104,6 +144,40 @@ def test_ingestion_fails_loudly_when_a_chunk_has_no_heading_path(tmp_path: Path)
             embedder=StubEmbedder(),
             store=StubStore(),
         )
+
+
+@pytest.mark.parametrize(
+    "artifact_text",
+    ["1234567890();,:", "Contents lists available at ScienceDirect"],
+)
+def test_ingestion_excludes_headingless_front_matter_when_the_paper_has_headings(
+    tmp_path: Path,
+    artifact_text: str,
+) -> None:
+    source = tmp_path / "paper.pdf"
+    source.touch()
+    reader = StubReader()
+    artifact_metadata = _full_metadata()
+    del artifact_metadata["headings"]
+    artifact = TextNode(text=artifact_text, metadata=artifact_metadata)
+    artifact.relationships[NodeRelationship.SOURCE] = RelatedNodeInfo(
+        node_id=reader.document.doc_id
+    )
+    valid_node = _linked_node(reader.document, _full_metadata())
+    store = StubStore()
+
+    count = ingest_pdf(
+        source,
+        reader=reader,
+        node_parser=StubNodeParser([artifact, valid_node]),
+        embedder=StubEmbedder(),
+        store=store,
+    )
+
+    assert count == 1
+    assert [node.metadata["original_text"] for node in store.nodes] == [
+        "Senescent cells accumulate with age."
+    ]
 
 
 def test_ingested_chunk_keeps_original_text_and_carries_full_citation(tmp_path: Path) -> None:
@@ -196,23 +270,37 @@ def test_ingested_chunks_carry_dense_embeddings_and_return_count(tmp_path: Path)
 
 @pytest.mark.integration
 @pytest.mark.e2e
-def test_cli_ingests_one_corpus_pdf_into_lancedb(tmp_path: Path) -> None:
+def test_cli_ingests_one_corpus_pdf_with_openai_into_lancedb(tmp_path: Path) -> None:
     source = Path("data/corpus/longevity/011-maleszka-2025-no-epigenetic-clock-in-insect.pdf")
     index_dir = tmp_path / "index"
+    OpenAIEmbeddingsHandler.requests = []
+    server = ThreadingHTTPServer(("127.0.0.1", 0), OpenAIEmbeddingsHandler)
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
 
-    result = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "live_long_rnd.ingest",
-            str(source),
-            "--index-dir",
-            str(index_dir),
-        ],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
+    try:
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "live_long_rnd.ingest",
+                str(source),
+                "--index-dir",
+                str(index_dir),
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+            env={
+                **os.environ,
+                "OPENAI_API_KEY": "test-key",
+                "OPENAI_BASE_URL": f"http://127.0.0.1:{server.server_port}/v1",
+            },
+        )
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join()
 
     assert result.returncode == 0, result.stderr
     assert "create_fts_index is deprecated" not in result.stderr
@@ -222,7 +310,12 @@ def test_cli_ingests_one_corpus_pdf_into_lancedb(tmp_path: Path) -> None:
     rows = table.to_arrow().to_pylist()
 
     assert rows
-    assert all(len(row["vector"]) == 1024 for row in rows)
+    assert OpenAIEmbeddingsHandler.requests
+    assert all(
+        request["model"] == "text-embedding-3-large" for request in OpenAIEmbeddingsHandler.requests
+    )
+    assert all(request["dimensions"] == 3072 for request in OpenAIEmbeddingsHandler.requests)
+    assert all(len(row["vector"]) == 3072 for row in rows)
     for row in rows:
         metadata = row["metadata"]
         assert metadata["document_id"] == source.stem

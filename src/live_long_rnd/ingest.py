@@ -8,52 +8,26 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Any, Protocol
 
+import tiktoken
 from docling_core.transforms.chunker.hybrid_chunker import HybridChunker
-from docling_core.transforms.chunker.tokenizer.huggingface import HuggingFaceTokenizer
+from docling_core.transforms.chunker.tokenizer.openai import OpenAITokenizer
 from lancedb.index import FTS
 from llama_index.core.schema import BaseNode, NodeRelationship, RelatedNodeInfo
 from llama_index.node_parser.docling import DoclingNodeParser
 from llama_index.vector_stores.lancedb import LanceDBVectorStore
-from sentence_transformers import SentenceTransformer
-from transformers import AutoTokenizer
 
+from live_long_rnd.embeddings import EMBEDDING_ENCODING_NAME, Embedder, OpenAIEmbedder
+from live_long_rnd.index_config import DEFAULT_INDEX_DIR, DEFAULT_TABLE_NAME
 from live_long_rnd.parsing import (
     CitationProvenanceError,
     DocumentReader,
     NodeParser,
     chunk_documents,
+    create_reader,
     parse_pdf,
 )
 
-EMBEDDING_MODEL_NAME = "Qwen/Qwen3-Embedding-0.6B"
-# Qwen3-Embedding-0.6B context window per the model card; the chunker safety limit.
-EMBEDDING_MAX_TOKENS = 32_768
-DEFAULT_INDEX_DIR = Path("data/index")
-DEFAULT_TABLE_NAME = "chunks"
-
-
-class Embedder(Protocol):
-    """Embedding boundary: turns searchable text into dense vectors."""
-
-    def embed(self, texts: Sequence[str]) -> list[list[float]]:
-        """Embed a batch of texts, one vector per text."""
-
-
-class SentenceTransformerEmbedder:
-    """Local Qwen3-Embedding-0.6B runner; no API key required.
-
-    Pinned to CPU with small batches: Docling's layout models already hold the
-    Apple GPU, and sharing it blew the MPS memory ceiling on a full-corpus run.
-    """
-
-    def __init__(self, model_name: str = EMBEDDING_MODEL_NAME) -> None:
-        self._model = SentenceTransformer(model_name, device="cpu")
-
-    def embed(self, texts: Sequence[str]) -> list[list[float]]:
-        vectors = self._model.encode(
-            list(texts), batch_size=8, normalize_embeddings=True
-        )
-        return [vector.tolist() for vector in vectors]
+EMBEDDING_CHUNK_MAX_TOKENS = 7_500
 
 
 class LanceDBNodeStore:
@@ -71,9 +45,9 @@ class LanceDBNodeStore:
 
 
 def _create_node_parser() -> DoclingNodeParser:
-    tokenizer = HuggingFaceTokenizer(
-        tokenizer=AutoTokenizer.from_pretrained(EMBEDDING_MODEL_NAME),
-        max_tokens=EMBEDDING_MAX_TOKENS,
+    tokenizer = OpenAITokenizer(
+        tokenizer=tiktoken.get_encoding(EMBEDDING_ENCODING_NAME),
+        max_tokens=EMBEDDING_CHUNK_MAX_TOKENS,
     )
     return DoclingNodeParser(chunker=HybridChunker(tokenizer=tokenizer))
 
@@ -161,6 +135,16 @@ def _prepare_node(node: BaseNode) -> None:
     }
 
 
+def _has_heading_path(node: BaseNode) -> bool:
+    return any(heading for heading in node.metadata.get("headings") or [])
+
+
+def _keep_navigable_nodes(nodes: list[BaseNode]) -> list[BaseNode]:
+    if not any(_has_heading_path(node) for node in nodes):
+        return nodes
+    return [node for node in nodes if _has_heading_path(node)]
+
+
 def ingest_pdf(
     source: Path,
     *,
@@ -172,11 +156,12 @@ def ingest_pdf(
     """Parse, chunk, contextualize, embed, and index one PDF. Return the chunk count."""
     documents = parse_pdf(source, reader=reader)
     nodes = chunk_documents(documents, node_parser=node_parser or _create_node_parser())
+    nodes = _keep_navigable_nodes(nodes)
     for node in nodes:
         _prepare_node(node)
 
     texts = [node.get_content() for node in nodes]
-    vectors = (embedder or SentenceTransformerEmbedder()).embed(texts)
+    vectors = (embedder or OpenAIEmbedder()).embed(texts)
     for node, vector in zip(nodes, vectors, strict=True):
         node.embedding = vector
 
@@ -208,11 +193,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     if not sources:
         argument_parser.error(f"{args.source} contains no PDFs")
 
-    embedder = SentenceTransformerEmbedder()
+    embedder = OpenAIEmbedder()
     store = LanceDBNodeStore(args.index_dir)
+    reader = create_reader()
     total = 0
     for pdf in sources:
-        count = ingest_pdf(pdf, embedder=embedder, store=store)
+        count = ingest_pdf(pdf, reader=reader, embedder=embedder, store=store)
         total += count
         print(f"{pdf.name}: {count} chunks")
     print(f"Indexed {total} chunks from {len(sources)} document(s) into {args.index_dir}")

@@ -7,19 +7,19 @@ A chat with your docs assistant based on a hypothetical customer "Live Long R&D"
 <!-- Maintained by the agent: keep accurate and updated with every change that affects setup -->
 
 Prerequisites: `uv` (Python 3.12), Node 22 with `pnpm` 10, and an OpenAI API
-key. The embedding model runs locally; no other credentials are needed.
+key. The same key serves embedding and live answer generation.
 
 1. `uv sync` - install the Python stack.
-2. Put `OPENAI_API_KEY=...` in `.env` (gitignored). Only needed for the live
-   LLM path; the stub modes below need no key.
-3. Build the vector index once (about 30-45 minutes, no API key needed):
+2. Put `OPENAI_API_KEY=...` in `.env` (gitignored). The index build and live
+   application need it. The stub modes below need no key.
+3. Build the vector index once:
 
    ```bash
    uv run python -m live_long_rnd.ingest data/corpus/longevity
    ```
 
-   This parses all 27 PDFs with Docling, embeds locally with
-   Qwen3-Embedding-0.6B, and writes a self-contained LanceDB index to
+   This parses all 27 PDFs with Docling, embeds with OpenAI
+   `text-embedding-3-large`, and writes a self-contained LanceDB index to
    `data/index/` (gitignored; fully reproducible with this command).
 4. Start the API on port 8000:
 

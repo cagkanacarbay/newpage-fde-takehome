@@ -189,7 +189,7 @@ children = parser.get_nodes_from_documents(documents)</code></pre>
         <div class="rec">
           <div class="rec-head">Provisional decision for testing</div>
           <div class="rec-body">
-            <p><strong>Use Docling HybridChunker as the primary chunker.</strong> Pass the selected embedding tokenizer, keep table headers on split table chunks, and preserve the native metadata.</p>
+            <p><strong>Use Docling HybridChunker as the primary chunker.</strong> Pass the OpenAI <code>cl100k_base</code> tokenizer, keep table headers on split tables, and preserve native metadata.</p>
             <p><strong>Use LlamaIndex DoclingReader and DoclingNodeParser as the integration seam.</strong> Keep retrieval flat, preserve source metadata, and add only the contextualizer needed for the demo.</p>
             <p><strong>Start with deterministic contextual text.</strong> Add generated context only behind a versioned cache and an evaluation flag.</p>
             <p><strong>Defer section expansion.</strong> Treat document-store-backed context expansion as productionizing work.</p>
@@ -199,7 +199,7 @@ children = parser.get_nodes_from_documents(documents)</code></pre>
         <div class="table-scroll"><table class="matrix wide">
           <thead><tr><th>Risk</th><th>Control</th><th>Revisit trigger</th></tr></thead>
           <tbody>
-            <tr><td class="opt">A section or table is larger than the embedding limit</td><td class="txt">Let <code>HybridChunker</code> split only that unit and repeat the heading or table header.</td><td class="txt">A corpus benchmark shows lost table rows or lower recall than a controlled overlap baseline.</td></tr>
+            <tr><td class="opt">A section or table is larger than the embedding limit</td><td class="txt">Split structural units above 7,500 tokens. Reject final contextualized inputs above 8,192 tokens.</td><td class="txt">A corpus benchmark shows lost table rows or lower recall than a controlled overlap baseline.</td></tr>
             <tr><td class="opt">Docling loses a caption or reading-order relation</td><td class="txt">Keep the native item refs and add a regression PDF for each observed defect.</td><td class="txt">A required query cannot recover its table, caption, or neighboring evidence.</td></tr>
             <tr><td class="opt">Node metadata loses page or box data</td><td class="txt">Fail ingestion when required provenance is absent from a searchable chunk.</td><td class="txt">The direct LlamaIndex propagation test fails on any finalist PDF.</td></tr>
             <tr><td class="opt">Generated context adds a false claim</td><td class="txt">Keep generated text out of citation display and store model and prompt hashes.</td><td class="txt">Context improves rank but changes the answer against the source text.</td></tr>
