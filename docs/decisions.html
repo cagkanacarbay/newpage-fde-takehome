@@ -31,6 +31,7 @@
         <li><a href="#retrieval"><span class="n">05</span><span>Retrieval approach</span></a></li>
         <li><a href="#guardrails"><span class="n">06</span><span>Guardrails</span></a></li>
         <li><a href="#context-management"><span class="n">07</span><span>Context management</span></a></li>
+        <li><a href="#quality-controls"><span class="n">08</span><span>Quality controls</span></a></li>
       </ol>
     </nav>
 
@@ -425,6 +426,52 @@
             <div class="body">
               <p>Store every conversation in a SQLite database.</p>
               <p>Bind-mount the database file from the host, so it survives the container. This is a one-line volume for the reviewer.</p>
+            </div>
+          </details>
+        </div>
+      </section>
+      <section id="quality-controls">
+        <h2><span class="idx">08</span> Quality controls: three deterministic retrieval gates</h2>
+        <p class="lead">The v1 quality gates are a hand-authored, deterministic retrieval suite over the 27-paper corpus. No LLM judge, no API keys.</p>
+
+        <div class="rec">
+          <div class="rec-head">TL;DR</div>
+          <div class="rec-body">
+            <p><strong>What:</strong> Three gates scored at document-ID level in the top 10. Gate A, contradiction coverage: both sides of 6 disagreeing paper pairs must be retrieved. Gate B, entity recall: for 6 planted lookalike traps, the gold paper must rank above each named distractor. Gate C, gold-document hit rate: 12 single-source questions must surface their gold paper.</p>
+            <p><strong>Why:</strong> The corpus was built with papers that disagree and entities that look alike. These gates test those planted failure cases deterministically, so a retrieval regression fails CI without any model in the loop.</p>
+            <p><strong>Thresholds:</strong> 6/6, 6/6, and 11/12 with item C1 mandatory. Provisional until the k = 10 calibration run. <a href="research/evaluation.html">Research evidence and full item set</a>.</p>
+            <p><strong>GitHub:</strong> <a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/20">Issue 20 - choose the v1 eval suite</a> records the decision.</p>
+            <p><strong>Status:</strong> Decided for v1. Building the suite is post-map execution.</p>
+          </div>
+        </div>
+
+        <h3>How the gates run</h3>
+        <div class="accordion">
+          <details>
+            <summary>Thresholds are provisional until the calibration run</summary>
+            <div class="body">
+              <p>The first run goes out at k = 10 and its job is inspection: what does the retriever actually return for each query?</p>
+              <p>Quotes that real retrieval output beats get corrected against that output. Only then are the thresholds and the final k per gate fixed.</p>
+            </div>
+          </details>
+          <details>
+            <summary>Run as a blocking, path-scoped CI job</summary>
+            <div class="body">
+              <p>The suite is a pytest suite with the <code>e2e</code> marker. It needs a pinned local embedding model, a fixed index build, and a fixed retrieval depth.</p>
+              <p>A GitHub Actions job blocks pull requests that touch <code>src/</code>, <code>data/index/</code>, or the eval set itself. The workflow is created when the retrieval slice lands, matching the deferred-CI trigger.</p>
+            </div>
+          </details>
+          <details>
+            <summary>Citation-level gates are v2</summary>
+            <div class="body">
+              <p>Gate A requires both sides <em>retrieved</em>. The bar becomes both sides <em>cited</em> only when the answer-generation slice lands.</p>
+              <p>LLM-judge metrics such as faithfulness and answer correctness are a later consideration, not v1.</p>
+            </div>
+          </details>
+          <details>
+            <summary>Gate C stays at 12 items</summary>
+            <div class="body">
+              <p>No growth to one item per paper in v1. Gates A and B already touch 18 of the 27 papers, and the marginal coverage per added item does not justify the authoring cost.</p>
             </div>
           </details>
         </div>

@@ -22,7 +22,7 @@ table tracks status; the reasoning is written up in the README, not here.
 | Prompt engineering | Open |
 | Context management | Decided |
 | Guardrails | Decided |
-| Quality controls | Open |
+| Quality controls | Decided — deterministic retrieval gates |
 | Observability | Open |
 
 
