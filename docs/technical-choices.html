@@ -747,7 +747,7 @@ llama-index-core     base package, every integration added deliberately</code></
 
       <section id="c6">
         <h2><span class="idx">06</span> Embedding model <span class="state done">Decided</span></h2>
-        <div class="callout note"><span class="lbl">Current decision</span><p><strong>Use OpenAI <code>text-embedding-3-large</code> with 3,072 dimensions.</strong> The Qwen run took 58 minutes and produced no index. Its termination was consistent with memory pressure. The OpenAI build indexed 696 chunks from all 27 papers in about six minutes.</p><p><strong><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/12">Issue #12</a> is closed.</strong> Its local Qwen decision is superseded by this measured operational failure. <a href="decisions.html#embedding">Decision page</a> · <a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/25">Issue #25</a> covers production model serving.</p></div>
+        <div class="callout note"><span class="lbl">Current decision</span><p><strong>Use OpenAI <code>text-embedding-3-large</code> with 3,072 dimensions.</strong> <a href="decisions.html#embedding">The decision page</a> owns the measured evidence, limits, and revisit triggers.</p><p><strong><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/12">Issue #12</a> is closed.</strong> Its local Qwen decision is superseded. <a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/25">Issue #25</a> covers production model serving.</p></div>
         <p class="determines"><b>Determines</b> the retrieval quality ceiling, the ingest cost, the vector dimensions the store carries, and whether a reviewer needs an API key to run anything.</p>
 
         <div class="table-scroll"><table class="opts">
