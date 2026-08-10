@@ -4,7 +4,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Protocol, TypedDict, cast
 
-from live_long_rnd.ingest import Embedder
+from live_long_rnd.embeddings import Embedder, OpenAIEmbedder
 from live_long_rnd.retrieve import HybridStore, to_citation_payload
 from live_long_rnd.retrieve import retrieve as hybrid_retrieve
 
@@ -48,7 +48,7 @@ class LanceDbRetriever:
         self._k = k
         self._per_document_cap = per_document_cap
         self._store = store
-        self._embedder = embedder
+        self._embedder = embedder or OpenAIEmbedder()
 
     async def retrieve(self, message: str) -> Sequence[RetrievedChunk]:
         results = await asyncio.to_thread(

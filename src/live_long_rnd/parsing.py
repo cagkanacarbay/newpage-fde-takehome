@@ -40,7 +40,8 @@ class NodeParser(Protocol):
         """Create searchable nodes from parsed documents."""
 
 
-def _create_reader() -> DoclingReader:
+def create_reader() -> DoclingReader:
+    """Create one configured Docling reader for reuse across PDF files."""
     pipeline_options = PdfPipelineOptions(
         do_ocr=False, heading_hierarchy_options=HeadingHierarchyOptions(enabled=True)
     )
@@ -69,7 +70,7 @@ def parse_pdf(source: Path, *, reader: DocumentReader | None = None) -> list[Doc
     if not source.is_file():
         raise FileNotFoundError(source)
 
-    documents = (reader or _create_reader()).load_data(source)
+    documents = (reader or create_reader()).load_data(source)
     if not documents or any(not _has_content(document) for document in documents):
         raise EmptyParseResultError(f"{source} produced no content")
 

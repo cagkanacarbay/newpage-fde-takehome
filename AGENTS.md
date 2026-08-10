@@ -15,7 +15,7 @@ table tracks status; the reasoning is written up in the README, not here.
 | Orchestration framework | Decided — LlamaIndex |
 | Parsing | Decided — Docling |
 | Chunking | Open |
-| Embedding model | Open |
+| Embedding model | Decided - OpenAI text-embedding-3-large |
 | LLM selection | Open |
 | Vector database | Open |
 | Retrieval approach | Open |

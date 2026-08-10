@@ -1,17 +1,17 @@
 """Hybrid retrieval tests: ranked results, source diversity, and citations."""
 
 import json
+import math
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
+import httpx
 import pytest
+from openai import OpenAI
 
-from live_long_rnd.ingest import (
-    LanceDBNodeStore,
-    SentenceTransformerEmbedder,
-    ingest_pdf,
-)
+from live_long_rnd.embeddings import OpenAIEmbedder
+from live_long_rnd.ingest import LanceDBNodeStore, ingest_pdf
 from live_long_rnd.retrieve import (
     LanceDBHybridStore,
     RetrievalResult,
@@ -51,6 +51,33 @@ def _row(document_id: str, score: float) -> dict[str, Any]:
         },
         "_relevance_score": score,
     }
+
+
+def _openai_embedder() -> OpenAIEmbedder:
+    def handle_request(request: httpx.Request) -> httpx.Response:
+        payload = json.loads(request.content)
+        inputs = payload["input"]
+        value = 1.0 / math.sqrt(3_072)
+        return httpx.Response(
+            200,
+            json={
+                "object": "list",
+                "data": [
+                    {
+                        "object": "embedding",
+                        "index": index,
+                        "embedding": [value] * 3_072,
+                    }
+                    for index, _text in enumerate(inputs)
+                ],
+                "model": "text-embedding-3-large",
+                "usage": {"prompt_tokens": len(inputs), "total_tokens": len(inputs)},
+            },
+        )
+
+    http_client = httpx.Client(transport=httpx.MockTransport(handle_request))
+    client = OpenAI(api_key="test-key", base_url="https://openai.test/v1", http_client=http_client)
+    return OpenAIEmbedder(client=client)
 
 
 def test_retrieve_returns_ranked_chunks_with_complete_provenance() -> None:
@@ -173,7 +200,7 @@ def test_citation_payload_uses_the_first_provenance_entry() -> None:
 def test_ingested_corpus_paper_is_retrievable_with_hybrid_search(tmp_path: Path) -> None:
     source = next(Path("data/corpus/longevity").glob("011-*.pdf"))
     index_dir = tmp_path / "index"
-    embedder = SentenceTransformerEmbedder()
+    embedder = _openai_embedder()
 
     ingest_pdf(
         source,
