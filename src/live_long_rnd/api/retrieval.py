@@ -1,6 +1,12 @@
-from collections.abc import Sequence
+import asyncio
+import os
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Protocol, TypedDict
+from typing import Protocol, TypedDict, cast
+
+from live_long_rnd.ingest import Embedder
+from live_long_rnd.retrieve import HybridStore, to_citation_payload
+from live_long_rnd.retrieve import retrieve as hybrid_retrieve
 
 
 class BoundingBox(TypedDict):
@@ -26,6 +32,51 @@ class RetrievedChunk:
 
 class Retriever(Protocol):
     async def retrieve(self, message: str) -> Sequence[RetrievedChunk]: ...
+
+
+class LanceDbRetriever:
+    """The real hybrid retriever: LanceDB dense + BM25 with RRF and a per-document cap."""
+
+    def __init__(
+        self,
+        *,
+        k: int = 10,
+        per_document_cap: int | None = 3,
+        store: HybridStore | None = None,
+        embedder: Embedder | None = None,
+    ) -> None:
+        self._k = k
+        self._per_document_cap = per_document_cap
+        self._store = store
+        self._embedder = embedder
+
+    async def retrieve(self, message: str) -> Sequence[RetrievedChunk]:
+        results = await asyncio.to_thread(
+            hybrid_retrieve,
+            message,
+            k=self._k,
+            per_document_cap=self._per_document_cap,
+            store=self._store,
+            embedder=self._embedder,
+        )
+        return [
+            RetrievedChunk(
+                text=result.original_text,
+                citation=cast(Citation, to_citation_payload(result)),
+            )
+            for result in results
+        ]
+
+
+def create_retriever(settings: Mapping[str, str] | None = None) -> Retriever:
+    """Pick the retriever from configuration; stub unless lancedb is requested."""
+    environ = os.environ if settings is None else settings
+    adapter = environ.get("LIVE_LONG_RETRIEVER", "stub").strip().lower()
+    if adapter == "stub":
+        return StubRetriever()
+    if adapter == "lancedb":
+        return LanceDbRetriever()
+    raise ValueError(f"Unsupported LIVE_LONG_RETRIEVER value {adapter!r}. Use 'stub' or 'lancedb'.")
 
 
 class StubRetriever:

@@ -5,7 +5,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from live_long_rnd.api.llm import LLMClient, create_llm_client
-from live_long_rnd.api.retrieval import Retriever, StubRetriever
+from live_long_rnd.api.retrieval import Retriever, create_retriever
 from live_long_rnd.api.sse import encode_sse
 
 
@@ -18,7 +18,7 @@ def create_app(
     retriever: Retriever | None = None,
     llm_client: LLMClient | None = None,
 ) -> FastAPI:
-    selected_retriever = StubRetriever() if retriever is None else retriever
+    selected_retriever = create_retriever() if retriever is None else retriever
     selected_llm = create_llm_client() if llm_client is None else llm_client
     application = FastAPI(title="Live Long R&D assistant")
 
