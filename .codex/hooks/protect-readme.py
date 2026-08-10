@@ -9,7 +9,6 @@ import re
 import sys
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[2]
 README = ROOT / "README.md"
 AGENT_MARKER = "<!-- Maintained by the agent:"
@@ -83,10 +82,16 @@ def targets_root_readme(path_text: str) -> bool:
 
 def patch_sections(command: str) -> list[tuple[str, str, str]]:
     """Return (operation, path, body) sections from Codex apply_patch input."""
-    matches = list(re.finditer(r"^\\*\\*\\* (Add|Update|Delete) File: (.+)$", command, re.MULTILINE))
+    matches = list(
+        re.finditer(r"^\\*\\*\\* (Add|Update|Delete) File: (.+)$", command, re.MULTILINE)
+    )
     sections: list[tuple[str, str, str]] = []
     for index, match in enumerate(matches):
-        body_end = matches[index + 1].start() if index + 1 < len(matches) else command.find("*** End Patch", match.end())
+        body_end = (
+            matches[index + 1].start()
+            if index + 1 < len(matches)
+            else command.find("*** End Patch", match.end())
+        )
         if body_end == -1:
             body_end = len(command)
         sections.append((match.group(1), match.group(2), command[match.end() : body_end]))
@@ -139,19 +144,24 @@ def patch_stays_in_agent_sections(command: str, lines: list[str]) -> bool:
         hunks = [chunk.splitlines() for chunk in re.split(r"^@@.*$", body, flags=re.MULTILINE)[1:]]
         if not hunks:
             return False
-        for hunk in hunks:
-            located = locate_hunk(lines, hunk)
-            if located is None:
-                return False
-            _, changes = located
-            if not changes:
-                return False
-            for kind, line_index in changes:
-                if kind == "delete" and not is_agent_owned(line_index, ranges):
-                    return False
-                if kind == "insert" and not is_agent_owned_boundary(line_index, ranges):
-                    return False
+        if not all(hunk_stays_in_agent_sections(lines, hunk, ranges) for hunk in hunks):
+            return False
     return True
+
+
+def hunk_stays_in_agent_sections(
+    lines: list[str], hunk: list[str], ranges: list[tuple[int, int]]
+) -> bool:
+    located = locate_hunk(lines, hunk)
+    if located is None:
+        return False
+    _, changes = located
+    return bool(changes) and all(
+        is_agent_owned(line_index, ranges)
+        if kind == "delete"
+        else is_agent_owned_boundary(line_index, ranges)
+        for kind, line_index in changes
+    )
 
 
 def bash_is_safe_to_read(command: str) -> bool:
@@ -159,7 +169,23 @@ def bash_is_safe_to_read(command: str) -> bool:
         return True
     if any(token in command for token in (">", "tee", "rm ", "mv ", "cp ", "sed -i", "perl -i")):
         return False
-    return bool(re.match(r"^\\s*(cat|sed(?!.*-i)|rg|grep|awk|git (add|diff|show|status))\\b", command))
+    return bool(
+        re.match(r"^\\s*(cat|sed(?!.*-i)|rg|grep|awk|git (add|diff|show|status))\\b", command)
+    )
+
+
+def claude_edit_is_owned(edit: object, source: str, ranges: list[tuple[int, int]]) -> bool:
+    if not isinstance(edit, dict):
+        return False
+    old_string = edit.get("old_string", edit.get("oldString"))
+    if not isinstance(old_string, str) or not old_string:
+        return False
+    start = source.find(old_string)
+    if start == -1 or source.find(old_string, start + 1) != -1:
+        return False
+    first_line = source[:start].count("\\n")
+    last_line = first_line + old_string.count("\\n")
+    return all(is_agent_owned(index, ranges) for index in range(first_line, last_line + 1))
 
 
 def claude_edit_stays_in_agent_section(tool_input: object, lines: list[str]) -> bool:
@@ -173,20 +199,7 @@ def claude_edit_stays_in_agent_section(tool_input: object, lines: list[str]) -> 
         edits = [tool_input]
     source = "\\n".join(lines)
     ranges = agent_owned_ranges(lines)
-    for edit in edits:
-        if not isinstance(edit, dict):
-            return False
-        old_string = edit.get("old_string", edit.get("oldString"))
-        if not isinstance(old_string, str) or not old_string:
-            return False
-        start = source.find(old_string)
-        if start == -1 or source.find(old_string, start + 1) != -1:
-            return False
-        first_line = source[:start].count("\\n")
-        last_line = first_line + old_string.count("\\n")
-        if not all(is_agent_owned(index, ranges) for index in range(first_line, last_line + 1)):
-            return False
-    return True
+    return all(claude_edit_is_owned(edit, source, ranges) for edit in edits)
 
 
 def main() -> int:
@@ -199,24 +212,29 @@ def main() -> int:
 
     tool_name = event.get("tool_name", "")
     tool_input = event.get("tool_input", {})
-    codex = tool_name in {"apply_patch", "Bash"}
     lines = README.read_text(encoding="utf-8").splitlines()
 
+    result = 0
     if tool_name == "apply_patch":
         command = tool_input.get("command", "") if isinstance(tool_input, dict) else ""
         if not patch_stays_in_agent_sections(command, lines):
-            return deny("README ownership: only the marked Installation section is agent-owned.", codex=True)
-        return 0
-
-    if tool_name == "Bash":
+            result = deny(
+                "README ownership: only the marked Installation section is agent-owned.",
+                codex=True,
+            )
+    elif tool_name == "Bash":
         command = tool_input.get("command", "") if isinstance(tool_input, dict) else ""
         if not bash_is_safe_to_read(command):
-            return deny("README ownership: agents cannot write README.md through shell commands.", codex=True)
-        return 0
-
-    if not claude_edit_stays_in_agent_section(tool_input, lines):
-        return deny("README ownership: only the marked Installation section is agent-owned.", codex=False)
-    return 0
+            result = deny(
+                "README ownership: agents cannot write README.md through shell commands.",
+                codex=True,
+            )
+    elif not claude_edit_stays_in_agent_section(tool_input, lines):
+        result = deny(
+            "README ownership: only the marked Installation section is agent-owned.",
+            codex=False,
+        )
+    return result
 
 
 if __name__ == "__main__":

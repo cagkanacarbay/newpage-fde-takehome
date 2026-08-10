@@ -80,119 +80,227 @@ class Paper:
 
 
 PAPERS: tuple[Paper, ...] = (
-    Paper(1, "sanada-2025-hallmarks-of-aging-therapeutic-targets", "PMC12259695",
-          "10.3389/fcvm.2025.1631578",
-          "Targeting the hallmarks of aging: mechanisms and therapeutic opportunities",
-          "CC BY"),
-    Paper(2, "garcia-barranquero-2025-sens-vs-hallmarks-of-aging-debate", "PMC12052809",
-          "10.1007/s10522-025-10248-5",
-          "SENS vs. the hallmarks of aging: competing visions, shared challenges",
-          "CC BY"),
-    Paper(3, "ajoolabady-2025-hallmarks-mechanisms-cellular-senescence", "PMC12322153",
-          "10.1038/s41420-025-02655-x",
-          "Hallmarks and mechanisms of cellular senescence in aging and disease",
-          "CC BY"),
-    Paper(4, "berardi-2026-shortest-telomere-drives-senescence", "PMC13168691",
-          "10.1038/s41467-026-70352-z",
-          "Both genome instability and replicative senescence stem from the shortest telomere",
-          "CC BY"),
-    Paper(5, "coquette-2026-telomere-dysfunction-proteostasis-senescence-pathways", "PMC13096579",
-          "10.1111/acel.70512",
-          "Telomere dysfunction and proteostasis decline define distinct pathways of senescence",
-          "CC BY"),
-    Paper(6, "sun-2026-nad-homeostasis-antiaging-framework", "PMC13144588",
-          "10.1016/j.redox.2026.104191",
-          "An integrated anti-aging framework targeting NAD+ homeostasis",
-          "CC BY"),
-    Paper(7, "levine-2018-phenoage-epigenetic-biomarker-lifespan", "PMC5940111",
-          "10.18632/aging.101414",
-          "An epigenetic biomarker of aging for lifespan and healthspan",
-          "CC BY"),
-    Paper(8, "belsky-2020-dunedin-pace-of-aging-blood-test", "PMC7282814",
-          "10.7554/elife.54870",
-          "Quantification of the pace of biological aging in humans through a blood test",
-          "CC BY"),
-    Paper(9, "vetter-2026-comparing-fourteen-biomarkers-of-aging", "PMC13063672",
-          "10.1186/s40364-026-00909-z",
-          "Comparing fourteen consensus biomarkers of aging",
-          "CC BY"),
-    Paper(10, "koch-2026-pan-epigenetic-age-prediction-mammals", "PMC12841597",
-          "10.1111/acel.70380",
-          "Pan-epigenetic age prediction in mammals",
-          "CC BY"),
-    Paper(11, "maleszka-2025-no-epigenetic-clock-in-insect", "PMC12557811",
-          "10.1073/pnas.2523241122",
-          "Still no evidence for an environmentally responsive epigenetic clock in an insect",
-          "CC BY-NC-ND"),
-    Paper(12, "mohammed-2021-metformin-anti-aging-critical-review", "PMC8374068",
-          "10.3389/fendo.2021.718942",
-          "A critical review of the evidence that metformin is a putative anti-aging drug",
-          "CC BY"),
-    Paper(13, "ivimey-cook-2025-rapamycin-not-metformin-dietary-restriction", "PMC12419861",
-          "10.1111/acel.70131",
-          "Rapamycin, not metformin, mirrors dietary restriction-driven lifespan extension",
-          "CC BY"),
-    Paper(14, "gkioni-2025-trametinib-rapamycin-combined-healthspan", "PMC12270913",
-          "10.1038/s43587-025-00876-4",
-          "Trametinib and rapamycin combine additively to extend mouse healthspan and lifespan",
-          "CC BY"),
-    Paper(15, "hickson-2019-senolytics-dasatinib-quercetin-first-in-human", "PMC6796530",
-          "10.1016/j.ebiom.2019.08.069",
-          "Senolytics decrease senescent cells in humans: dasatinib plus quercetin trial",
-          "CC BY"),
-    Paper(16, "justice-2019-senolytics-idiopathic-pulmonary-fibrosis-trial", "PMC6412088",
-          "10.1016/j.ebiom.2018.12.052",
-          "Senolytics in idiopathic pulmonary fibrosis: first-in-human, open-label pilot",
-          "CC BY"),
-    Paper(17, "kasamoto-2026-senolytics-do-not-reverse-senescence-methylation", "PMC12938503",
-          "10.1111/acel.70430",
-          "DNA methylation signatures of cellular senescence are not reversed by senolytics",
-          "CC BY"),
-    Paper(18, "moulds-2026-graded-calorie-restriction-epigenetic-ageing", "PMC12724011",
-          "10.1111/acel.70342",
-          "Graded calorie restriction causes graded slowing of epigenetic ageing in mice",
-          "CC BY"),
-    Paper(19, "schoenfeldt-2025-chemical-reprogramming-extends-lifespan", "PMC12340157",
-          "10.1038/s44321-025-00265-9",
-          "Chemical reprogramming ameliorates cellular hallmarks of aging and extends lifespan",
-          "CC BY"),
-    Paper(20, "mitchell-2026-chemical-reprogramming-lipid-droplet-toxicity", "PMC12835892",
-          "10.1111/acel.70390",
-          "In vivo chemical reprogramming causes a toxic accumulation of lipid droplets",
-          "CC BY"),
+    Paper(
+        1,
+        "sanada-2025-hallmarks-of-aging-therapeutic-targets",
+        "PMC12259695",
+        "10.3389/fcvm.2025.1631578",
+        "Targeting the hallmarks of aging: mechanisms and therapeutic opportunities",
+        "CC BY",
+    ),
+    Paper(
+        2,
+        "garcia-barranquero-2025-sens-vs-hallmarks-of-aging-debate",
+        "PMC12052809",
+        "10.1007/s10522-025-10248-5",
+        "SENS vs. the hallmarks of aging: competing visions, shared challenges",
+        "CC BY",
+    ),
+    Paper(
+        3,
+        "ajoolabady-2025-hallmarks-mechanisms-cellular-senescence",
+        "PMC12322153",
+        "10.1038/s41420-025-02655-x",
+        "Hallmarks and mechanisms of cellular senescence in aging and disease",
+        "CC BY",
+    ),
+    Paper(
+        4,
+        "berardi-2026-shortest-telomere-drives-senescence",
+        "PMC13168691",
+        "10.1038/s41467-026-70352-z",
+        "Both genome instability and replicative senescence stem from the shortest telomere",
+        "CC BY",
+    ),
+    Paper(
+        5,
+        "coquette-2026-telomere-dysfunction-proteostasis-senescence-pathways",
+        "PMC13096579",
+        "10.1111/acel.70512",
+        "Telomere dysfunction and proteostasis decline define distinct pathways of senescence",
+        "CC BY",
+    ),
+    Paper(
+        6,
+        "sun-2026-nad-homeostasis-antiaging-framework",
+        "PMC13144588",
+        "10.1016/j.redox.2026.104191",
+        "An integrated anti-aging framework targeting NAD+ homeostasis",
+        "CC BY",
+    ),
+    Paper(
+        7,
+        "levine-2018-phenoage-epigenetic-biomarker-lifespan",
+        "PMC5940111",
+        "10.18632/aging.101414",
+        "An epigenetic biomarker of aging for lifespan and healthspan",
+        "CC BY",
+    ),
+    Paper(
+        8,
+        "belsky-2020-dunedin-pace-of-aging-blood-test",
+        "PMC7282814",
+        "10.7554/elife.54870",
+        "Quantification of the pace of biological aging in humans through a blood test",
+        "CC BY",
+    ),
+    Paper(
+        9,
+        "vetter-2026-comparing-fourteen-biomarkers-of-aging",
+        "PMC13063672",
+        "10.1186/s40364-026-00909-z",
+        "Comparing fourteen consensus biomarkers of aging",
+        "CC BY",
+    ),
+    Paper(
+        10,
+        "koch-2026-pan-epigenetic-age-prediction-mammals",
+        "PMC12841597",
+        "10.1111/acel.70380",
+        "Pan-epigenetic age prediction in mammals",
+        "CC BY",
+    ),
+    Paper(
+        11,
+        "maleszka-2025-no-epigenetic-clock-in-insect",
+        "PMC12557811",
+        "10.1073/pnas.2523241122",
+        "Still no evidence for an environmentally responsive epigenetic clock in an insect",
+        "CC BY-NC-ND",
+    ),
+    Paper(
+        12,
+        "mohammed-2021-metformin-anti-aging-critical-review",
+        "PMC8374068",
+        "10.3389/fendo.2021.718942",
+        "A critical review of the evidence that metformin is a putative anti-aging drug",
+        "CC BY",
+    ),
+    Paper(
+        13,
+        "ivimey-cook-2025-rapamycin-not-metformin-dietary-restriction",
+        "PMC12419861",
+        "10.1111/acel.70131",
+        "Rapamycin, not metformin, mirrors dietary restriction-driven lifespan extension",
+        "CC BY",
+    ),
+    Paper(
+        14,
+        "gkioni-2025-trametinib-rapamycin-combined-healthspan",
+        "PMC12270913",
+        "10.1038/s43587-025-00876-4",
+        "Trametinib and rapamycin combine additively to extend mouse healthspan and lifespan",
+        "CC BY",
+    ),
+    Paper(
+        15,
+        "hickson-2019-senolytics-dasatinib-quercetin-first-in-human",
+        "PMC6796530",
+        "10.1016/j.ebiom.2019.08.069",
+        "Senolytics decrease senescent cells in humans: dasatinib plus quercetin trial",
+        "CC BY",
+    ),
+    Paper(
+        16,
+        "justice-2019-senolytics-idiopathic-pulmonary-fibrosis-trial",
+        "PMC6412088",
+        "10.1016/j.ebiom.2018.12.052",
+        "Senolytics in idiopathic pulmonary fibrosis: first-in-human, open-label pilot",
+        "CC BY",
+    ),
+    Paper(
+        17,
+        "kasamoto-2026-senolytics-do-not-reverse-senescence-methylation",
+        "PMC12938503",
+        "10.1111/acel.70430",
+        "DNA methylation signatures of cellular senescence are not reversed by senolytics",
+        "CC BY",
+    ),
+    Paper(
+        18,
+        "moulds-2026-graded-calorie-restriction-epigenetic-ageing",
+        "PMC12724011",
+        "10.1111/acel.70342",
+        "Graded calorie restriction causes graded slowing of epigenetic ageing in mice",
+        "CC BY",
+    ),
+    Paper(
+        19,
+        "schoenfeldt-2025-chemical-reprogramming-extends-lifespan",
+        "PMC12340157",
+        "10.1038/s44321-025-00265-9",
+        "Chemical reprogramming ameliorates cellular hallmarks of aging and extends lifespan",
+        "CC BY",
+    ),
+    Paper(
+        20,
+        "mitchell-2026-chemical-reprogramming-lipid-droplet-toxicity",
+        "PMC12835892",
+        "10.1111/acel.70390",
+        "In vivo chemical reprogramming causes a toxic accumulation of lipid droplets",
+        "CC BY",
+    ),
     # Equation-focused batch — mathematical models of aging, added to stress-test
     # whether typeset math survives PDF parsing (see docstring above).
-    Paper(21, "flietner-2025-unifying-theory-of-aging-mortality", "PMC12328599",
-          "10.1038/s41598-025-11454-4",
-          "A unifying theory of aging and mortality",
-          "CC BY"),
-    Paper(22, "nielsen-2024-gompertz-law-subcomponent-interdependencies", "PMC10786855",
-          "10.1038/s41598-024-51669-5",
-          "The Gompertz Law emerges naturally from the inter-dependencies between "
-          "sub-components in complex organisms",
-          "CC BY"),
-    Paper(23, "pyrkov-2021-loss-of-resilience-lifespan-limit", "PMC8149842",
-          "10.1038/s41467-021-23014-1",
-          "Longitudinal analysis of blood markers reveals progressive loss of "
-          "resilience and predicts human lifespan limit",
-          "CC BY"),
-    Paper(24, "oswal-2022-hierarchical-process-model-celegans-aging", "PMC9524676",
-          "10.1371/journal.pcbi.1010415",
-          "A hierarchical process model links behavioral aging and lifespan in C. elegans",
-          "CC BY"),
-    Paper(25, "farrell-2024-epigenetic-pacemaker-aging-moderators", "PMC10791860",
-          "10.3389/fbinf.2023.1308680",
-          "Identifying epigenetic aging moderators using the epigenetic pacemaker",
-          "CC BY"),
-    Paper(26, "dolejs-2025-strehler-mildvan-correlation-mortality", "PMC12528207",
-          "10.3389/fpubh.2025.1627111",
-          "The Strehler-Mildvan correlation as a valuable tool for monitoring the "
-          "long-term health status of a population",
-          "CC BY"),
-    Paper(27, "gavrilova-2025-compensation-effect-of-mortality", "PMC12721371",
-          "10.53941/alr.2025.100004",
-          "The Compensation Effect of Mortality: A Global Analysis of Human Populations",
-          "CC BY"),
+    Paper(
+        21,
+        "flietner-2025-unifying-theory-of-aging-mortality",
+        "PMC12328599",
+        "10.1038/s41598-025-11454-4",
+        "A unifying theory of aging and mortality",
+        "CC BY",
+    ),
+    Paper(
+        22,
+        "nielsen-2024-gompertz-law-subcomponent-interdependencies",
+        "PMC10786855",
+        "10.1038/s41598-024-51669-5",
+        "The Gompertz Law emerges naturally from the inter-dependencies between "
+        "sub-components in complex organisms",
+        "CC BY",
+    ),
+    Paper(
+        23,
+        "pyrkov-2021-loss-of-resilience-lifespan-limit",
+        "PMC8149842",
+        "10.1038/s41467-021-23014-1",
+        "Longitudinal analysis of blood markers reveals progressive loss of "
+        "resilience and predicts human lifespan limit",
+        "CC BY",
+    ),
+    Paper(
+        24,
+        "oswal-2022-hierarchical-process-model-celegans-aging",
+        "PMC9524676",
+        "10.1371/journal.pcbi.1010415",
+        "A hierarchical process model links behavioral aging and lifespan in C. elegans",
+        "CC BY",
+    ),
+    Paper(
+        25,
+        "farrell-2024-epigenetic-pacemaker-aging-moderators",
+        "PMC10791860",
+        "10.3389/fbinf.2023.1308680",
+        "Identifying epigenetic aging moderators using the epigenetic pacemaker",
+        "CC BY",
+    ),
+    Paper(
+        26,
+        "dolejs-2025-strehler-mildvan-correlation-mortality",
+        "PMC12528207",
+        "10.3389/fpubh.2025.1627111",
+        "The Strehler-Mildvan correlation as a valuable tool for monitoring the "
+        "long-term health status of a population",
+        "CC BY",
+    ),
+    Paper(
+        27,
+        "gavrilova-2025-compensation-effect-of-mortality",
+        "PMC12721371",
+        "10.53941/alr.2025.100004",
+        "The Compensation Effect of Mortality: A Global Analysis of Human Populations",
+        "CC BY",
+    ),
 )
 
 
@@ -227,8 +335,14 @@ def download_pdf(pmcid: str) -> bytes:
 
         if attempt < MAX_ATTEMPTS:
             wait = BACKOFF_SECONDS * attempt
-            logger.warning("  %s attempt %d/%d failed (%s); retrying in %.0fs",
-                           pmcid, attempt, MAX_ATTEMPTS, last_problem, wait)
+            logger.warning(
+                "  %s attempt %d/%d failed (%s); retrying in %.0fs",
+                pmcid,
+                attempt,
+                MAX_ATTEMPTS,
+                last_problem,
+                wait,
+            )
             time.sleep(wait)
 
     raise FetchError(f"{pmcid}: {last_problem}")
@@ -278,8 +392,9 @@ def fetch_one(paper: Paper, out_dir: Path, *, force: bool) -> tuple[int, int, bo
     return pages, characters, True
 
 
-def run(papers: tuple[Paper, ...], out_dir: Path, *, force: bool,
-        verify_only: bool, delay: float) -> int:
+def run(
+    papers: tuple[Paper, ...], out_dir: Path, *, force: bool, verify_only: bool, delay: float
+) -> int:
     """Fetch or verify every paper. Returns a process exit code."""
     out_dir.mkdir(parents=True, exist_ok=True)
     logger.info("corpus directory: %s", out_dir)
@@ -303,7 +418,7 @@ def run(papers: tuple[Paper, ...], out_dir: Path, *, force: bool,
             try:
                 pages, characters = verify_pdf(destination)
             except FetchError as exc:
-                logger.error("%s\n  BAD: %s", label, exc)
+                logger.exception("%s\n  BAD", label)
                 failures.append(str(exc))
                 continue
             was_downloaded = False
@@ -311,7 +426,7 @@ def run(papers: tuple[Paper, ...], out_dir: Path, *, force: bool,
             try:
                 pages, characters, was_downloaded = fetch_one(paper, out_dir, force=force)
             except FetchError as exc:
-                logger.error("%s\n  FAILED: %s", label, exc)
+                logger.exception("%s\n  FAILED", label)
                 failures.append(str(exc))
                 continue
 
@@ -321,8 +436,15 @@ def run(papers: tuple[Paper, ...], out_dir: Path, *, force: bool,
         total_bytes += size
         downloaded += int(was_downloaded)
         state = "downloaded" if was_downloaded else "already present"
-        logger.info("%s\n  %s · %d pages · %s chars · %.1f MB · %s",
-                    label, state, pages, f"{characters:,}", size / 1e6, paper.licence)
+        logger.info(
+            "%s\n  %s · %d pages · %s chars · %.1f MB · %s",
+            label,
+            state,
+            pages,
+            f"{characters:,}",
+            size / 1e6,
+            paper.licence,
+        )
 
         # Space out requests; the source throttles bursts. No need to wait after the
         # last paper, or after one that was served from disk.
@@ -330,10 +452,18 @@ def run(papers: tuple[Paper, ...], out_dir: Path, *, force: bool,
             time.sleep(delay)
 
     logger.info("\n%s", "-" * 72)
-    logger.info("%d/%d papers present · %d newly downloaded", len(papers) - len(failures),
-                len(papers), downloaded)
-    logger.info("%d pages · %s characters · %.1f MB", total_pages, f"{total_characters:,}",
-                total_bytes / 1e6)
+    logger.info(
+        "%d/%d papers present · %d newly downloaded",
+        len(papers) - len(failures),
+        len(papers),
+        downloaded,
+    )
+    logger.info(
+        "%d pages · %s characters · %.1f MB",
+        total_pages,
+        f"{total_characters:,}",
+        total_bytes / 1e6,
+    )
     if failures:
         logger.error("\n%d failed:", len(failures))
         for failure in failures:
@@ -344,17 +474,31 @@ def run(papers: tuple[Paper, ...], out_dir: Path, *, force: bool,
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--out", type=Path, default=DEFAULT_OUT_DIR,
-                        help=f"corpus directory (default: {DEFAULT_OUT_DIR})")
-    parser.add_argument("--force", action="store_true",
-                        help="re-download papers that are already present")
-    parser.add_argument("--verify-only", action="store_true",
-                        help="check files on disk without downloading anything")
-    parser.add_argument("--only", type=int, nargs="+", metavar="N",
-                        help="fetch only these corpus numbers (1-20)")
-    parser.add_argument("--delay", type=float, default=REQUEST_DELAY_SECONDS,
-                        help=f"seconds between downloads (default: {REQUEST_DELAY_SECONDS})")
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    parser.add_argument(
+        "--out",
+        type=Path,
+        default=DEFAULT_OUT_DIR,
+        help=f"corpus directory (default: {DEFAULT_OUT_DIR})",
+    )
+    parser.add_argument(
+        "--force", action="store_true", help="re-download papers that are already present"
+    )
+    parser.add_argument(
+        "--verify-only",
+        action="store_true",
+        help="check files on disk without downloading anything",
+    )
+    parser.add_argument(
+        "--only", type=int, nargs="+", metavar="N", help="fetch only these corpus numbers (1-20)"
+    )
+    parser.add_argument(
+        "--delay",
+        type=float,
+        default=REQUEST_DELAY_SECONDS,
+        help=f"seconds between downloads (default: {REQUEST_DELAY_SECONDS})",
+    )
     args = parser.parse_args(argv)
 
     logging.basicConfig(level=logging.INFO, format="%(message)s", stream=sys.stdout)
@@ -367,8 +511,7 @@ def main(argv: list[str] | None = None) -> int:
             parser.error(f"no such corpus numbers: {sorted(unknown)}")
         papers = tuple(paper for paper in PAPERS if paper.index in wanted)
 
-    return run(papers, args.out, force=args.force,
-               verify_only=args.verify_only, delay=args.delay)
+    return run(papers, args.out, force=args.force, verify_only=args.verify_only, delay=args.delay)
 
 
 if __name__ == "__main__":

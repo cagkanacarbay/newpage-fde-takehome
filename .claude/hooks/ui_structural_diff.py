@@ -15,6 +15,7 @@ Shared by the Claude and Codex UI verify Stop hooks. Stdlib only, no deps.
 
 import sys
 from html.parser import HTMLParser
+from pathlib import Path
 
 # Attribute values that drive layout/appearance/targeting. A change to any of
 # these counts as visual; other attribute *values* (href, alt, data-*) do not.
@@ -59,7 +60,7 @@ def main():
         print("structural")
         return
     try:
-        with open(sys.argv[1], encoding="utf-8", errors="replace") as fh:
+        with Path(sys.argv[1]).open(encoding="utf-8", errors="replace") as fh:
             new = fh.read()
     except OSError:
         print("structural")

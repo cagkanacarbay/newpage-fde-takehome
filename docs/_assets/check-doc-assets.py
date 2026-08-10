@@ -9,7 +9,6 @@ import re
 import sys
 from pathlib import Path
 
-
 DOCS = Path(__file__).resolve().parents[1]
 ASSETS = DOCS / "_assets"
 INLINE_STYLE = re.compile(r"<style\b|\sstyle\s*=", re.IGNORECASE)

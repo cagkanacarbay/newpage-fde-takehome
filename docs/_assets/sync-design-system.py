@@ -27,20 +27,16 @@ Start new docs from docs/_assets/template.html.
 from __future__ import annotations
 
 import argparse
-import re
 import os
+import re
 import sys
 from pathlib import Path
 
 ASSETS = Path(__file__).resolve().parent
 DOCS = ASSETS.parent
 
-CSS_BLOCK = re.compile(
-    r"(?P<open><!-- ds:css:start -->).*?(?P<close><!-- ds:css:end -->)", re.S
-)
-JS_BLOCK = re.compile(
-    r"(?P<open><!-- ds:js:start -->).*?(?P<close><!-- ds:js:end -->)", re.S
-)
+CSS_BLOCK = re.compile(r"(?P<open><!-- ds:css:start -->).*?(?P<close><!-- ds:css:end -->)", re.S)
+JS_BLOCK = re.compile(r"(?P<open><!-- ds:js:start -->).*?(?P<close><!-- ds:js:end -->)", re.S)
 
 
 def relative_asset(path: Path, asset: str) -> str:
