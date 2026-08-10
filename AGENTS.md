@@ -82,6 +82,11 @@ Keep this map current as the repo grows, so it stays a reliable index of where t
 
 ## Worktrees and PRs
 
+**Documentation-only exception.** A request that changes only files under `docs/` is alignment work, not a development shipping task.
+Edit those files in place and run the required documentation checks.
+Do not create a worktree, branch, commit, push, pull request, or no-mistakes run unless Cha explicitly asks to publish the documentation change.
+If one request changes application code and documentation, use the normal workflow below for the combined change.
+
 **Every feature gets its own git worktree.** Multiple pieces of work run in parallel
 without sharing a checkout and without stepping on each other. Treehouse maintains the
 pool of reusable, pre-warmed worktrees:
