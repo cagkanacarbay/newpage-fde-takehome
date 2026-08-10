@@ -28,7 +28,8 @@
         <li><a href="#observability"><span class="n">02</span><span>Observability</span></a></li>
         <li><a href="#embedding"><span class="n">03</span><span>Embedding reference</span></a></li>
         <li><a href="#vector-database"><span class="n">04</span><span>Vector database</span></a></li>
-        <li><a href="#guardrails"><span class="n">05</span><span>Guardrails</span></a></li>
+        <li><a href="#retrieval"><span class="n">05</span><span>Retrieval approach</span></a></li>
+        <li><a href="#guardrails"><span class="n">06</span><span>Guardrails</span></a></li>
       </ol>
     </nav>
 
@@ -220,7 +221,7 @@
             <summary>Use hybrid retrieval</summary>
             <div class="body">
               <p>Use LanceDB dense and BM25 capabilities for the measured hybrid retrieval path.</p>
-              <p>Keep the retrieval adapter separate from storage so the per-document cap and later store changes remain easy to test.</p>
+              <p>Keep the retrieval adapter separate from storage so diversity policy and later store changes remain easy to test.</p>
             </div>
           </details>
 
@@ -234,8 +235,63 @@
         </div>
       </section>
 
+      <section id="retrieval">
+        <h2><span class="idx">05</span> Retrieval: broad hybrid candidates, then evidence packing</h2>
+        <p class="lead">Retrieve broadly, rerank the candidates, and pack the strongest evidence by token budget.</p>
+
+        <div class="rec">
+          <div class="rec-head">TL;DR</div>
+          <div class="rec-body">
+            <p><strong>What:</strong> Plan zero, one, or several semantic and lexical queries. Retrieve broadly, rerank, and pack complete evidence units by tokens.</p>
+            <p><strong>Why:</strong> Exact entity search and semantic similarity need different query forms. Simple and multi-paper questions need different amounts of evidence.</p>
+            <p><strong>Configuration:</strong> Keep candidate depth, document diversity, reranking, and source budget as evaluation values.</p>
+            <p><strong>Evidence:</strong> 2026 conversational-retrieval research supports query planning and multi-aspect queries. Corpus-specific quality remains untested.</p>
+            <p><strong>Status:</strong> Direction agreed. <a href="retrieval.html">Retrieval research and open values</a>.</p>
+          </div>
+        </div>
+
+        <h3>How we retrieve</h3>
+        <div class="accordion">
+          <details>
+            <summary>Plan lexical and semantic queries separately</summary>
+            <div class="body">
+              <p>Use complete semantic queries for embeddings and exact scientific anchors for BM25.</p>
+              <p>Allow several queries for a genuine comparison or multi-part request.</p>
+            </div>
+          </details>
+          <details>
+            <summary>Use deterministic chunk context</summary>
+            <div class="body">
+              <p>Prepend paper, section, element, caption, and page labels before dense and BM25 indexing.</p>
+              <p>Keep original chunk text separate for answers and citations.</p>
+            </div>
+          </details>
+          <details>
+            <summary>Choose context by evidence tokens</summary>
+            <div class="body">
+              <p>Do not use a fixed final chunk count or hard per-paper cap as a product rule.</p>
+              <p>Tune candidate depth, document diversity, and source budget against the full evaluation set.</p>
+            </div>
+          </details>
+          <details>
+            <summary>Do not claim unarchived quality</summary>
+            <div class="body">
+              <p>The evaluation page defines six contradiction pairs and 24 total items.</p>
+              <p>No repository artifact proves that any retrieval variant passed all six pairs.</p>
+            </div>
+          </details>
+          <details>
+            <summary>Evaluate model-based reranking only when needed</summary>
+            <div class="body">
+              <p>Start with hybrid rank fusion and a deterministic query plan.</p>
+              <p>Add a cross-encoder only when corpus evaluation shows a ranking failure.</p>
+            </div>
+          </details>
+        </div>
+      </section>
+
       <section id="guardrails">
-        <h2><span class="idx">05</span> Guardrails: corpus-only, verified answers</h2>
+        <h2><span class="idx">06</span> Guardrails: corpus-only, verified answers</h2>
         <p class="lead">The assistant can state only what the research corpus supports, and every factual claim must pass source verification.</p>
 
         <div class="rec">

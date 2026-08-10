@@ -6,7 +6,49 @@ A chat with your docs assistant based on a hypothetical customer "Live Long R&D"
 
 <!-- Maintained by the agent: keep accurate and updated with every change that affects setup -->
 
-There is no runnable application yet.
+Prerequisites: `uv` (Python 3.12), Node 22 with `pnpm` 10, and an OpenAI API
+key. The embedding model runs locally; no other credentials are needed.
+
+1. `uv sync` - install the Python stack.
+2. Put `OPENAI_API_KEY=...` in `.env` (gitignored). Only needed for the live
+   LLM path; the stub modes below need no key.
+3. Build the vector index once (about 30-45 minutes, no API key needed):
+
+   ```bash
+   uv run python -m live_long_rnd.ingest data/corpus/longevity
+   ```
+
+   This parses all 27 PDFs with Docling, embeds locally with
+   Qwen3-Embedding-0.6B, and writes a self-contained LanceDB index to
+   `data/index/` (gitignored; fully reproducible with this command).
+4. Start the API on port 8000:
+
+   ```bash
+   set -a; . ./.env; set +a
+   LIVE_LONG_RETRIEVER=lancedb LIVE_LONG_LLM=openai \
+     uv run uvicorn live_long_rnd.api.app:app --port 8000
+   ```
+
+   Without those two env vars the API serves deterministic stubs instead -
+   useful for development without an index or key.
+5. Start the UI on port 3000:
+
+   ```bash
+   cd web
+   pnpm install
+   NEXT_PUBLIC_API_BASE_URL=http://localhost:8000 pnpm dev
+   ```
+
+   Open http://localhost:3000. Without `NEXT_PUBLIC_API_BASE_URL` the UI
+   streams a built-in mock answer.
+
+Tests: `uv run pytest` (full suite, includes end-to-end tests that parse a
+real PDF and build a real index) or `uv run pytest -m "not e2e"` for the fast
+unit suite. Lint and types: `uv run ruff check`, `uv run mypy`.
+
+Docker packaging is planned (a single app image - LanceDB is embedded, so
+there is no database container); until it lands, the two processes above are
+the way to run the demo.
 
 The repository includes the 27-PDF research corpus in
 `data/corpus/longevity/`.
@@ -63,9 +105,9 @@ My chunking strategy is the widely accepted strategy the broader RAG engineering
 
 
 #### Embedding
-Using Qwen3-Embedding-0.6B since it is very good and can run without issue on my laptop. 
+Using text-embedding-3-large from GPT since it is available through the same API key I have for GPT. For a production system I would use a stronger model, either host it on the customer systems, or through a trusted provided.
 
-Qwen3-Embedding-8B would be a good upgrade in a more serious production environment.
+Qwen3-Embedding-8B would be a good upgrade in production.
 
 ## Engineering standards followed (and skipped)
 
@@ -88,6 +130,12 @@ The thing about this is, with LLMs, tests are free. Having LLMs write these test
 
 ### Write a test when there is an issue found
 Any issue found, a bug, an unconsidered problem, gets its own test through the previously described TDD methodology. This makes sure real world bugs, problems encountered etc. then feed back into the system as improvements of the codebase. The tests run all the time, so these issues never come back.
+
+
+### Test Pruning
+Adding a bunch of tests and running them on auto makes the codebase brittle long term. To make tests pass the codebase will be a certain way and will evolve with a lot of limitations.
+
+Every so often, depending on development velocity, I would run a specific analysis of the tests, and prune them, then refactor the code, making sure code quality stays high and codebase can evolve in this manner.
 
 ### git worktrees with Treehouse
 Treehouse is a tool that allows AI agents to manage git worktrees so multiple branches could be owned by AI agents to develop in parallel without colliding. It allows isolation of work and a faster reliable pipeline. There isn't much room to showcase what this enables with this repo, but I have it on for all my projects as it adds a lot to my agentic workflow.

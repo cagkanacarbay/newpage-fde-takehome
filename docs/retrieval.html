@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Retrieval approach - Live Long R&amp;D assistant</title>
+<!-- ds:css:start -->
+<link rel="stylesheet" href="_assets/docs.css">
+<!-- ds:css:end -->
+</head>
+<body>
+<div class="wrap">
+  <button class="theme-toggle" type="button" aria-label="Switch to dark">☾</button>
+  <a class="backlink" href="index.html">← System documentation</a>
+
+  <header class="page">
+    <h1>Retrieval approach</h1>
+    <p class="standfirst">Retrieve broadly, rerank the candidate pool, and pack complete evidence units into the model context by token budget.</p>
+    <div class="header-meta">
+      <span><b>GitHub issue</b> <a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/15">Issue 15</a></span>
+      <span><b>Related</b> <a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/22">Issue 22</a></span>
+      <span><b>Date</b> 2026-08-10</span>
+      <span><b>Status</b> proposal to build and test</span>
+      <span><b>Evidence</b> 2026 research</span>
+      <span><b>Exact values</b> evaluation pending</span>
+    </div>
+  </header>
+
+  <div class="shell">
+    <nav class="toc" aria-label="On this page">
+      <p class="toc-title">Contents</p>
+      <ol>
+        <li><a href="#decision"><span class="n">01</span><span>Direction</span></a></li>
+        <li><a href="#contract"><span class="n">02</span><span>Implementation contract</span></a></li>
+        <li><a href="#planning"><span class="n">03</span><span>Query planning</span></a></li>
+        <li><a href="#path"><span class="n">04</span><span>Retrieval path</span></a></li>
+        <li><a href="#packing"><span class="n">05</span><span>Evidence packing</span></a></li>
+        <li><a href="#research"><span class="n">06</span><span>2026 research</span></a></li>
+        <li><a href="#deferred"><span class="n">07</span><span>Deferred work</span></a></li>
+      </ol>
+    </nav>
+
+    <div class="col">
+      <section id="decision">
+        <h2><span class="idx">01</span> Broad retrieval, reranking, and token packing</h2>
+        <p class="lead">Retrieve for recall first. Then rank and pack evidence for answer quality.</p>
+
+        <div class="rec">
+          <div class="rec-head">Direction agreed</div>
+          <div class="rec-body">
+            <p><strong>What:</strong> Retrieve a broad hybrid candidate pool, rerank it, then pack the strongest complete evidence into the source budget.</p>
+            <p><strong>Why:</strong> A fact lookup and a multi-paper comparison need different amounts of evidence.</p>
+            <p><strong>Context:</strong> Keep document, section, element, caption, and page labels through indexing and citation output.</p>
+            <p><strong>Status:</strong> This is the agreed direction. Candidate depth, reranker, diversity rule, and source budget need corpus evaluation.</p>
+          </div>
+        </div>
+
+        <p>Do not use a fixed final chunk count as a product rule.</p>
+        <p>A result count such as ten is an evaluation setting, not proof that ten chunks suit every question.</p>
+      </section>
+
+      <section id="contract">
+        <h2><span class="idx">02</span> Proposed implementation contract</h2>
+        <p class="lead">Development should build and test this deterministic path before adding adaptive retrieval loops.</p>
+
+        <pre><code>message + saved conversation history
+  -&gt; QueryPlan with strict JSON output
+  -&gt; one to three SearchIntents
+  -&gt; hybrid search for each intent
+  -&gt; RRF fusion, deduplication, and cross-encoder reranking
+  -&gt; diversity-aware token packing
+  -&gt; grounded answer with exact citations</code></pre>
+
+        <div class="callout note">
+          <span class="lbl">One SearchIntent</span>
+          <p>A SearchIntent represents one distinct evidence need, not one user message.</p>
+          <p>A direct question and a context-resolved follow-up create one intent.</p>
+          <p>A comparison or request with separate aspects creates two or three intents.</p>
+        </div>
+
+        <pre><code>{
+  "action": "retrieve | clarify",
+  "search_intents": [
+    {
+      "dense_query": "What doses and adverse events were reported in the Hickson senolytic trial?",
+      "sparse_query": "Hickson senolytic dose adverse events",
+      "filters": {}
+    }
+  ]
+}</code></pre>
+
+        <h3>Rules for the QueryPlan</h3>
+        <ol class="numbered">
+          <li><b>Default to one intent</b><span class="d">Create more only when the message asks for separate evidence, such as a comparison, several entities, or distinct requested aspects.</span></li>
+          <li><b>Use two query forms</b><span class="d">The dense query carries the complete resolved meaning. The sparse query keeps exact entities for BM25.</span></li>
+          <li><b>Preserve literal scientific terms</b><span class="d">Copy paper IDs, authors, drug names, doses, years, numbers, and quoted phrases from the message or conversation history.</span></li>
+          <li><b>Resolve, do not invent</b><span class="d">Use history to resolve “it” or “the other trial.” Do not add facts, inferred entities, or generated synonyms.</span></li>
+          <li><b>Clarify absent intent</b><span class="d">If the user only supplies material, return <code>clarify</code> instead of searching without a stated task.</span></li>
+        </ol>
+
+        <h3>Retrieval for each SearchIntent</h3>
+        <ol class="numbered">
+          <li><b>Embed the dense query</b><span class="d">Search the vector index with the semantic query.</span></li>
+          <li><b>Search the sparse query</b><span class="d">Search BM25 with the exact lexical terms.</span></li>
+          <li><b>Fuse broad candidates</b><span class="d">Use RRF to combine the dense and BM25 candidate lists.</span></li>
+          <li><b>Merge intent results</b><span class="d">Deduplicate the union from every SearchIntent before reranking.</span></li>
+          <li><b>Pack complete evidence</b><span class="d">Select diverse chunks and needed neighbors until the source-token budget is full.</span></li>
+        </ol>
+
+        <div class="callout warn">
+          <span class="lbl">Test requirement</span>
+          <p>This is a research-backed proposal, not a proven corpus result.</p>
+          <p>Compare raw-only, dual-query, and aspect-decomposed variants on the 24-item suite before setting runtime values.</p>
+        </div>
+      </section>
+
+      <section id="planning">
+        <h2><span class="idx">03</span> Turn a message into retrieval queries</h2>
+        <p class="lead">One user message can need zero, one, or several retrieval queries.</p>
+
+        <div class="callout note">
+          <span class="lbl">Query plan</span>
+          <p>A short model call reads the current message and relevant conversation history.</p>
+          <p>It returns query strings for semantic search, exact lexical anchors for BM25, and optional paper or author filters.</p>
+        </div>
+
+        <pre><code>{
+  "action": "retrieve | clarify",
+  "dense_queries": ["full semantic question or aspect"],
+  "lexical_anchors": ["verbatim paper, author, drug, dose, year, phrase"],
+  "filters": {"paper_id": null, "author": null}
+}</code></pre>
+
+        <p>Each dense query must resolve references such as “it” or “the other trial.”</p>
+        <p>The plan can return multiple queries for a comparison or independent requests in one message.</p>
+        <p>It must not add scientific facts, synonyms, or inferred entities.</p>
+        <p>If a user only pastes material, it returns <code>clarify</code> instead of inventing a research task.</p>
+      </section>
+
+      <section id="path">
+        <h2><span class="idx">04</span> One deterministic retrieval path</h2>
+        <ol class="numbered">
+          <li><b>Build searchable text</b><span class="d">Prepend paper, section, element, caption, and page labels to each original chunk.</span></li>
+          <li><b>Index both signals</b><span class="d">Embed the searchable text and store the same text in the BM25 index.</span></li>
+          <li><b>Plan retrieval</b><span class="d">Create zero, one, or several semantic queries and a lexical-anchor list.</span></li>
+          <li><b>Search broadly</b><span class="d">Run dense and BM25 search for the raw message and planned queries.</span></li>
+          <li><b>Fuse and rerank</b><span class="d">Deduplicate candidates, fuse ranks, and rerank the combined pool.</span></li>
+          <li><b>Pack evidence</b><span class="d">Add diverse, complete evidence units until the source-token budget is full.</span></li>
+        </ol>
+
+        <div class="callout note">
+          <span class="lbl">Deterministic context</span>
+          <p>The indexed header uses labels such as <code>Paper</code>, <code>Section</code>, <code>Element</code>, and <code>Page</code>.</p>
+          <p>The researcher receives the original chunk text. No LLM generates or rewrites this context in v1.</p>
+        </div>
+      </section>
+
+      <section id="packing">
+        <h2><span class="idx">05</span> Pack evidence by tokens, not chunk count</h2>
+        <p class="lead">A comparison needs broad coverage. A single-paper question may need adjacent supporting chunks.</p>
+
+        <div class="table-scroll">
+          <table class="matrix">
+            <thead><tr><th>Control</th><th>Rule</th><th>Reason</th></tr></thead>
+            <tbody>
+              <tr><td class="opt">Candidate depth</td><td>Broad, then measured</td><td>Recall must be high before reranking can help.</td></tr>
+              <tr><td class="opt">Document diversity</td><td>Soft rule, then measured</td><td>Prevent concentration without blocking one-paper answers.</td></tr>
+              <tr><td class="opt">Final evidence</td><td>Token-budget packing</td><td>Different question types need different evidence amounts.</td></tr>
+              <tr><td class="opt">Adjacent chunks</td><td>Keep when needed</td><td>Methods, results, and limits can span chunks.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p>Use the 24-item suite to choose candidate depth, reranker, diversity, and source budget together.</p>
+        <p>Measure expected-paper recall, citation support, answer quality, latency, and cost.</p>
+        <p>Do not use an RRF score threshold as a universal stop rule because RRF ranks are not calibrated relevance probabilities.</p>
+      </section>
+
+      <section id="research">
+        <h2><span class="idx">06</span> 2026 research supports the direction</h2>
+        <p class="lead">The strongest sources support separate lexical and semantic queries, plus multiple queries for multi-aspect messages.</p>
+
+        <div class="table-scroll">
+          <table class="matrix wide">
+            <thead><tr><th>Source</th><th>Finding</th><th>Use here</th></tr></thead>
+            <tbody>
+              <tr><td class="opt"><a href="https://aclanthology.org/2026.acl-long.1054/">DVCQR, ACL 2026</a></td><td>Separate sparse lexical and dense semantic rewrites improve conversational retrieval.</td><td>Plan lexical anchors separately from embedding queries.</td></tr>
+              <tr><td class="opt"><a href="https://aclanthology.org/2026.eacl-long.383/">MQ4CS, EACL 2026</a></td><td>Multiple aspect queries beat one rewrite for complex conversational requests.</td><td>Allow several queries when one message needs independent evidence.</td></tr>
+              <tr><td class="opt"><a href="https://aclanthology.org/2026.findings-eacl.312/">QueStER, EACL 2026</a></td><td>Generated keyword specifications improve lexical retrieval.</td><td>Use verbatim scientific anchors in the BM25 query.</td></tr>
+              <tr><td class="opt"><a href="https://aclanthology.org/2026.semeval-1.32/">SemEval Task 8, 2026</a></td><td>A training-free pipeline combines rewriting, hybrid search, and cross-encoder reranking.</td><td>Keep the first system deterministic and evaluate each added stage.</td></tr>
+              <tr><td class="opt"><a href="https://arxiv.org/abs/2604.10745">Adaptive RAG robustness, 2026</a></td><td>Equivalent wording can change adaptive retrieval behavior.</td><td>Evaluate raw and planned queries together.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout warn">
+          <span class="lbl">Evidence boundary</span>
+          <p>These sources support the architecture direction. They do not prove one candidate depth, source budget, or reranker for this corpus.</p>
+          <p>Use the same index, embedding model, and 24-item query set for every retrieval comparison.</p>
+        </div>
+      </section>
+
+      <section id="deferred">
+        <h2><span class="idx">07</span> Keep v1 deterministic</h2>
+        <div class="table-scroll">
+          <table class="matrix wide">
+            <thead><tr><th>Feature</th><th>v1</th><th>Reason</th></tr></thead>
+            <tbody>
+              <tr><td class="opt">Model-based reranking</td><td><span class="tag">evaluate</span></td><td>Use it only if broad hybrid candidates contain the right evidence but rank it poorly.</td></tr>
+              <tr><td class="opt">Adaptive second retrieval</td><td><span class="tag">deferred</span></td><td>It adds a quality-assessment loop that needs calibration and corpus evidence.</td></tr>
+              <tr><td class="opt">LLM-generated chunk context</td><td><span class="tag">excluded</span></td><td>Deterministic labels provide context without generated text or ingestion calls.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p>LanceDB names its RRF component <code>RRFReranker</code>. It performs rank fusion, not model-based semantic reranking.</p>
+
+        <h3>Revisit triggers</h3>
+        <ul>
+          <li>Add model reranking only when relevant chunks enter the candidate set but miss the final ten.</li>
+          <li>Add query transformation only when follow-up questions fail a dedicated conversational evaluation.</li>
+          <li>Change the cap when Gate A and Gate C show a better shared value.</li>
+        </ul>
+      </section>
+    </div>
+  </div>
+
+  <footer class="page">
+    <a class="backlink mb-0" href="index.html">← System documentation</a>
+  </footer>
+</div>
+<!-- ds:js:start -->
+<script defer src="_assets/docs.js"></script>
+<!-- ds:js:end -->
+</body>
+</html>

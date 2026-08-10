@@ -24,6 +24,13 @@ htmlcov/
 models/
 .cache/
 
+# Node.js and Next.js generated files
+node_modules/
+.next/
+
+# Local Treehouse worktrees
+.treehouse/
+
 # Editor / OS
 .DS_Store
 .idea/
