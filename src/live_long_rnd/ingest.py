@@ -40,13 +40,19 @@ class Embedder(Protocol):
 
 
 class SentenceTransformerEmbedder:
-    """Local Qwen3-Embedding-0.6B runner; no API key required."""
+    """Local Qwen3-Embedding-0.6B runner; no API key required.
+
+    Pinned to CPU with small batches: Docling's layout models already hold the
+    Apple GPU, and sharing it blew the MPS memory ceiling on a full-corpus run.
+    """
 
     def __init__(self, model_name: str = EMBEDDING_MODEL_NAME) -> None:
-        self._model = SentenceTransformer(model_name)
+        self._model = SentenceTransformer(model_name, device="cpu")
 
     def embed(self, texts: Sequence[str]) -> list[list[float]]:
-        vectors = self._model.encode(list(texts), normalize_embeddings=True)
+        vectors = self._model.encode(
+            list(texts), batch_size=8, normalize_embeddings=True
+        )
         return [vector.tolist() for vector in vectors]
 
 
