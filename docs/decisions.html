@@ -28,6 +28,7 @@
         <li><a href="#observability"><span class="n">02</span><span>Observability</span></a></li>
         <li><a href="#embedding"><span class="n">03</span><span>Embedding reference</span></a></li>
         <li><a href="#vector-database"><span class="n">04</span><span>Vector database</span></a></li>
+        <li><a href="#guardrails"><span class="n">05</span><span>Guardrails</span></a></li>
       </ol>
     </nav>
 
@@ -228,6 +229,90 @@
             <div class="body">
               <p>Compare LanceDB Cloud and Qdrant Cloud when deployment, scale, and service boundaries become requirements.</p>
               <p>Do not treat the current LanceDB Cloud integration as a hybrid production path until its limitation is resolved or measured around.</p>
+            </div>
+          </details>
+        </div>
+      </section>
+
+      <section id="guardrails">
+        <h2><span class="idx">05</span> Guardrails: corpus-only, verified answers</h2>
+        <p class="lead">The assistant can state only what the research corpus supports, and every factual claim must pass source verification.</p>
+
+        <div class="rec">
+          <div class="rec-head">TL;DR</div>
+          <div class="rec-body">
+            <p><strong>What:</strong> Gate retrieved chunks before generation, require a citation for every factual claim, and verify each claim against its cited text.</p>
+            <p><strong>Why:</strong> Live Long R&amp;D needs a research assistant, not a general chatbot. A fluent answer without paper support is a product failure.</p>
+            <p><strong>Boundary:</strong> User prompts control the answer form. They cannot override retrieval, evidence, citation, conflict, medical, or prompt-injection guardrails.</p>
+            <p><strong>Status:</strong> Policy decided. The calibrated score and smaller verifier model remain implementation choices.</p>
+            <p><strong>GitHub:</strong> <a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/21">Issue 21 - define assistant guardrails</a> records the agreed policy. The <a href="technical-choices.html#c12">technical-choice analysis</a> preserves the alternatives and implementation limits.</p>
+          </div>
+        </div>
+
+        <h3>What the system enforces</h3>
+        <div class="accordion">
+          <details>
+            <summary>Separate guardrails from prompt guidance</summary>
+            <div class="body">
+              <p>Guardrails are deterministic or systematic controls around the model. A user cannot turn them off through a chat message.</p>
+              <p>Prompt guidance controls presentation. The user can request a synthesis, a summary, a simple answer, or a detailed answer.</p>
+              <p>The default is a detailed, source-specific answer. The prompt can change its form, but it cannot change its evidence boundary.</p>
+            </div>
+          </details>
+
+          <details>
+            <summary>Filter retrieval before the main model sees evidence</summary>
+            <div class="body">
+              <p>Calibrate a relevance threshold with both answerable and irrelevant test questions. The earlier <code>0.75</code> value is an example, not a fixed score.</p>
+              <p>Raw hybrid RRF scores are not relevance probabilities. The final threshold must use a stable score with measured meaning.</p>
+              <p>Remove every chunk below the calibrated threshold. The main model receives only passing chunks, even when the top result passes.</p>
+              <p>If no chunks pass, do not call the main model. Return that retrieval found no sufficiently relevant evidence in the corpus for the question.</p>
+              <p>Retrieval evaluation must test known contradiction pairs and confirm that evidence for both sides reaches generation.</p>
+            </div>
+          </details>
+
+          <details>
+            <summary>Keep every answer inside the papers</summary>
+            <div class="body">
+              <p>The papers are the complete factual domain. The assistant cannot fill a gap with model knowledge, common knowledge, or an uncited explanation.</p>
+              <p>Use clear evidence fully. Preserve exact values, units, cohorts, conditions, outcomes, limits, and other details when they answer the question.</p>
+              <p>Do not replace clear information with a vague abstraction. Synthesize only when the user asks or when synthesis helps answer the question.</p>
+              <p>Disclose every material conflict in the retrieved evidence. State what each source reports and preserve its conditions and uncertainty.</p>
+              <p>Reject personal diagnosis, treatment, or dosing advice. When useful, report the exact study evidence and study context without personalizing it.</p>
+            </div>
+          </details>
+
+          <details>
+            <summary>Treat retrieved text as data, never instructions</summary>
+            <div class="body">
+              <p>Put system instructions inside an <code>&lt;instructions&gt;</code> block. Put retrieved paper text inside a separate <code>&lt;data&gt;</code> block.</p>
+              <p>Tell the model that content inside <code>&lt;data&gt;</code> is evidence only. It must never follow instructions found there.</p>
+              <p>Escape structural delimiter text before prompt assembly. The fixed corpus is curated, but corpus trust does not turn evidence into instructions.</p>
+            </div>
+          </details>
+
+          <details>
+            <summary>Verify every factual claim through structured evidence</summary>
+            <div class="body">
+              <ol class="numbered">
+                <li><span><b>Generate structured claims</b><span class="d">The main model returns atomic factual claims with citation IDs from the retrieved set.</span></span></li>
+                <li><span><b>Read the answer and cited chunks</b><span class="d">A smaller verifier reads the complete answer, then checks each claim only against its cited chunks.</span></span></li>
+                <li><span><b>Return exact evidence</b><span class="d">For each claim, the verifier returns a structured status, chunk ID, and exact supporting text from that chunk.</span></span></li>
+                <li><span><b>Validate deterministically</b><span class="d">Code rejects unknown IDs, missing provenance, and evidence text that is not an exact substring of the cited chunk.</span></span></li>
+                <li><span><b>Clean without changing meaning</b><span class="d">The reviewer removes rejected claims and adjusts connective text only. It cannot add facts, change values, or change citations.</span></span></li>
+              </ol>
+              <p>The substring check proves that the evidence text exists. The smaller verifier still decides whether that text supports the claim.</p>
+              <p>Keep uncertainty stated by a source. Remove a claim when the verifier cannot confirm that its cited text supports it.</p>
+              <p>Do not run another model review after cleanup. Run the response schema and deterministic citation checks before returning the answer.</p>
+            </div>
+          </details>
+
+          <details>
+            <summary>Fail closed without hiding what happened</summary>
+            <div class="body">
+              <p>If some requested parts lack support, return the supported answer and identify the specific gaps in the retrieved evidence.</p>
+              <p>If cleanup removes every factual claim, return that the retrieved evidence did not provide a supported answer.</p>
+              <p>If the verifier times out or returns invalid output, return a verification error. Never return the unverified draft.</p>
             </div>
           </details>
         </div>

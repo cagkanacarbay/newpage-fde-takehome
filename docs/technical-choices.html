@@ -110,7 +110,7 @@
               <tr class="group"><td colspan="4"><span class="grouplabel">Producing the answer</span></td></tr>
               <tr><td class="n">10</td><td class="c"><a href="#c10">Generation model</a></td><td class="d">Answer quality, latency, cost per demo run</td><td class="s"><span class="state open">Open</span></td></tr>
               <tr><td class="n">11</td><td class="c"><a href="#c11">Context assembly &amp; prompt</a></td><td class="d">Grounding, citation accuracy, and how disagreement gets reported</td><td class="s"><span class="state open">Open</span></td></tr>
-              <tr><td class="n">12</td><td class="c"><a href="#c12">Guardrails</a></td><td class="d">What happens on out-of-scope and unanswerable questions</td><td class="s"><span class="state open">Open</span></td></tr>
+              <tr><td class="n">12</td><td class="c"><a href="#c12">Guardrails</a></td><td class="d">What happens on out-of-scope and unanswerable questions</td><td class="s"><span class="state set">Set</span></td></tr>
 
               <tr class="group"><td colspan="4"><span class="grouplabel">Proving it works</span></td></tr>
               <tr><td class="n">13</td><td class="c"><a href="#c13">Evaluation</a></td><td class="d">Whether the claims above are measured or asserted</td><td class="s"><span class="state open">Open</span></td></tr>
@@ -153,7 +153,7 @@
             <tr><td class="opt"><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/18">#18</a><span class="sub">LLM selection: OpenAI vs Gemini lineup</span></td><td><span class="state open">Open</span></td><td>10</td><td class="txt">Matches <strong>Generation model</strong>.</td></tr>
             <tr><td class="opt"><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/19">#19</a><span class="sub">Eval options for the longevity corpus</span></td><td><span class="state done">Closed</span></td><td>13</td><td class="txt">Matches the evaluation research. The final v1 gate set remains open in #20. <a href="research/evaluation.html">Research</a>.</td></tr>
             <tr><td class="opt"><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/20">#20</a><span class="sub">Quality gates: choose the v1 eval suite</span></td><td><span class="state open">Open</span></td><td>13</td><td class="txt">Matches <strong>Evaluation</strong> and its final quality thresholds.</td></tr>
-            <tr><td class="opt"><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/21">#21</a><span class="sub">Guardrails policy</span></td><td><span class="state open">Open</span></td><td>12</td><td class="txt">Matches <strong>Guardrails</strong>: policy scope, out-of-scope questions, unanswerable questions, and refusal behavior.</td></tr>
+            <tr><td class="opt"><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/21">#21</a><span class="sub">Guardrails policy</span></td><td><span class="state open">Open</span></td><td>12</td><td class="txt"><strong>Decision:</strong> use corpus-only, verified answers. <strong>TL;DR:</strong> retrieve before generation, cite every factual claim, and verify claims against cited text. <a href="decisions.html#guardrails">Decision page</a>.</td></tr>
             <tr><td class="opt"><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/22">#22</a><span class="sub">Context management strategy</span></td><td><span class="state open">Open</span></td><td>09, 11</td><td class="txt">Matches <strong>Multi-turn handling</strong> and <strong>Context assembly &amp; prompt</strong>.</td></tr>
             <tr><td class="opt"><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/23">#23</a><span class="sub">Generation, prompt, and citation-to-page: write generation.html</span></td><td><span class="state open">Open</span></td><td>05, 10, 11</td><td class="txt">Matches <strong>Chunk metadata &amp; the citation unit</strong>, <strong>Generation model</strong>, and <strong>Context assembly &amp; prompt</strong>.</td></tr>
             <tr><td class="opt"><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/24">#24</a><span class="sub">UI design: streaming chat with exact-spot PDF citations</span></td><td><span class="state open">Open</span></td><td>05, 15</td><td class="txt">Matches citations and <strong>Frontend &amp; packaging</strong>.</td></tr>
@@ -989,9 +989,9 @@ llama-index-core     base package, every integration added deliberately</code></
       </section>
 
       <section id="c12">
-        <h2><span class="idx">12</span> Guardrails <span class="state open">Open</span></h2>
-        <div class="callout note"><span class="lbl">GitHub coverage</span><p><strong><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/21">Issue #21: Guardrails policy</a></strong> is the focused issue for this section. It covers policy scope, out-of-scope questions, unanswerable questions, and refusal behavior.</p><p><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/26">Issue #26</a> also carries guardrails in the architecture chain.</p></div>
-        <p class="determines"><b>Determines</b> what happens on questions the corpus cannot answer, questions that are out of scope, and content in the documents that tries to influence the model. Named explicitly in the brief.</p>
+        <h2><span class="idx">12</span> Guardrails <span class="state set">Set</span></h2>
+        <div class="callout note"><span class="lbl">GitHub coverage</span><p><strong><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/21">Issue #21: Guardrails policy</a></strong> records the agreed policy. <a href="decisions.html#guardrails">The decision page</a> defines its evidence, citation, conflict, medical, and prompt-injection boundaries.</p><p><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/26">Issue #26</a> also carries guardrails in the architecture chain.</p></div>
+        <p class="determines"><b>Determines</b> what happens when retrieved evidence cannot answer a question, when a question is out of scope, and when document text tries to influence the model. Named explicitly in the brief.</p>
 
         <div class="table-scroll"><table class="opts">
           <thead><tr><th>Option</th><th>What you get</th><th>What it costs</th></tr></thead>
@@ -1026,7 +1026,8 @@ llama-index-core     base package, every integration added deliberately</code></
 
         <div class="decider">
           <span class="lbl">What settles it</span>
-          <p>How much latency an answer can spend on safety we can actually show working. A guardrail nobody can see is worth less here than one the interface makes visible. Note the coupling to choice 01: with a shipped corpus, document content is trusted and prompt injection is close to theoretical. The moment users upload their own PDFs, it stops being theoretical.</p>
+          <p>The policy is set: filter retrieval, verify claims, and validate citations. The remaining implementation choices are a measured relevance threshold and the verifier model. Measure latency and verifier accuracy against answerable, irrelevant, and conflicting corpus questions.</p>
+          <p>The curated corpus can still contain instruction-like text. Treat every retrieved passage as data, never instructions. User uploads increase that risk but do not change the policy.</p>
         </div>
       </section>
 

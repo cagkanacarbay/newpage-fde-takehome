@@ -21,7 +21,7 @@ table tracks status; the reasoning is written up in the README, not here.
 | Retrieval approach | Open |
 | Prompt engineering | Open |
 | Context management | Open |
-| Guardrails | Open |
+| Guardrails | Decided |
 | Quality controls | Open |
 | Observability | Open |
 
