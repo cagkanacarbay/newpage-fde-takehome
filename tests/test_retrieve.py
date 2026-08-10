@@ -11,7 +11,7 @@ import pytest
 from openai import OpenAI
 
 from live_long_rnd.embeddings import OpenAIEmbedder
-from live_long_rnd.ingest import LanceDBNodeStore, ingest_pdf
+from live_long_rnd.ingest import IngestDependencies, LanceDBNodeStore, ingest_pdf
 from live_long_rnd.retrieve import (
     LanceDBHybridStore,
     RetrievalResult,
@@ -204,8 +204,10 @@ def test_ingested_corpus_paper_is_retrievable_with_hybrid_search(tmp_path: Path)
 
     ingest_pdf(
         source,
-        embedder=embedder,
-        store=LanceDBNodeStore(index_dir),
+        IngestDependencies(
+            embedder=embedder,
+            store=LanceDBNodeStore(index_dir),
+        ),
     )
     results = retrieve(
         "epigenetic clock in insects",

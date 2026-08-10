@@ -21,7 +21,7 @@ from llama_index.core.schema import (
 )
 
 import live_long_rnd.ingest as ingest_module
-from live_long_rnd.ingest import ingest_pdf
+from live_long_rnd.ingest import IngestDependencies, ingest_pdf
 from live_long_rnd.parsing import CitationProvenanceError
 
 
@@ -144,10 +144,12 @@ def test_ingestion_fails_loudly_when_a_chunk_has_no_heading_path(tmp_path: Path)
     with pytest.raises(CitationProvenanceError, match="heading path"):
         ingest_pdf(
             source,
-            reader=reader,
-            node_parser=StubNodeParser([node]),
-            embedder=StubEmbedder(),
-            store=StubStore(),
+            IngestDependencies(
+                reader=reader,
+                node_parser=StubNodeParser([node]),
+                embedder=StubEmbedder(),
+                store=StubStore(),
+            ),
         )
 
 
@@ -173,10 +175,12 @@ def test_ingestion_excludes_headingless_front_matter_when_the_paper_has_headings
 
     count = ingest_pdf(
         source,
-        reader=reader,
-        node_parser=StubNodeParser([artifact, valid_node]),
-        embedder=StubEmbedder(),
-        store=store,
+        IngestDependencies(
+            reader=reader,
+            node_parser=StubNodeParser([artifact, valid_node]),
+            embedder=StubEmbedder(),
+            store=store,
+        ),
     )
 
     assert count == 1
@@ -196,10 +200,12 @@ def test_ingested_chunk_keeps_original_text_and_carries_full_citation(tmp_path: 
 
     ingest_pdf(
         source,
-        reader=reader,
-        node_parser=StubNodeParser([node]),
-        embedder=StubEmbedder(),
-        store=store,
+        IngestDependencies(
+            reader=reader,
+            node_parser=StubNodeParser([node]),
+            embedder=StubEmbedder(),
+            store=store,
+        ),
     )
 
     [stored] = store.nodes
@@ -238,10 +244,12 @@ def test_ingested_chunk_is_keyed_by_the_stable_document_id(tmp_path: Path) -> No
 
     ingest_pdf(
         source,
-        reader=reader,
-        node_parser=StubNodeParser([_linked_node(reader.document, _full_metadata())]),
-        embedder=StubEmbedder(),
-        store=store,
+        IngestDependencies(
+            reader=reader,
+            node_parser=StubNodeParser([_linked_node(reader.document, _full_metadata())]),
+            embedder=StubEmbedder(),
+            store=store,
+        ),
     )
 
     [stored] = store.nodes
@@ -260,10 +268,12 @@ def test_ingested_chunks_carry_dense_embeddings_and_return_count(tmp_path: Path)
 
     count = ingest_pdf(
         source,
-        reader=reader,
-        node_parser=StubNodeParser(nodes),
-        embedder=StubEmbedder(),
-        store=store,
+        IngestDependencies(
+            reader=reader,
+            node_parser=StubNodeParser(nodes),
+            embedder=StubEmbedder(),
+            store=store,
+        ),
     )
 
     assert count == 2
@@ -287,13 +297,19 @@ def test_directory_ingestion_finalizes_the_fts_index_once(
     store = StubStore()
     finalized_per_pdf: list[bool] = []
 
-    def ingest_stub(source: Path, *, finalize: bool, **_kwargs: object) -> int:
+    def ingest_stub(source: Path, dependencies: IngestDependencies) -> int:
         assert source in {first_pdf, second_pdf}
-        finalized_per_pdf.append(finalize)
+        finalized_per_pdf.append(dependencies.finalize)
         return 1
 
-    monkeypatch.setattr(ingest_module, "LanceDBNodeStore", lambda _index_dir: store)
-    monkeypatch.setattr(ingest_module, "create_reader", lambda: StubReader())
+    def create_store(_index_dir: Path) -> StubStore:
+        return store
+
+    def create_stub_reader() -> StubReader:
+        return StubReader()
+
+    monkeypatch.setattr(ingest_module, "LanceDBNodeStore", create_store)
+    monkeypatch.setattr(ingest_module, "create_reader", create_stub_reader)
     monkeypatch.setattr(ingest_module, "ingest_pdf", ingest_stub)
 
     assert ingest_module.main([str(source_dir)]) == 0

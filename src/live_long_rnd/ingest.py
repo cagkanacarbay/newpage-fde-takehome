@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 from collections.abc import Sequence
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -66,6 +67,17 @@ class NodeStore(Protocol):
 
     def finalize(self) -> None:
         """Build indexes after all nodes have been added."""
+
+
+@dataclass
+class IngestDependencies:
+    """Optional seams for one ingestion operation."""
+
+    reader: DocumentReader | None = None
+    node_parser: NodeParser | None = None
+    embedder: Embedder | None = None
+    store: NodeStore | None = None
+    finalize: bool = True
 
 
 def _provenance_geometry(metadata: dict[str, Any]) -> tuple[list[int], list[dict[str, Any]]]:
@@ -154,30 +166,25 @@ def _keep_navigable_nodes(nodes: list[BaseNode]) -> list[BaseNode]:
     return [node for node in nodes if _has_heading_path(node)]
 
 
-def ingest_pdf(
-    source: Path,
-    *,
-    reader: DocumentReader | None = None,
-    node_parser: NodeParser | None = None,
-    embedder: Embedder | None = None,
-    store: NodeStore | None = None,
-    finalize: bool = True,
-) -> int:
+def ingest_pdf(source: Path, dependencies: IngestDependencies | None = None) -> int:
     """Parse, chunk, contextualize, embed, and index one PDF. Return the chunk count."""
-    documents = parse_pdf(source, reader=reader)
-    nodes = chunk_documents(documents, node_parser=node_parser or _create_node_parser())
+    active_dependencies = dependencies or IngestDependencies()
+    documents = parse_pdf(source, reader=active_dependencies.reader)
+    nodes = chunk_documents(
+        documents, node_parser=active_dependencies.node_parser or _create_node_parser()
+    )
     nodes = _keep_navigable_nodes(nodes)
     for node in nodes:
         _prepare_node(node)
 
     texts = [node.get_content() for node in nodes]
-    vectors = (embedder or OpenAIEmbedder()).embed(texts)
+    vectors = (active_dependencies.embedder or OpenAIEmbedder()).embed(texts)
     for node, vector in zip(nodes, vectors, strict=True):
         node.embedding = vector
 
-    active_store = store or LanceDBNodeStore(DEFAULT_INDEX_DIR)
+    active_store = active_dependencies.store or LanceDBNodeStore(DEFAULT_INDEX_DIR)
     active_store.add(nodes)
-    if finalize:
+    if active_dependencies.finalize:
         active_store.finalize()
     return len(nodes)
 
@@ -211,7 +218,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     reader = create_reader()
     total = 0
     for pdf in sources:
-        count = ingest_pdf(pdf, reader=reader, embedder=embedder, store=store, finalize=False)
+        count = ingest_pdf(
+            pdf,
+            IngestDependencies(
+                reader=reader,
+                embedder=embedder,
+                store=store,
+                finalize=False,
+            ),
+        )
         total += count
         print(f"{pdf.name}: {count} chunks")
     store.finalize()
