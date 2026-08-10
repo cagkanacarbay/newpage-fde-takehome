@@ -476,6 +476,22 @@
           </details>
         </div>
       </section>
+
+      <section id="packaging">
+        <h2><span class="idx">09</span> Packaging: one indexed application image</h2>
+        <p class="lead">Ship the static chat UI, API, and completed LanceDB index in one image.</p>
+
+        <div class="rec">
+          <div class="rec-head">TL;DR</div>
+          <div class="rec-body">
+            <p><strong>What:</strong> Build the image with <code>data/index</code> as a named Docker context. Serve the exported Next.js UI and FastAPI from port 8000.</p>
+            <p><strong>Why:</strong> A reviewer starts one container and receives the exact 696-chunk index. LanceDB needs no separate database service.</p>
+            <p><strong>Security:</strong> Pass <code>OPENAI_API_KEY</code> only at runtime. The build context excludes <code>.env</code>, the corpus, local caches, and model weights.</p>
+            <p><strong>Size control:</strong> Keep Docling, Torch, and parser integrations in the default ingest dependency group. Exclude that group from the runtime image.</p>
+            <p><strong>Status:</strong> The verified 197 MB image contains 696 chunks. It loaded the UI and returned live citations from papers 017, 015, and 016.</p>
+          </div>
+        </div>
+      </section>
     </div>
   </div>
 

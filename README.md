@@ -21,34 +21,33 @@ key. The same key serves embedding and live answer generation.
    This parses all 27 PDFs with Docling, embeds with OpenAI
    `text-embedding-3-large`, and writes a self-contained LanceDB index to
    `data/index/` (gitignored; fully reproducible with this command).
-4. Start the API on port 8000:
+4. Build one application image with the completed index:
 
    ```bash
-   set -a; . ./.env; set +a
-   LIVE_LONG_RETRIEVER=lancedb LIVE_LONG_LLM=openai \
-     uv run uvicorn live_long_rnd.api.app:app --port 8000
+   docker build \
+     --build-context index=data/index \
+     --tag live-long-rnd .
    ```
 
-   Without those two env vars the API serves deterministic stubs instead -
-   useful for development without an index or key.
-5. Start the UI on port 3000:
+   The image contains the Next.js export and all 696 LanceDB chunks.
+   It does not contain `.env`, the PDF corpus, Docling, Torch, or the OpenAI key.
+5. Start the complete application on port 8000:
 
    ```bash
-   cd web
-   pnpm install
-   NEXT_PUBLIC_API_BASE_URL=http://localhost:8000 pnpm dev
+   docker run --rm --env-file .env --publish 8000:8000 live-long-rnd
    ```
 
-   Open http://localhost:3000. Without `NEXT_PUBLIC_API_BASE_URL` the UI
-   streams a built-in mock answer.
+   Open http://localhost:8000.
+   The runtime key serves query embeddings and answer generation.
+
+For local development, run the API and UI as separate processes.
+The API defaults to deterministic stubs when the live adapter variables are absent.
 
 Tests: `uv run pytest` (full suite, includes end-to-end tests that parse a
 real PDF and build a real index) or `uv run pytest -m "not e2e"` for the fast
-unit suite. Lint and types: `uv run ruff check`, `uv run mypy`.
-
-Docker packaging is planned (a single app image - LanceDB is embedded, so
-there is no database container); until it lands, the two processes above are
-the way to run the demo.
+unit suite.
+Set `RUN_DOCKER_E2E=1` to include the one-image container smoke test.
+Lint and types: `uv run ruff check`, `uv run mypy`.
 
 The repository includes the 27-PDF research corpus in
 `data/corpus/longevity/`.

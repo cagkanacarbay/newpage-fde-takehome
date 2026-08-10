@@ -11,13 +11,8 @@ version = "0.1.0"
 description = "Live Long R&D document assistant"
 requires-python = ">=3.12,<3.13"
 dependencies = [
-    "docling>=2.115.0,<3",
     "fastapi>=0.141.1",
     "lancedb>=0.36.0,<1",
-    "llama-index-core>=0.14.0,<0.15",
-    "llama-index-node-parser-docling>=0.4.0,<1",
-    "llama-index-readers-docling>=0.4.0,<1",
-    "llama-index-vector-stores-lancedb>=0.5.0,<1",
     "openai>=2.53.0",
     "tiktoken>=0.13.0,<1",
     "uvicorn>=0.52.1",
@@ -30,6 +25,16 @@ dev = [
     "pytest>=8.4.0,<9",
     "ruff>=0.15.17,<0.16",
 ]
+ingest = [
+    "docling>=2.115.0,<3",
+    "llama-index-core>=0.14.0,<0.15",
+    "llama-index-node-parser-docling>=0.4.0,<1",
+    "llama-index-readers-docling>=0.4.0,<1",
+    "llama-index-vector-stores-lancedb>=0.5.0,<1",
+]
+
+[tool.uv]
+default-groups = ["dev", "ingest"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]

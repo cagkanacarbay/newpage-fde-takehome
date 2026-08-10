@@ -940,13 +940,8 @@ name = "live-long-rnd"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
-    { name = "docling" },
     { name = "fastapi" },
     { name = "lancedb" },
-    { name = "llama-index-core" },
-    { name = "llama-index-node-parser-docling" },
-    { name = "llama-index-readers-docling" },
-    { name = "llama-index-vector-stores-lancedb" },
     { name = "openai" },
     { name = "tiktoken" },
     { name = "uvicorn" },
@@ -959,16 +954,18 @@ dev = [
     { name = "pytest" },
     { name = "ruff" },
 ]
+ingest = [
+    { name = "docling" },
+    { name = "llama-index-core" },
+    { name = "llama-index-node-parser-docling" },
+    { name = "llama-index-readers-docling" },
+    { name = "llama-index-vector-stores-lancedb" },
+]
 
 [package.metadata]
 requires-dist = [
-    { name = "docling", specifier = ">=2.115.0,<3" },
     { name = "fastapi", specifier = ">=0.141.1" },
     { name = "lancedb", specifier = ">=0.36.0,<1" },
-    { name = "llama-index-core", specifier = ">=0.14.0,<0.15" },
-    { name = "llama-index-node-parser-docling", specifier = ">=0.4.0,<1" },
-    { name = "llama-index-readers-docling", specifier = ">=0.4.0,<1" },
-    { name = "llama-index-vector-stores-lancedb", specifier = ">=0.5.0,<1" },
     { name = "openai", specifier = ">=2.53.0" },
     { name = "tiktoken", specifier = ">=0.13.0,<1" },
     { name = "uvicorn", specifier = ">=0.52.1" },
@@ -980,6 +977,13 @@ dev = [
     { name = "mypy", specifier = ">=1.15.0,<2" },
     { name = "pytest", specifier = ">=8.4.0,<9" },
     { name = "ruff", specifier = ">=0.15.17,<0.16" },
+]
+ingest = [
+    { name = "docling", specifier = ">=2.115.0,<3" },
+    { name = "llama-index-core", specifier = ">=0.14.0,<0.15" },
+    { name = "llama-index-node-parser-docling", specifier = ">=0.4.0,<1" },
+    { name = "llama-index-readers-docling", specifier = ">=0.4.0,<1" },
+    { name = "llama-index-vector-stores-lancedb", specifier = ">=0.5.0,<1" },
 ]
 
 [[package]]

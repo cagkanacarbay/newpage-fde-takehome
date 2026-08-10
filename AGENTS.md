@@ -31,8 +31,6 @@ table tracks status; the reasoning is written up in the README, not here.
 | remote, first push | Cha creates the GitHub repo |
 | `pyproject.toml`, `.python-version` | the stack is scaffolded |
 | `no-mistakes init`, `treehouse init` | before the first feature branch |
-| CI workflow | the first PR needs it |
-| `Dockerfile`, `.dockerignore` | packaging becomes real work |
 
 Do not create any of these ahead of their trigger.
 
@@ -79,6 +77,8 @@ Keep this map current as the repo grows, so it stays a reliable index of where t
 - `docs/` — the HTML documentation set (see below).
 - `rules/` — durable rules referenced from this file.
 - `.agents/skills/` — vendored skills, symlinked into `.claude/skills/` and `.codex/skills/`.
+- `Dockerfile` and `.dockerignore` - one indexed application image.
+- `.github/workflows/ci.yml` - Python, container, and web validation for each PR.
 
 ## Worktrees and PRs
 

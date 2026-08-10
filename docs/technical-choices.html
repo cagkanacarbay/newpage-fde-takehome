@@ -117,7 +117,7 @@
               <tr><td class="n">14</td><td class="c"><a href="#c14">Observability</a></td><td class="d">Whether we can see why a bad answer happened</td><td class="s"><span class="state open">Open</span></td></tr>
 
               <tr class="group"><td colspan="4"><span class="grouplabel">Shipping it</span></td></tr>
-              <tr><td class="n">15</td><td class="c"><a href="#c15">Frontend &amp; packaging</a></td><td class="d">Setup friction for the reviewer, and where the design effort goes</td><td class="s"><span class="state open">Open</span></td></tr>
+              <tr><td class="n">15</td><td class="c"><a href="#c15">Frontend &amp; packaging</a></td><td class="d">Setup friction for the reviewer, and where the design effort goes</td><td class="s"><span class="state set">Set</span></td></tr>
             </tbody>
           </table>
         </div>
@@ -1118,8 +1118,8 @@ llama-index-core     base package, every integration added deliberately</code></
       </section>
 
       <section id="c15">
-        <h2><span class="idx">15</span> Frontend &amp; packaging <span class="state open">Open</span></h2>
-        <div class="callout note"><span class="lbl">GitHub coverage</span><p><strong><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/5">Issue #5</a> is closed</strong> for the web stack. <a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/24">Issue #24</a> covers the chat surface, and <a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/25">Issue #25</a> covers production packaging. <a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/26">Issue #26</a> covers the build slice.</p><p>No final frontend or packaging decision is recorded beyond the existing web-stack choice.</p></div>
+        <h2><span class="idx">15</span> Frontend &amp; packaging <span class="state set">Set</span></h2>
+        <div class="callout note"><span class="lbl">Current decision</span><p><strong>Ship one indexed application image.</strong> It serves the exported Next.js UI and FastAPI on port 8000. The named Docker context copies the completed LanceDB index into the image.</p><p><a href="decisions.html#packaging">Decision page</a> · <a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/25">Issue #25</a> remains open for hyperscaler production packaging.</p></div>
         <p class="determines"><b>Determines</b> how the work is judged on sight, and how much setup friction stands between a reviewer and a working app. The brief asks for creativity in UI/UX and says outright that it expects a well designed application.</p>
 
         <div class="table-scroll"><table class="opts">
@@ -1148,7 +1148,7 @@ llama-index-core     base package, every integration added deliberately</code></
           </tbody>
         </table></div>
 
-        <p class="mt-6"><strong>Packaging</strong> is a separate call: a single container, a compose file covering app plus vector store plus tracing, or plain local commands with no container at all. The brief asks for “ideally a simple containerised solution”, and the productionization section has to explain how this reaches a hyperscaler.</p>
+        <p class="mt-6"><strong>Packaging:</strong> build one image with the static UI, API, and prebuilt LanceDB index. Pass the OpenAI key only when the container starts. Keep Phoenix separate because it is optional observability infrastructure.</p>
 
         <div class="decider">
           <span class="lbl">What settles it</span>
