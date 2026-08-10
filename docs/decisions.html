@@ -266,7 +266,8 @@
               <p>Calibrate a relevance threshold with both answerable and irrelevant test questions. The earlier <code>0.75</code> value is an example, not a fixed score.</p>
               <p>Raw hybrid RRF scores are not relevance probabilities. The final threshold must use a stable score with measured meaning.</p>
               <p>Remove every chunk below the calibrated threshold. The main model receives only passing chunks, even when the top result passes.</p>
-              <p>If no chunks pass, do not call the main model. Return that the corpus contains no relevant evidence for the question.</p>
+              <p>If no chunks pass, do not call the main model. Return that retrieval found no sufficiently relevant evidence in the corpus for the question.</p>
+              <p>Retrieval evaluation must test known contradiction pairs and confirm that evidence for both sides reaches generation.</p>
             </div>
           </details>
 
@@ -276,7 +277,7 @@
               <p>The papers are the complete factual domain. The assistant cannot fill a gap with model knowledge, common knowledge, or an uncited explanation.</p>
               <p>Use clear evidence fully. Preserve exact values, units, cohorts, conditions, outcomes, limits, and other details when they answer the question.</p>
               <p>Do not replace clear information with a vague abstraction. Synthesize only when the user asks or when synthesis helps answer the question.</p>
-              <p>Always identify material conflicts between papers. State what each source reports and preserve its conditions and uncertainty.</p>
+              <p>Disclose every material conflict in the retrieved evidence. State what each source reports and preserve its conditions and uncertainty.</p>
               <p>Reject personal diagnosis, treatment, or dosing advice. When useful, report the exact study evidence and study context without personalizing it.</p>
             </div>
           </details>
@@ -309,8 +310,8 @@
           <details>
             <summary>Fail closed without hiding what happened</summary>
             <div class="body">
-              <p>If some requested parts lack support, return the supported answer and identify the specific gaps in the corpus.</p>
-              <p>If cleanup removes every factual claim, return that the corpus does not contain a supported answer.</p>
+              <p>If some requested parts lack support, return the supported answer and identify the specific gaps in the retrieved evidence.</p>
+              <p>If cleanup removes every factual claim, return that the retrieved evidence did not provide a supported answer.</p>
               <p>If the verifier times out or returns invalid output, return a verification error. Never return the unverified draft.</p>
             </div>
           </details>
