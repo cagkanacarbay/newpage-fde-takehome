@@ -43,7 +43,11 @@ class LanceDBNodeStore:
         """Build the full-text leg after all documents are stored."""
         table = self._store.table
         assert table is not None  # add() creates the table when it does not exist
-        table.create_index(self._store.text_key, config=FTS(), replace=True)
+        text_key = self._store.text_key
+        assert text_key is not None  # LanceDB requires the text field for its FTS index
+        table.create_index(  # type: ignore[call-overload]  # LanceDB's FTS stub omits replace.
+            text_key, config=FTS(), replace=True
+        )
 
 
 def _create_node_parser() -> DoclingNodeParser:
