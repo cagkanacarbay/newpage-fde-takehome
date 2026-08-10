@@ -17,6 +17,15 @@ matcher = "^Bash$"
 
 [[hooks.PreToolUse.hooks]]
 type = "command"
+command = 'python3 "$(git rev-parse --show-toplevel)/.codex/hooks/no_mistakes_scope.py"'
+timeout = 10
+statusMessage = "checking no-mistakes scope"
+
+[[hooks.PreToolUse]]
+matcher = "^Bash$"
+
+[[hooks.PreToolUse.hooks]]
+type = "command"
 command = 'python3 "$(git rev-parse --show-toplevel)/.codex/hooks/protect-readme.py"'
 timeout = 10
 statusMessage = "checking README ownership"

@@ -9,6 +9,15 @@
             "command": "python3 \"$CLAUDE_PROJECT_DIR\"/.codex/hooks/protect-readme.py"
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/.codex/hooks/no_mistakes_scope.py"
+          }
+        ]
       }
     ],
     "PostToolUse": [

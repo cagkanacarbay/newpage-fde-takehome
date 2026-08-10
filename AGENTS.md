@@ -97,9 +97,8 @@ branch directly — not a one-line fix, not a docs tweak. The PR is the review s
 
 ## The gate: no-mistakes
 
-Everything ships through no-mistakes — a local git proxy that runs
-review → test → docs → lint → push → PR → CI in a disposable worktree, auto-fixing
-mechanical issues and escalating judgment calls.
+Use no-mistakes only for application changes in `src/`, `tests/`, `web/`, or `scripts/`.
+Never use it otherwise.
 
 - `no-mistakes init` — install the gate in this repo (one-time; **deferred until git exists**)
 - `git push no-mistakes` — push through the gate instead of `origin`
