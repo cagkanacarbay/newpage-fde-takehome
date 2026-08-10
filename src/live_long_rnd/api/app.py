@@ -1,6 +1,7 @@
 from collections.abc import AsyncIterator
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
@@ -21,6 +22,12 @@ def create_app(
     selected_retriever = create_retriever() if retriever is None else retriever
     selected_llm = create_llm_client() if llm_client is None else llm_client
     application = FastAPI(title="Live Long R&D assistant")
+    application.add_middleware(
+        CORSMiddleware,
+        allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+        allow_methods=["POST"],
+        allow_headers=["*"],
+    )
 
     @application.post("/api/chat")
     async def chat(request: ChatRequest) -> StreamingResponse:
