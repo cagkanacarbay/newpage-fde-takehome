@@ -39,9 +39,9 @@
         <div class="rec">
           <div class="rec-head">TL;DR</div>
           <div class="rec-body">
-            <p><strong>What:</strong> Parse every source PDF with Docling and <code>HeadingHierarchyOptions(enabled=True)</code>.</p>
+            <p><strong>What:</strong> Parse each born-digital source PDF with Docling, <code>do_ocr=False</code>, and <code>HeadingHierarchyOptions(enabled=True)</code>.</p>
             <p><strong>Why:</strong> Docling preserves page metadata and the key table, provides usable heading depth, runs locally, is MIT licensed, and was 40 times faster than MinerU on paper 014. <a href="research/parsing.html#headtohead">Research evidence</a>.</p>
-            <p><strong>Status:</strong> Provisional. Formula support and node-level page provenance still need direct tests. <a href="research/parsing.html#untested">Open research</a>.</p>
+            <p><strong>Status:</strong> Provisional. The application bridge adds each source ID and verifies node page numbers and bounding boxes. Formula support remains open. <a href="research/parsing.html#untested">Open research</a>.</p>
           </div>
         </div>
 
@@ -59,7 +59,7 @@
             <summary>Keep page provenance through the node layer</summary>
             <div class="body">
               <p>Keep <code>page_no</code> from parser output through LlamaIndex nodes before we offer page-level citations.</p>
-              <p>Docling emitted page data for every measured item. Whether <code>DoclingReader</code> retains it in <code>node.metadata</code> remains untested. <a href="research/parsing.html#untested">Research evidence</a>.</p>
+              <p>Docling emitted page data for every measured item. The application bridge now verifies that <code>DoclingReader</code> and <code>DoclingNodeParser</code> retain the page number and bounding box in <code>node.metadata</code>. <a href="research/chunking.html#integration">Integration path</a>.</p>
             </div>
           </details>
 
