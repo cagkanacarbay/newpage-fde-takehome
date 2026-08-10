@@ -14,7 +14,7 @@
   <header class="page">
     <h1>Evaluation options</h1>
     <p class="standfirst">A hand-authored retrieval set grounded in the 27 longevity papers, with the exact passage each item must surface.</p>
-    <div class="header-meta"><span><b>Date</b> 2026-08-09</span><span><b>Items</b> 24</span><span><b>Depth</b> k = 3</span><span><b>API keys</b> none for v1</span><span><b>Decision</b> pending</span></div>
+    <div class="header-meta"><span><b>Date</b> 2026-08-09</span><span><b>Items</b> 24</span><span><b>Depth</b> k = 10, first run</span><span><b>API keys</b> none for v1</span><span><b>Decision</b> pending</span></div>
   </header>
   <div class="shell">
     <nav class="toc" aria-label="On this page"><p class="toc-title">Contents</p><ol>
@@ -34,204 +34,223 @@
           <div><span class="v">6</span><span class="k">entity traps</span></div>
           <div><span class="v">12</span><span class="k">single-source questions</span></div>
         </div>
-        <p>Retrieval depth is fixed at <strong>k = 3</strong>: the corpus has 27 documents, so the gold paper must land in roughly the top tenth of the ranking to pass. Score at the document-ID level. This keeps the set stable when chunking changes.</p>
-        <p>Every gold paper below is clickable. Clicking shows the full paper name, the PDF page, and the verbatim passage the retriever must surface for the item to count as a hit. All quotes were extracted from the corpus PDFs and checked against the extracted text.</p>
-        <div class="callout note"><span class="lbl">Embedding selection folded in</span><p>Gates A and B double as the embedding-model discrimination test: run the same items once per shortlisted embedding model and compare scores. The winner is the model with the best contradiction coverage and entity-trap separation. No separate trap-pair test is built.</p></div>
+        <p>Score at the document-ID level. This keeps the set stable when chunking changes.</p>
+        <div class="callout note"><span class="lbl">This is a candidate set, not the final one</span><p>Every quote below is a provisional hit target, picked by reading the papers. The first run goes out at <strong>k = 10</strong> and its real job is inspection: what does the retriever actually return for each query? If it surfaces passages more relevant than the ones selected here, the quotes get corrected against that output, and only then are thresholds and a tighter k fixed. Treat every item as subject to revision after the first run.</p></div>
+        <p>Click any row to see the paper, the PDF page, and the exact passage the retriever must surface for that item to count as a hit. All quotes were extracted verbatim from the corpus PDFs.</p>
         <div class="callout note"><span class="lbl">Decision boundary</span><p>The questions and quotes are research output. Cha still chooses the thresholds and the final v1 gate set.</p></div>
       </section>
 
       <section id="contradictions">
         <h2><span class="idx">02</span> Gate A: contradiction coverage</h2>
-        <p>Each query passes only when both sides of the disagreement appear in the top 3. The proposed suite threshold is 6 of 6. The pairs exist because the corpus was built with papers that disagree; a retriever that surfaces only one side lets the generator answer a contested question with false confidence.</p>
+        <p>Each query passes only when both sides of the disagreement appear in the top 10. The proposed suite threshold is 6 of 6. The pairs exist because the corpus was built with papers that disagree; a retriever that surfaces only one side lets the generator answer a contested question with false confidence.</p>
         <div class="table-scroll"><table class="matrix wide">
-          <thead><tr><th>Question</th><th>Gold papers (click for quotes)</th><th>What it tests</th></tr></thead>
+          <thead><tr><th>Question</th><th>Gold papers</th><th>What it tests</th></tr></thead>
           <tbody>
-            <tr><td>Does telomere dysfunction drive senescence, or is it one pathway among several?</td>
-              <td><details class="why"><summary>004 + 005</summary><div class="body">
-                <p><b>004 · Berardi 2026</b>, page 2 - <i>Both genome instability and replicative senescence stem from the shortest telomere in telomerase-negative cells</i></p>
-                <p>"Overall, our findings demonstrate that the shortest telomere in cells is both the primary cause of proliferation limit and the major threat to genome integrity."</p>
-                <p><b>005 · Coquette 2026</b>, page 1 - <i>Telomere Dysfunction and Proteostasis Decline Define Distinct Pathways of Cellular Senescence in the Human Respiratory Tract</i></p>
-                <p>"Together, these findings suggest that telomere dysfunction is unlikely to be the primary driver of cellular senescence in the human respiratory tract, where proteotoxic stress may instead play a more prominent role."</p>
-              </div></details></td>
-              <td>004 (yeast cells): the single shortest telomere is the cause of senescence. 005 (human respiratory tract): telomere dysfunction and proteostasis decline are distinct pathways.</td></tr>
-            <tr><td>Does senolytic treatment reverse cellular senescence in humans?</td>
-              <td><details class="why"><summary>017 + 015</summary><div class="body">
-                <p><b>017 · Kasamoto 2026</b>, page 1 - <i>DNA Methylation Signatures of Cellular Senescence Are Not Reversed by Senolytic Treatment</i></p>
-                <p>"Surprisingly, all three of these predictors stayed the same or even accelerated after senolytic treatment in both in vivo and in vitro data."</p>
-                <p><b>015 · Hickson 2019</b>, page 1 - <i>Senolytics decrease senescent cells in humans: Preliminary report from a clinical trial of Dasatinib plus Quercetin in individuals with diabetic kidney disease</i></p>
-                <p>"D + Q reduced adipose tissue senescent cell burden within 11 days, with decreases in p16INK4A- and p21CIP1-expressing cells, cells with senescence-associated β-galactosidase activity, and adipocyte progenitors with limited replicative potential."</p>
-              </div></details></td>
-              <td>017: methylation signatures of senescence unchanged or accelerated after senolytics. 015: senescent-cell burden measurably cleared in human tissue.</td></tr>
-            <tr><td>Does chemical reprogramming rejuvenate tissues safely?</td>
-              <td><details class="why"><summary>019 + 020</summary><div class="body">
-                <p><b>019 · Schoenfeldt 2025</b>, page 1 - <i>Chemical reprogramming ameliorates cellular hallmarks of aging and extends lifespan</i></p>
-                <p>"Importantly, in vivo application of this two-chemical combination significantly extended C. elegans lifespan and healthspan. Together, these data demonstrate that improvement of key drivers of aging and lifespan extension is possible via chemical-induced partial reprogramming, opening a path towards future translational applications."</p>
-                <p><b>020 · Mitchell 2026</b>, page 1 - <i>In Vivo Chemical Reprogramming Is Associated With a Toxic Accumulation of Lipid Droplets Hindering Rejuvenation</i></p>
-                <p>"However, at higher doses, the cocktail causes a drastic reduction in body weight necessitating euthanasia. ... Thus, partial chemical reprogramming may induce mitochondrial stress and lead to significant lipid accumulation, which may cause toxicity and hinder the rejuvenation of cells and tissues in aged mammals."</p>
-              </div></details></td>
-              <td>019: lifespan and healthspan gains in C. elegans. 020: the same intervention class causes toxic lipid-droplet accumulation in mice.</td></tr>
-            <tr><td>Is metformin a proven anti-aging drug?</td>
-              <td><details class="why"><summary>012 + 013</summary><div class="body">
-                <p><b>012 · Mohammed 2021</b>, page 1 - <i>A Critical Review of the Evidence That Metformin Is a Putative Anti-Aging Drug That Enhances Healthspan and Extends Lifespan</i></p>
-                <p>"We conclude that despite data in support of anti-aging benefits, the evidence that metformin increases lifespan remains controversial."</p>
-                <p><b>013 · Ivimey-Cook 2025</b>, page 1 - <i>Rapamycin, Not Metformin, Mirrors Dietary Restriction-Driven Lifespan Extension in Vertebrates: A Meta-Analysis</i></p>
-                <p>"We find that DR robustly extends lifespan across log-response means and medians and, importantly, rapamycin—but not metformin—produced a significant lifespan extension."</p>
-              </div></details></td>
-              <td>012: a critical review that judges the evidence controversial. 013: a vertebrate meta-analysis where metformin fails and rapamycin succeeds.</td></tr>
-            <tr><td>How do the Hallmarks of Aging and SENS frameworks compare?</td>
-              <td><details class="why"><summary>001 + 002</summary><div class="body">
-                <p><b>001 · Sanada 2025</b>, page 1 - <i>Targeting the hallmarks of aging: mechanisms and therapeutic opportunities</i></p>
-                <p>"Emerging therapeutic strategies aim to delay or reverse aging by targeting specific hallmarks. These include senolytics to eliminate senescent cells, NAD+ boosters and mitophagy inducers to improve mitochondrial health, epigenetic reprogramming, and caloric restriction mimetics such as metformin and rapamycin to modulate nutrient-sensing pathways."</p>
-                <p><b>002 · García-Barranquero 2025</b>, page 3 - <i>SENS vs. the hallmarks of aging: competing visions, shared challenges</i></p>
-                <p>"However, despite their shared ultimate aim, their methodologies and objectives differ significantly, with SENS advocating for the reversal of aging and the HoA focusing on optimizing biological function and extending healthspan."</p>
-              </div></details></td>
-              <td>001 works inside the hallmarks framework; 002 contrasts it with the SENS damage-repair vision. Both frameworks must surface for a comparison question.</td></tr>
-            <tr><td>Do mammalian epigenetic clocks generalize to insects?</td>
-              <td><details class="why"><summary>010 + 011</summary><div class="body">
-                <p><b>010 · Koch 2026</b>, page 1 - <i>Pan-Epigenetic Age Prediction in Mammals</i></p>
-                <p>"Remarkably, these age-related methylation changes are highly conserved across diverse tissues and species (Wang et al. 2020), such that a single epigenetic clock can predict the age of over 100 distinct mammalian species (Lu et al. 2023)."</p>
-                <p><b>011 · Maleszka 2025</b>, page 1 - <i>Still no evidence for an environmentally responsive epigenetic clock in an insect</i></p>
-                <p>"They argue that their findings are comparable to mammalian epigenetic clocks based on DNA methylation. However, their results do not support such a conclusion."</p>
-              </div></details></td>
-              <td>010: one clock predicts age across 100+ mammal species. 011: a one-page PNAS letter rejecting the insect-clock claim.</td></tr>
+            <tr class="expands"><td>Does telomere dysfunction drive senescence, or is it one pathway among several?</td><td class="gold">004 + 005</td><td>004 (yeast cells): the single shortest telomere is the cause of senescence. 005 (human respiratory tract): telomere dysfunction and proteostasis decline are distinct pathways.</td></tr>
+            <tr class="expansion"><td colspan="3">
+              <p class="src">004 · Berardi 2026, page 2</p>
+              <p class="quote">"Overall, our findings demonstrate that the shortest telomere in cells is both the primary cause of proliferation limit and the major threat to genome integrity."</p>
+              <p class="src">005 · Coquette 2026, page 1</p>
+              <p class="quote">"Together, these findings suggest that telomere dysfunction is unlikely to be the primary driver of cellular senescence in the human respiratory tract, where proteotoxic stress may instead play a more prominent role."</p>
+            </td></tr>
+          </tbody>
+          <tbody>
+            <tr class="expands"><td>Does senolytic treatment reverse cellular senescence in humans?</td><td class="gold">017 + 015</td><td>017: methylation signatures of senescence unchanged or accelerated after senolytics. 015: senescent-cell burden measurably cleared in human tissue.</td></tr>
+            <tr class="expansion"><td colspan="3">
+              <p class="src">017 · Kasamoto 2026, page 1</p>
+              <p class="quote">"Surprisingly, all three of these predictors stayed the same or even accelerated after senolytic treatment in both in vivo and in vitro data."</p>
+              <p class="src">015 · Hickson 2019, page 1</p>
+              <p class="quote">"D + Q reduced adipose tissue senescent cell burden within 11 days, with decreases in p16INK4A- and p21CIP1-expressing cells, cells with senescence-associated β-galactosidase activity, and adipocyte progenitors with limited replicative potential."</p>
+            </td></tr>
+          </tbody>
+          <tbody>
+            <tr class="expands"><td>Does chemical reprogramming rejuvenate tissues safely?</td><td class="gold">019 + 020</td><td>019: lifespan and healthspan gains in C. elegans. 020: the same intervention class causes toxic lipid-droplet accumulation in mice.</td></tr>
+            <tr class="expansion"><td colspan="3">
+              <p class="src">019 · Schoenfeldt 2025, page 1</p>
+              <p class="quote">"Importantly, in vivo application of this two-chemical combination significantly extended C. elegans lifespan and healthspan. Together, these data demonstrate that improvement of key drivers of aging and lifespan extension is possible via chemical-induced partial reprogramming, opening a path towards future translational applications."</p>
+              <p class="src">020 · Mitchell 2026, page 1</p>
+              <p class="quote">"However, at higher doses, the cocktail causes a drastic reduction in body weight necessitating euthanasia. ... Thus, partial chemical reprogramming may induce mitochondrial stress and lead to significant lipid accumulation, which may cause toxicity and hinder the rejuvenation of cells and tissues in aged mammals."</p>
+            </td></tr>
+          </tbody>
+          <tbody>
+            <tr class="expands"><td>Is metformin a proven anti-aging drug?</td><td class="gold">012 + 013</td><td>012: a critical review that judges the evidence controversial. 013: a vertebrate meta-analysis where metformin fails and rapamycin succeeds.</td></tr>
+            <tr class="expansion"><td colspan="3">
+              <p class="src">012 · Mohammed 2021, page 1</p>
+              <p class="quote">"We conclude that despite data in support of anti-aging benefits, the evidence that metformin increases lifespan remains controversial."</p>
+              <p class="src">013 · Ivimey-Cook 2025, page 1</p>
+              <p class="quote">"We find that DR robustly extends lifespan across log-response means and medians and, importantly, rapamycin—but not metformin—produced a significant lifespan extension."</p>
+            </td></tr>
+          </tbody>
+          <tbody>
+            <tr class="expands"><td>How do the Hallmarks of Aging and SENS frameworks compare?</td><td class="gold">001 + 002</td><td>001 works inside the hallmarks framework; 002 contrasts it with the SENS damage-repair vision. Both frameworks must surface for a comparison question.</td></tr>
+            <tr class="expansion"><td colspan="3">
+              <p class="src">001 · Sanada 2025, page 1</p>
+              <p class="quote">"Emerging therapeutic strategies aim to delay or reverse aging by targeting specific hallmarks. These include senolytics to eliminate senescent cells, NAD+ boosters and mitophagy inducers to improve mitochondrial health, epigenetic reprogramming, and caloric restriction mimetics such as metformin and rapamycin to modulate nutrient-sensing pathways."</p>
+              <p class="src">002 · García-Barranquero 2025, page 3</p>
+              <p class="quote">"However, despite their shared ultimate aim, their methodologies and objectives differ significantly, with SENS advocating for the reversal of aging and the HoA focusing on optimizing biological function and extending healthspan."</p>
+            </td></tr>
+          </tbody>
+          <tbody>
+            <tr class="expands"><td>Do mammalian epigenetic clocks generalize to insects?</td><td class="gold">010 + 011</td><td>010: one clock predicts age across 100+ mammal species. 011: a one-page PNAS letter rejecting the insect-clock claim.</td></tr>
+            <tr class="expansion"><td colspan="3">
+              <p class="src">010 · Koch 2026, page 1</p>
+              <p class="quote">"Remarkably, these age-related methylation changes are highly conserved across diverse tissues and species (Wang et al. 2020), such that a single epigenetic clock can predict the age of over 100 distinct mammalian species (Lu et al. 2023)."</p>
+              <p class="src">011 · Maleszka 2025, page 1</p>
+              <p class="quote">"They argue that their findings are comparable to mammalian epigenetic clocks based on DNA methylation. However, their results do not support such a conclusion."</p>
+            </td></tr>
           </tbody>
         </table></div>
       </section>
 
       <section id="entities">
         <h2><span class="idx">03</span> Gate B: entity recall</h2>
-        <p>The corpus plants lookalike entities: rapamycin vs trametinib, dasatinib + quercetin in two different diseases, PhenoAge vs GrimAge vs DunedinPoAm. The gold paper must appear in the top 3 and rank above each named distractor. The proposed threshold is 6 of 6. A distractor is a paper that matches the query’s vocabulary but names the wrong entity, so ranking it above the gold is a visible, deterministic failure.</p>
+        <p>The corpus plants lookalike entities: rapamycin vs trametinib, dasatinib + quercetin in two different diseases, PhenoAge vs GrimAge vs DunedinPoAm. The gold paper must appear in the top 10 and rank above each named distractor. The proposed threshold is 6 of 6. A distractor is a paper that matches the query’s vocabulary but names the wrong entity, so ranking it above the gold is a visible, deterministic failure.</p>
         <div class="table-scroll"><table class="matrix wide">
-          <thead><tr><th>Trap</th><th>Gold (click for quote)</th><th>Distractors</th></tr></thead>
+          <thead><tr><th>Trap</th><th>Gold</th><th>Distractors</th></tr></thead>
           <tbody>
-            <tr><td>Trametinib combined with rapamycin</td>
-              <td><details class="why"><summary>014</summary><div class="body">
-                <p><b>014 · Gkioni 2025</b>, page 2 - <i>The geroprotectors trametinib and rapamycin combine additively to extend mouse healthspan and lifespan</i></p>
-                <p>"In contrast to the single treatments, combined treatment with rapamycin and trametinib increased survival more in female mice than in male mice (sex-treatment interaction P = 0.0218, Cox proportional hazard) and caused a larger increase compared to the single treatment (Fig. 2b,c) in both sexes, with median and maximum lifespan increased by 34.9% and 32.4%, respectively, in female mice (Fig. 2b) and by 27.4% and 26.1%, respectively, in male mice."</p>
-                <p><b>Why distractors fail:</b> 013 matches "rapamycin" and "lifespan extension" but contains no trametinib; 012 is metformin-only.</p>
-              </div></details></td>
-              <td>013, 012</td></tr>
-            <tr><td>D+Q dosing in idiopathic pulmonary fibrosis</td>
-              <td><details class="why"><summary>016</summary><div class="body">
-                <p><b>016 · Justice 2019</b>, page 3 - <i>Senolytics in idiopathic pulmonary fibrosis: Results from a first-in-human, open-label, pilot study</i></p>
-                <p>"Intermittent D (100 mg/day) plus Q (1250 mg/day) were orally administered over three consecutive days in three consecutive weeks (i.e., 9 total participant administered dosing days) at two outpatient clinical research centers using a single-arm, open-label design."</p>
-                <p><b>Why the distractor fails:</b> 015 runs a near-identical D+Q senolytic regimen but in diabetic kidney disease at Q 1000 mg/day. Wrong indication, wrong dose.</p>
-              </div></details></td>
-              <td>015</td></tr>
-            <tr><td>D+Q in diabetic kidney disease</td>
-              <td><details class="why"><summary>015</summary><div class="body">
-                <p><b>015 · Hickson 2019</b>, page 1 - <i>Senolytics decrease senescent cells in humans: Preliminary report from a clinical trial of Dasatinib plus Quercetin in individuals with diabetic kidney disease</i></p>
-                <p>"In an open label Phase 1 pilot study, we administered 3 days of oral D 100 mg and Q 1000 mg to subjects with diabetic kidney disease (N = 9; 68·7 ± 3·1 years old; 2 female; BMI:33·9 ± 2·3 kg/m2; eGFR:27·0 ± 2·1 mL/min/1·73m2)."</p>
-                <p><b>Why the distractor fails:</b> 016 is D+Q in IPF. It matches "D+Q", "senolytic" and "open-label pilot" but reports physical-function outcomes in the wrong disease.</p>
-              </div></details></td>
-              <td>016</td></tr>
-            <tr><td>DunedinPoAm as distinct from PhenoAge</td>
-              <td><details class="why"><summary>007 + 008</summary><div class="body">
-                <p><b>008 · Belsky 2020</b>, page 4 - <i>Quantification of the pace of biological aging in humans through a blood test, the DunedinPoAm DNA methylation algorithm</i></p>
-                <p>"DunedinPoAm is a rate measure. ... Rather than a clock that records how much time has passed, DunedinPoAm is designed to function as a speedometer, recording how fast the subject is aging."</p>
-                <p><b>007 · Levine 2018</b>, page 2 - <i>An epigenetic biomarker of aging for lifespan and healthspan</i></p>
-                <p>"Predicted estimates from this model represent a person's epigenetic age, which we refer to as 'DNAm PhenoAge'."</p>
-                <p><b>Why the distractor fails:</b> 009 benchmarks both measures by name, so it matches the query vocabulary, but it only ranks them; it defines neither.</p>
-              </div></details></td>
-              <td>009</td></tr>
-            <tr><td>Rapamycin, not metformin, mirrors dietary restriction</td>
-              <td><details class="why"><summary>013</summary><div class="body">
-                <p><b>013 · Ivimey-Cook 2025</b>, page 1 - <i>Rapamycin, Not Metformin, Mirrors Dietary Restriction-Driven Lifespan Extension in Vertebrates: A Meta-Analysis</i></p>
-                <p>"We find that DR robustly extends lifespan across log-response means and medians and, importantly, rapamycin—but not metformin—produced a significant lifespan extension. ... Overall, this study suggests that rapamycin and DR confer comparable lifespan extension across a broad range of vertebrates."</p>
-                <p><b>Why distractors fail:</b> 012 is metformin-only and skeptical of it; 014 has rapamycin lifespan data in mice but tests the trametinib combination, not DR-mirroring.</p>
-              </div></details></td>
-              <td>012, 014</td></tr>
-            <tr><td>Calorie restriction and mouse-liver methylation</td>
-              <td><details class="why"><summary>018</summary><div class="body">
-                <p><b>018 · Moulds 2026</b>, page 1 - <i>Graded Calorie Restriction Causes Graded Slowing of Epigenetic Ageing in Mice</i></p>
-                <p>"Our hypothesis is that CR has an impact on DNA methylation patterns with increased CR leading to slower epigenetic ageing. We studied the effects of graded CR in male C57BL/6J mice on liver DNA methylation."</p>
-                <p>"In a substantially similar subset of CpG sites, DNA methylation in 24-month-old mice fed 40CR moved towards the values in 8-month-old AL fed mice, resulting in an average effective epigenetic age of about 12-months, indicative of slower epigenetic ageing."</p>
-                <p><b>Why distractors fail:</b> 013 matches "restriction" and "lifespan" but has no methylation measurement; 010 matches "epigenetic ageing" and "mice" but involves no calorie restriction.</p>
-              </div></details></td>
-              <td>013, 010</td></tr>
+            <tr class="expands"><td>Trametinib combined with rapamycin</td><td class="gold">014</td><td>013, 012</td></tr>
+            <tr class="expansion"><td colspan="3">
+              <p class="src">014 · Gkioni 2025, page 2</p>
+              <p class="quote">"In contrast to the single treatments, combined treatment with rapamycin and trametinib increased survival more in female mice than in male mice (sex-treatment interaction P = 0.0218, Cox proportional hazard) and caused a larger increase compared to the single treatment (Fig. 2b,c) in both sexes, with median and maximum lifespan increased by 34.9% and 32.4%, respectively, in female mice (Fig. 2b) and by 27.4% and 26.1%, respectively, in male mice."</p>
+              <p class="note">Why distractors fail: 013 matches "rapamycin" and "lifespan extension" but contains no trametinib; 012 is metformin-only.</p>
+            </td></tr>
+          </tbody>
+          <tbody>
+            <tr class="expands"><td>D+Q dosing in idiopathic pulmonary fibrosis</td><td class="gold">016</td><td>015</td></tr>
+            <tr class="expansion"><td colspan="3">
+              <p class="src">016 · Justice 2019, page 3</p>
+              <p class="quote">"Intermittent D (100 mg/day) plus Q (1250 mg/day) were orally administered over three consecutive days in three consecutive weeks (i.e., 9 total participant administered dosing days) at two outpatient clinical research centers using a single-arm, open-label design."</p>
+              <p class="note">Why the distractor fails: 015 runs a near-identical D+Q senolytic regimen but in diabetic kidney disease at Q 1000 mg/day. Wrong indication, wrong dose.</p>
+            </td></tr>
+          </tbody>
+          <tbody>
+            <tr class="expands"><td>D+Q in diabetic kidney disease</td><td class="gold">015</td><td>016</td></tr>
+            <tr class="expansion"><td colspan="3">
+              <p class="src">015 · Hickson 2019, page 1</p>
+              <p class="quote">"In an open label Phase 1 pilot study, we administered 3 days of oral D 100 mg and Q 1000 mg to subjects with diabetic kidney disease (N = 9; 68·7 ± 3·1 years old; 2 female; BMI:33·9 ± 2·3 kg/m2; eGFR:27·0 ± 2·1 mL/min/1·73m2)."</p>
+              <p class="note">Why the distractor fails: 016 is D+Q in IPF. It matches "D+Q", "senolytic" and "open-label pilot" but reports physical-function outcomes in the wrong disease.</p>
+            </td></tr>
+          </tbody>
+          <tbody>
+            <tr class="expands"><td>DunedinPoAm as distinct from PhenoAge</td><td class="gold">007 + 008</td><td>009</td></tr>
+            <tr class="expansion"><td colspan="3">
+              <p class="src">008 · Belsky 2020, page 4</p>
+              <p class="quote">"DunedinPoAm is a rate measure. ... Rather than a clock that records how much time has passed, DunedinPoAm is designed to function as a speedometer, recording how fast the subject is aging."</p>
+              <p class="src">007 · Levine 2018, page 2</p>
+              <p class="quote">"Predicted estimates from this model represent a person's epigenetic age, which we refer to as 'DNAm PhenoAge'."</p>
+              <p class="note">Why the distractor fails: 009 benchmarks both measures by name, so it matches the query vocabulary, but it only ranks them; it defines neither.</p>
+            </td></tr>
+          </tbody>
+          <tbody>
+            <tr class="expands"><td>Rapamycin, not metformin, mirrors dietary restriction</td><td class="gold">013</td><td>012, 014</td></tr>
+            <tr class="expansion"><td colspan="3">
+              <p class="src">013 · Ivimey-Cook 2025, page 1</p>
+              <p class="quote">"We find that DR robustly extends lifespan across log-response means and medians and, importantly, rapamycin—but not metformin—produced a significant lifespan extension. ... Overall, this study suggests that rapamycin and DR confer comparable lifespan extension across a broad range of vertebrates."</p>
+              <p class="note">Why distractors fail: 012 is metformin-only and skeptical of it; 014 has rapamycin lifespan data in mice but tests the trametinib combination, not DR-mirroring.</p>
+            </td></tr>
+          </tbody>
+          <tbody>
+            <tr class="expands"><td>Calorie restriction and mouse-liver methylation</td><td class="gold">018</td><td>013, 010</td></tr>
+            <tr class="expansion"><td colspan="3">
+              <p class="src">018 · Moulds 2026, page 1</p>
+              <p class="quote">"Our hypothesis is that CR has an impact on DNA methylation patterns with increased CR leading to slower epigenetic ageing. We studied the effects of graded CR in male C57BL/6J mice on liver DNA methylation."</p>
+              <p class="quote">"In a substantially similar subset of CpG sites, DNA methylation in 24-month-old mice fed 40CR moved towards the values in 8-month-old AL fed mice, resulting in an average effective epigenetic age of about 12-months, indicative of slower epigenetic ageing."</p>
+              <p class="note">Why distractors fail: 013 matches "restriction" and "lifespan" but has no methylation measurement; 010 matches "epigenetic ageing" and "mice" but involves no calorie restriction.</p>
+            </td></tr>
           </tbody>
         </table></div>
       </section>
 
       <section id="hits">
         <h2><span class="idx">04</span> Gate C: gold-document hit rate</h2>
-        <p>Twelve plain questions, each answerable from exactly one paper. The gold paper must appear in the top 3. The proposal requires at least 11 of 12 and makes the table item (C1) mandatory.</p>
+        <p>Twelve plain questions, each answerable from exactly one paper. The gold paper must appear in the top 10. The proposal requires at least 11 of 12 and makes the table item (C1) mandatory.</p>
         <div class="table-scroll"><table class="matrix wide">
-          <thead><tr><th>Item</th><th>Gold (click for quote)</th><th>Question target</th></tr></thead>
+          <thead><tr><th>Item</th><th>Gold</th><th>Question target</th></tr></thead>
           <tbody>
-            <tr><td class="opt">C1, mandatory</td>
-              <td><details class="why"><summary>009</summary><div class="body">
-                <p><b>009 · Vetter 2026</b>, page 1 - <i>Comparing fourteen consensus biomarkers of aging: epigenetic pace of aging as the strongest predictor of mortality in BASE-II</i></p>
-                <p>"In adjusted models of all-cause mortality, HGS, IL-6, standing balance, cognitive health, and the epigenetic clock (DunedinPACE) statistically significantly predicted mortality, with the epigenetic clock (DunedinPACE) emerging as the strongest predictor."</p>
-                <p>GrimAge comparison, page 10: "After confounder adjustment, the one other epigenetic clock showing a statistically significant association with mortality was GrimAge (Supplementary Fig. 2). This association is not surprising as GrimAge was trained to predict mortality [24]."</p>
-              </div></details></td>
-              <td>Which biomarker best predicted mortality in BASE-II: DunedinPACE, ranked against GrimAge.</td></tr>
-            <tr><td class="opt">C2</td>
-              <td><details class="why"><summary>023</summary><div class="body">
-                <p><b>023 · Pyrkov 2021</b>, page 1 - <i>Longitudinal analysis of blood markers reveals progressive loss of resilience and predicts human lifespan limit</i></p>
-                <p>"Extrapolation of this trend suggested that DOSI recovery time and variance would simultaneously diverge at a critical point of 120 − 150 years of age corresponding to a complete loss of resilience."</p>
-              </div></details></td>
-              <td>Loss of physiological resilience implies a human lifespan limit of 120-150 years.</td></tr>
-            <tr><td class="opt">C3</td>
-              <td><details class="why"><summary>022</summary><div class="body">
-                <p><b>022 · Nielsen 2024</b>, page 2 - <i>The Gompertz Law emerges naturally from the inter-dependencies between sub-components in complex organisms</i></p>
-                <p>"Here, we adopt a complex systems approach and show how the Gompertz law emerges naturally from an extremely simple stochastic system. The proposed model is highly related to several of the above mentioned models, but our model is distinguished by its parsimony and incorporation of both inter-dependencies and broad range of causes of death."</p>
-              </div></details></td>
-              <td>The Gompertz law derived from inter-dependencies between organism sub-components.</td></tr>
-            <tr><td class="opt">C4</td>
-              <td><details class="why"><summary>026</summary><div class="body">
-                <p><b>026 · Dolejs 2025</b>, page 1 - <i>The Strehler-Mildvan correlation as a valuable tool for monitoring the long-term health status of a population</i></p>
-                <p>"The long-term relationship between these two parameters can itself be described by another linear relationship known as the Strehler-Mildvan (SM) correlation. Long-term data from three countries were evaluated in the context of the SM correlation."</p>
-              </div></details></td>
-              <td>What the Strehler-Mildvan correlation is and its use for population health monitoring.</td></tr>
-            <tr><td class="opt">C5</td>
-              <td><details class="why"><summary>024</summary><div class="body">
-                <p><b>024 · Oswal 2022</b>, page 18 - <i>A hierarchical process model links behavioral aging and lifespan in C. elegans</i></p>
-                <p>"Our hierarchical process model explains the paradoxical "uncoupling" of VMC timing and lifespan by mutations and interventions in aging [17, 23, 24]."</p>
-              </div></details></td>
-              <td>A hierarchical process model linking behavioral aging and lifespan in C. elegans.</td></tr>
-            <tr><td class="opt">C6</td>
-              <td><details class="why"><summary>027</summary><div class="body">
-                <p><b>027 · Gavrilova 2025</b>, page 1 - <i>The Compensation Effect of Mortality: A Global Analysis of Human Populations</i></p>
-                <p>"The compensation effect of mortality (CEM) refers to the convergence of mortality rates at advanced ages across different human populations. This phenomenon occurs when higher values of the Gompertz slope parameter α (actuarial aging rate) are offset (compensated) by lower values of the intercept parameter R (initial mortality rate)."</p>
-              </div></details></td>
-              <td>The Gompertz-Makeham compensation effect, fit across 251 countries and regions.</td></tr>
-            <tr><td class="opt">C7</td>
-              <td><details class="why"><summary>025</summary><div class="body">
-                <p><b>025 · Farrell 2024</b>, page 2 - <i>Identifying epigenetic aging moderators using the epigenetic pacemaker</i></p>
-                <p>"Epigenetic clocks are generally trained using a regularized regression model. Given an elastic net model of the form y = βX, the goal of penalized regression is to maximize the likelihood by reducing the prediction error of the model."</p>
-              </div></details></td>
-              <td>The elastic-net penalized regression behind the epigenetic pacemaker.</td></tr>
-            <tr><td class="opt">C8</td>
-              <td><details class="why"><summary>013</summary><div class="body">
-                <p><b>013 · Ivimey-Cook 2025</b>, page 1 - <i>Rapamycin, Not Metformin, Mirrors Dietary Restriction-Driven Lifespan Extension in Vertebrates: A Meta-Analysis</i></p>
-                <p>"In total, we analysed 911 effect sizes from 167 papers covering eight different vertebrate species."</p>
-              </div></details></td>
-              <td>The scale of the meta-analysis: 911 effects, 167 papers, eight vertebrate species.</td></tr>
-            <tr><td class="opt">C9</td>
-              <td><details class="why"><summary>006</summary><div class="body">
-                <p><b>006 · Sun 2026</b>, page 1 - <i>An integrated anti-aging framework targeting NAD+ homeostasis, mitochondrial quality control, and redox stability: Roles of NMN/NR, PQQ, and EGT</i></p>
-                <p>"To address this complex mechanism, this review presents a novel tri-axis anti-aging model encompassing three key compounds: nicotinamide mononucleotide/nicotinamide riboside (NMN/NR), pyrroloquinoline quinone (PQQ), and L-ergothioneine (EGT)."</p>
-              </div></details></td>
-              <td>The NMN/NR, PQQ and EGT supplement framework targeting NAD+ homeostasis.</td></tr>
-            <tr><td class="opt">C10</td>
-              <td><details class="why"><summary>021</summary><div class="body">
-                <p><b>021 · Flietner 2025</b>, page 1 - <i>A unifying theory of aging and mortality</i></p>
-                <p>"Second, with the help of two simplifying approximations, which we refer to as mean-field assumption and homogeneity assumption, we provide an analytical derivation of Gompertz law under generic and biologically relevant conditions." ... "Our paper is the first to offer a full mathematical explanation of Gompertz law and its limitations based on network theory."</p>
-              </div></details></td>
-              <td>The network-theory derivation of the Gompertz mortality law.</td></tr>
-            <tr><td class="opt">C11</td>
-              <td><details class="why"><summary>003</summary><div class="body">
-                <p><b>003 · Ajoolabady 2025</b>, page 2 (Fig. 1 caption) - <i>Hallmarks and mechanisms of cellular senescence in aging and disease</i></p>
-                <p>"The hallmarks of cellular senescence. DNA damage, oxidative stress, and telomere shortening are the primary triggers of cellular senescence, endowing senescent cells with deregulated metabolism and mitochondrial damage, SASP, and arrested cell cycle."</p>
-              </div></details></td>
-              <td>The hallmarks of cellular senescence: triggers, SASP, cell-cycle arrest.</td></tr>
-            <tr><td class="opt">C12</td>
-              <td><details class="why"><summary>016</summary><div class="body">
-                <p><b>016 · Justice 2019</b>, page 1 - <i>Senolytics in idiopathic pulmonary fibrosis: Results from a first-in-human, open-label, pilot study</i></p>
-                <p>"Interpretation: Our first-in-humans open-label pilot supports study feasibility and provides initial evidence that senolytics may alleviate physical dysfunction in IPF, warranting evaluation of DQ in larger randomized controlled trials for senescence-related diseases."</p>
-              </div></details></td>
-              <td>The first-in-human senolytic pilot study in IPF and its feasibility result.</td></tr>
+            <tr class="expands"><td class="opt">C1, mandatory</td><td class="gold">009</td><td>Which biomarker best predicted mortality in BASE-II: DunedinPACE, ranked against GrimAge.</td></tr>
+            <tr class="expansion"><td colspan="3">
+              <p class="src">009 · Vetter 2026, page 1</p>
+              <p class="quote">"In adjusted models of all-cause mortality, HGS, IL-6, standing balance, cognitive health, and the epigenetic clock (DunedinPACE) statistically significantly predicted mortality, with the epigenetic clock (DunedinPACE) emerging as the strongest predictor."</p>
+              <p class="src">009 · Vetter 2026, page 10 - the GrimAge comparison</p>
+              <p class="quote">"After confounder adjustment, the one other epigenetic clock showing a statistically significant association with mortality was GrimAge (Supplementary Fig. 2). This association is not surprising as GrimAge was trained to predict mortality [24]."</p>
+            </td></tr>
+          </tbody>
+          <tbody>
+            <tr class="expands"><td class="opt">C2</td><td class="gold">023</td><td>Loss of physiological resilience implies a human lifespan limit of 120-150 years.</td></tr>
+            <tr class="expansion"><td colspan="3">
+              <p class="src">023 · Pyrkov 2021, page 1</p>
+              <p class="quote">"Extrapolation of this trend suggested that DOSI recovery time and variance would simultaneously diverge at a critical point of 120 − 150 years of age corresponding to a complete loss of resilience."</p>
+            </td></tr>
+          </tbody>
+          <tbody>
+            <tr class="expands"><td class="opt">C3</td><td class="gold">022</td><td>The Gompertz law derived from inter-dependencies between organism sub-components.</td></tr>
+            <tr class="expansion"><td colspan="3">
+              <p class="src">022 · Nielsen 2024, page 2</p>
+              <p class="quote">"Here, we adopt a complex systems approach and show how the Gompertz law emerges naturally from an extremely simple stochastic system. The proposed model is highly related to several of the above mentioned models, but our model is distinguished by its parsimony and incorporation of both inter-dependencies and broad range of causes of death."</p>
+            </td></tr>
+          </tbody>
+          <tbody>
+            <tr class="expands"><td class="opt">C4</td><td class="gold">026</td><td>What the Strehler-Mildvan correlation is and its use for population health monitoring.</td></tr>
+            <tr class="expansion"><td colspan="3">
+              <p class="src">026 · Dolejs 2025, page 1</p>
+              <p class="quote">"The long-term relationship between these two parameters can itself be described by another linear relationship known as the Strehler-Mildvan (SM) correlation. Long-term data from three countries were evaluated in the context of the SM correlation."</p>
+            </td></tr>
+          </tbody>
+          <tbody>
+            <tr class="expands"><td class="opt">C5</td><td class="gold">024</td><td>A hierarchical process model linking behavioral aging and lifespan in C. elegans.</td></tr>
+            <tr class="expansion"><td colspan="3">
+              <p class="src">024 · Oswal 2022, page 18</p>
+              <p class="quote">"Our hierarchical process model explains the paradoxical "uncoupling" of VMC timing and lifespan by mutations and interventions in aging [17, 23, 24]."</p>
+            </td></tr>
+          </tbody>
+          <tbody>
+            <tr class="expands"><td class="opt">C6</td><td class="gold">027</td><td>The Gompertz-Makeham compensation effect, fit across 251 countries and regions.</td></tr>
+            <tr class="expansion"><td colspan="3">
+              <p class="src">027 · Gavrilova 2025, page 1</p>
+              <p class="quote">"The compensation effect of mortality (CEM) refers to the convergence of mortality rates at advanced ages across different human populations. This phenomenon occurs when higher values of the Gompertz slope parameter α (actuarial aging rate) are offset (compensated) by lower values of the intercept parameter R (initial mortality rate)."</p>
+            </td></tr>
+          </tbody>
+          <tbody>
+            <tr class="expands"><td class="opt">C7</td><td class="gold">025</td><td>The elastic-net penalized regression behind the epigenetic pacemaker.</td></tr>
+            <tr class="expansion"><td colspan="3">
+              <p class="src">025 · Farrell 2024, page 2</p>
+              <p class="quote">"Epigenetic clocks are generally trained using a regularized regression model. Given an elastic net model of the form y = βX, the goal of penalized regression is to maximize the likelihood by reducing the prediction error of the model."</p>
+            </td></tr>
+          </tbody>
+          <tbody>
+            <tr class="expands"><td class="opt">C8</td><td class="gold">013</td><td>The scale of the meta-analysis: 911 effects, 167 papers, eight vertebrate species.</td></tr>
+            <tr class="expansion"><td colspan="3">
+              <p class="src">013 · Ivimey-Cook 2025, page 1</p>
+              <p class="quote">"In total, we analysed 911 effect sizes from 167 papers covering eight different vertebrate species."</p>
+            </td></tr>
+          </tbody>
+          <tbody>
+            <tr class="expands"><td class="opt">C9</td><td class="gold">006</td><td>The NMN/NR, PQQ and EGT supplement framework targeting NAD+ homeostasis.</td></tr>
+            <tr class="expansion"><td colspan="3">
+              <p class="src">006 · Sun 2026, page 1</p>
+              <p class="quote">"To address this complex mechanism, this review presents a novel tri-axis anti-aging model encompassing three key compounds: nicotinamide mononucleotide/nicotinamide riboside (NMN/NR), pyrroloquinoline quinone (PQQ), and L-ergothioneine (EGT)."</p>
+            </td></tr>
+          </tbody>
+          <tbody>
+            <tr class="expands"><td class="opt">C10</td><td class="gold">021</td><td>The network-theory derivation of the Gompertz mortality law.</td></tr>
+            <tr class="expansion"><td colspan="3">
+              <p class="src">021 · Flietner 2025, page 1</p>
+              <p class="quote">"Second, with the help of two simplifying approximations, which we refer to as mean-field assumption and homogeneity assumption, we provide an analytical derivation of Gompertz law under generic and biologically relevant conditions." ... "Our paper is the first to offer a full mathematical explanation of Gompertz law and its limitations based on network theory."</p>
+            </td></tr>
+          </tbody>
+          <tbody>
+            <tr class="expands"><td class="opt">C11</td><td class="gold">003</td><td>The hallmarks of cellular senescence: triggers, SASP, cell-cycle arrest.</td></tr>
+            <tr class="expansion"><td colspan="3">
+              <p class="src">003 · Ajoolabady 2025, page 2 (Fig. 1 caption)</p>
+              <p class="quote">"The hallmarks of cellular senescence. DNA damage, oxidative stress, and telomere shortening are the primary triggers of cellular senescence, endowing senescent cells with deregulated metabolism and mitochondrial damage, SASP, and arrested cell cycle."</p>
+            </td></tr>
+          </tbody>
+          <tbody>
+            <tr class="expands"><td class="opt">C12</td><td class="gold">016</td><td>The first-in-human senolytic pilot study in IPF and its feasibility result.</td></tr>
+            <tr class="expansion"><td colspan="3">
+              <p class="src">016 · Justice 2019, page 1</p>
+              <p class="quote">"Interpretation: Our first-in-humans open-label pilot supports study feasibility and provides initial evidence that senolytics may alleviate physical dysfunction in IPF, warranting evaluation of DQ in larger randomized controlled trials for senescence-related diseases."</p>
+            </td></tr>
           </tbody>
         </table></div>
         <div class="callout warn"><span class="lbl">C1 caveat</span><p>The hazard-ratio ranking itself appears only as a figure (Fig. 2A) and in Supplementary Table 8; it never appears as extractable table text. The two quotes above are the closest verbatim text anchors. If the parser drops figures, C1 passes on the abstract sentence alone, so the GrimAge sentence on page 10 is the part that actually discriminates.</p></div>
@@ -250,13 +269,14 @@
           </tbody>
         </table></div>
         <p><a href="https://docs.llamaindex.ai/en/stable/module_guides/evaluating/">LlamaIndex evaluation guide</a> · <a href="https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/">RAGAS metrics</a></p>
-        <p>A deterministic CI run needs a pinned local embedding model, a fixed index build, and the fixed retrieval depth of k = 3.</p>
+        <p>A deterministic CI run needs a pinned local embedding model, a fixed index build, and a fixed retrieval depth. The depth stays k = 10 while the set is being calibrated; it tightens only after the first run's output has been reviewed.</p>
       </section>
 
       <section id="open">
         <h2><span class="idx">06</span> Choices for the quality session</h2>
         <ol>
-          <li>Confirm the proposed 6/6, 6/6, and 11/12 thresholds at k = 3. If gate A proves too strict at that depth, the fallback is to relax the depth for gate A only, not to drop the pairs.</li>
+          <li>Run the set at k = 10 and inspect what actually comes back. Correct any quote that real retrieval output beats, then pick the final k per gate.</li>
+          <li>Confirm the proposed 6/6, 6/6, and 11/12 thresholds once the depth is fixed.</li>
           <li>Choose whether Gate C grows from 12 items to one item per paper.</li>
           <li>Choose when “both sides retrieved” becomes “both sides cited.”</li>
         </ol>

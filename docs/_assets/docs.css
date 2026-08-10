@@ -1147,3 +1147,22 @@ pre code {
   color: var(--text);
   white-space: pre;
 }
+
+/* ------------------------------------------- expandable table rows --- */
+
+/* A summary row that opens a full-width detail row underneath. Detail rows
+   are hidden only by JavaScript, so the content stays readable with JS off. */
+tr.expands { cursor: pointer; }
+tr.expands td.gold { font-weight: 600; color: var(--text); white-space: nowrap; }
+tr.expands td.gold::after { content: "+"; margin-left: var(--s3); color: var(--faint); font-weight: 400; }
+tr.expands.open td.gold::after { content: "\2013"; }
+tr.expansion > td {
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--line);
+  padding: var(--s5) var(--s6) var(--s6);
+}
+tr.expansion:hover > td { background: var(--surface-2); }
+tr.expansion .src { margin: 0 0 var(--s1); font-weight: 600; color: var(--text); }
+tr.expansion .quote { margin: 0 0 var(--s4); max-width: var(--measure); color: var(--body); }
+tr.expansion .note { margin: 0 0 var(--s4); font-size: .95rem; color: var(--muted); }
+tr.expansion td > :last-child { margin-bottom: 0; }

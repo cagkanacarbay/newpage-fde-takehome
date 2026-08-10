@@ -32,6 +32,27 @@
     try { localStorage.setItem(KEY, next); } catch (err) { /* private mode */ }
   });
 
+  /* ---- expandable table rows ---- */
+  /* tr.expands toggles the tr.expansion that follows it. Detail rows ship
+     visible in the HTML and are hidden here, so nothing is lost with JS off. */
+  Array.prototype.forEach.call(document.querySelectorAll('tr.expands'), function (row) {
+    var detail = row.nextElementSibling;
+    if (!detail || !detail.classList.contains('expansion')) return;
+    detail.hidden = true;
+    row.setAttribute('tabindex', '0');
+    row.setAttribute('aria-expanded', 'false');
+    function toggle() {
+      var open = detail.hidden;
+      detail.hidden = !open;
+      row.classList.toggle('open', open);
+      row.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+    row.addEventListener('click', toggle);
+    row.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); }
+    });
+  });
+
   /* ---- TOC highlighting ---- */
   var toc = document.querySelector('.toc');
   if (!toc || !('IntersectionObserver' in window)) return;

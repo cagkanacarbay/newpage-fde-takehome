@@ -25,9 +25,8 @@
     </div>
     <div class="header-meta">
       <span><b>Choices</b> 15</span>
-      <span><b>Existing issue links</b> 6</span>
-      <span><b>Suggested issues</b> 12</span>
-      <span><b>Open now</b> 3</span>
+      <span><b>Existing issue links</b> 24</span>
+      <span><b>Open now</b> 13</span>
     </div>
   </header>
 
@@ -130,45 +129,43 @@
       </section>
 
       <section id="issues">
-        <h2><span class="idx">Issues</span> GitHub coverage and gaps</h2>
-        <p class="lead">Each existing issue name is matched to a technical choice heading. Proposed issue names cover every remaining gap.</p>
+        <h2><span class="idx">Issues</span> GitHub coverage</h2>
+        <p class="lead">All 24 project issues are matched to the Technical Choices headings and subheadings below. Proposed new issue titles stay outside this document until we discuss them.</p>
 
         <div class="table-scroll"><table class="matrix wide">
           <thead><tr><th>Issue</th><th>Status</th><th>Technical Choices section</th><th>Coverage</th></tr></thead>
           <tbody>
-            <tr><td class="opt"><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/24">#24</a><span class="sub">UI design: streaming chat with exact-spot PDF citations</span></td><td><span class="state open">Open</span></td><td>05, 11, 15</td><td class="txt">Matches <strong>Chunk metadata &amp; the citation unit</strong>, <strong>Context assembly &amp; prompt</strong>, and <strong>Frontend &amp; packaging</strong>.</td></tr>
-            <tr><td class="opt"><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/25">#25</a><span class="sub">Productionizing and hyperscaler deployment</span></td><td><span class="state open">Open</span></td><td>04, 06, 07, 10, 14, 15</td><td class="txt">Matches production concerns across <strong>Chunking</strong>, <strong>Embedding model</strong>, <strong>Vector store</strong>, <strong>Generation model</strong>, <strong>Observability</strong>, and <strong>Frontend &amp; packaging</strong>.</td></tr>
-            <tr><td class="opt"><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/26">#26</a><span class="sub">Architecture doc and build-slice decomposition</span></td><td><span class="state open">Open</span></td><td>01-15</td><td class="txt">Matches the full dependency chain and vertical slices. It does not close each choice by itself.</td></tr>
-            <tr><td class="opt"><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/21">#21</a><span class="sub">GUARDRAILS POLICY</span></td><td><span class="state now">Referenced</span></td><td>12</td><td class="txt">Matches the <strong>Guardrails</strong> heading. This is the focused policy issue for out-of-scope questions, unanswerable questions, and refusal behavior.</td></tr>
-            <tr><td class="opt"><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/10">#10</a><span class="sub">Chunking research</span></td><td><span class="state done">Closed</span></td><td>04</td><td class="txt">Matches <strong>Chunking</strong>. The recorded answer remains provisional until the corpus retrieval and provenance gates pass. <a href="research/chunking.html">Research</a>.</td></tr>
-            <tr><td class="opt"><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/14">#14</a><span class="sub">Vector database research</span></td><td><span class="state done">Closed</span></td><td>07</td><td class="txt">Matches <strong>Vector store</strong>. <strong>Decision:</strong> use LanceDB for the local Docker demo. <strong>TL;DR:</strong> embedded, natively hybrid, and supported by LlamaIndex. <a href="research/vector-database.html">Research</a> · <a href="decisions.html#vector-database">Decision page</a>.</td></tr>
-          </tbody>
-        </table></div>
-
-        <h3>Suggested GitHub issues to add</h3>
-        <p>These are proposed issue titles, not created issues. Add one when its choice needs a focused owner, evidence, and close condition.</p>
-        <div class="table-scroll"><table class="matrix wide">
-          <thead><tr><th>Proposed issue title</th><th>Sections</th><th>What it should settle</th></tr></thead>
-          <tbody>
-            <tr id="issue-product-shape"><td class="opt">Product shape and demo scope</td><td>01</td><td class="txt">Choose preloaded corpus, upload, or both. Define the first 60 seconds and the ingestion boundary.</td></tr>
-            <tr id="issue-llamaindex"><td class="opt">LlamaIndex architecture boundary</td><td>02, 02a</td><td class="txt">Record why LlamaIndex is selected, which layers remain explicit, and which framework defaults are rejected.</td></tr>
-            <tr id="issue-parsing"><td class="opt">PDF parsing and provenance gates</td><td>03</td><td class="txt">Close the Docling choice after formula, reading-order, table, page, and node-metadata tests.</td></tr>
-            <tr id="issue-citation"><td class="opt">Citation metadata contract</td><td>05</td><td class="txt">Define stable source IDs, page and bounding-box data, heading paths, and the exact citation payload for the UI.</td></tr>
-            <tr id="issue-embedding"><td class="opt">Embedding benchmark and model selection</td><td>06</td><td class="txt">Compare local and production candidates on the corpus, then pin the model, tokenizer, dimensions, and metric.</td></tr>
-            <tr id="issue-retrieval"><td class="opt">Retrieval strategy and hybrid fusion</td><td>08</td><td class="txt">Choose dense, lexical, hybrid, reranking, per-document caps, and the retrieval evidence returned to generation.</td></tr>
-            <tr id="issue-multiturn"><td class="opt">Multi-turn query handling and conversation state</td><td>09</td><td class="txt">Define follow-up rewriting, memory limits, query context, and how a new turn changes retrieval.</td></tr>
-            <tr id="issue-generation"><td class="opt">Generation model and streaming response contract</td><td>10</td><td class="txt">Choose the generation model and define streaming events, structured answers, errors, and cancellation.</td></tr>
-            <tr id="issue-context"><td class="opt">Context assembly and prompt contract</td><td>11</td><td class="txt">Define context ordering, token budgets, citation IDs, disagreement handling, and no-evidence behavior.</td></tr>
-            <tr id="issue-evaluation"><td class="opt">Retrieval and answer quality evaluation gates</td><td>13</td><td class="txt">Turn the evaluation research into thresholds for recall, citation accuracy, faithfulness, refusal, and regression testing.</td></tr>
-            <tr id="issue-observability"><td class="opt">RAG observability for the demo</td><td>14</td><td class="txt">Define the Phoenix spans, fields, retention, failure views, and the handoff from local demo to production telemetry.</td></tr>
-            <tr id="issue-corpus"><td class="opt">Corpus provenance and ingestion acceptance</td><td>Corpus</td><td class="txt">Own corpus manifests, parser artifacts, empty-output failures, reproducibility, and the acceptance checks before indexing.</td></tr>
+            <tr><td class="opt"><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/1">#1</a><span class="sub">Wayfinder map: route to the Live Long R&amp;D demo</span></td><td><span class="state open">Open</span></td><td>01</td><td class="txt">Matches <strong>Technical Choices</strong> as the route from the assignment to a completed demo.</td></tr>
+            <tr><td class="opt"><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/2">#2</a><span class="sub">Orchestration framework: LlamaIndex</span></td><td><span class="state done">Closed</span></td><td>02, 02a</td><td class="txt"><strong>Decision:</strong> use LlamaIndex. <strong>TL;DR:</strong> keep orchestration explicit while retaining control of parsing, chunking, retrieval, prompts, evaluation, and observability. <a href="#c2">Choice rationale</a>.</td></tr>
+            <tr><td class="opt"><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/3">#3</a><span class="sub">PDF parsing: Docling, with MinerU as baseline</span></td><td><span class="state done">Closed</span></td><td>03</td><td class="txt"><strong>Decision:</strong> use Docling with MinerU as the comparison baseline. <strong>TL;DR:</strong> Docling wins the local structure and speed path, while formula, table, and node-provenance tests remain explicit limits. <a href="decisions.html#parsing">Decision page</a> · <a href="research/parsing.html">Research</a>.</td></tr>
+            <tr><td class="opt"><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/4">#4</a><span class="sub">Corpus: 27 Europe PMC open-access longevity papers</span></td><td><span class="state done">Closed</span></td><td>Corpus</td><td class="txt">Matches <strong>The corpus</strong>: 27 papers, 425 pages, provenance, and known retrieval traps.</td></tr>
+            <tr><td class="opt"><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/5">#5</a><span class="sub">Web stack: backend, frontend, mobile-ready by default</span></td><td><span class="state done">Closed</span></td><td>15</td><td class="txt">Matches <strong>Frontend &amp; packaging</strong>.</td></tr>
+            <tr><td class="opt"><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/6">#6</a><span class="sub">Scaffold the repo: uv, pyproject, hooks, ruff, mypy, pytest</span></td><td><span class="state done">Closed</span></td><td>Settled</td><td class="txt">Matches the settled Python, uv, ruff, mypy, and pytest tooling in the map.</td></tr>
+            <tr><td class="opt"><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/7">#7</a><span class="sub">Parsing pipeline in code: Docling reader plus empty-output regression test</span></td><td><span class="state open">Open</span></td><td>03</td><td class="txt">Matches the implementation side of <strong>PDF parsing</strong>.</td></tr>
+            <tr><td class="opt"><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/8">#8</a><span class="sub">Citation provenance: document, page, and bounding box must survive into node.metadata</span></td><td><span class="state open">Open</span></td><td>05</td><td class="txt">Matches <strong>Chunk metadata &amp; the citation unit</strong>.</td></tr>
+            <tr><td class="opt"><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/9">#9</a><span class="sub">Equation test: Docling vs MinerU on papers 021-027</span></td><td><span class="state open">Open</span></td><td>03, 13</td><td class="txt">Matches parser limits in <strong>PDF parsing</strong> and the quality gate in <strong>Evaluation</strong>.</td></tr>
+            <tr><td class="opt"><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/10">#10</a><span class="sub">Chunking research: structure-aware chunks and contextual retrieval</span></td><td><span class="state done">Closed</span></td><td>04</td><td class="txt"><strong>Decision:</strong> use Docling HybridChunker with flat retrieval for v1, provisionally until the corpus gates pass. <strong>TL;DR:</strong> start with structure-aware chunks and keep contextual retrieval under test. <a href="research/chunking.html">Research</a>.</td></tr>
+            <tr><td class="opt"><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/12">#12</a><span class="sub">Embedding selection: discrimination test on entity traps, write embedding.html</span></td><td><span class="state done">Closed</span></td><td>06</td><td class="txt"><strong>Decision:</strong> use Qwen3-Embedding-0.6B as the local reference. <strong>TL;DR:</strong> pin a small, repeatable local model, then benchmark a larger production path separately. <a href="decisions.html#embedding">Decision page</a>.</td></tr>
+            <tr><td class="opt"><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/13">#13</a><span class="sub">Vector database survey</span></td><td><span class="state done">Closed</span></td><td>07</td><td class="txt">Matches the storage comparison behind <strong>Vector store</strong>. <a href="research/vector-database.html">Research</a>.</td></tr>
+            <tr><td class="opt"><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/14">#14</a><span class="sub">Vector database selection: LanceDB for the demo</span></td><td><span class="state done">Closed</span></td><td>07</td><td class="txt"><strong>Decision:</strong> use LanceDB for the local Docker demo. <strong>TL;DR:</strong> embedded, natively hybrid, and supported by LlamaIndex. <a href="research/vector-database.html">Research</a> · <a href="decisions.html#vector-database">Decision page</a>.</td></tr>
+            <tr><td class="opt"><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/15">#15</a><span class="sub">Retrieval approach: confirm hybrid fusion verdict, write retrieval.html</span></td><td><span class="state open">Open</span></td><td>08</td><td class="txt">Matches <strong>Retrieval strategy</strong>.</td></tr>
+            <tr><td class="opt"><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/17">#17</a><span class="sub">Observability selection and wiring plan</span></td><td><span class="state done">Closed</span></td><td>14</td><td class="txt"><strong>Decision:</strong> use Arize Phoenix for the demo. <strong>TL;DR:</strong> keep RAG traces local, visible, and portable through OpenTelemetry. <a href="decisions.html#observability">Decision page</a>.</td></tr>
+            <tr><td class="opt"><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/18">#18</a><span class="sub">LLM selection: OpenAI vs Gemini lineup</span></td><td><span class="state open">Open</span></td><td>10</td><td class="txt">Matches <strong>Generation model</strong>.</td></tr>
+            <tr><td class="opt"><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/19">#19</a><span class="sub">Eval options for the longevity corpus</span></td><td><span class="state done">Closed</span></td><td>13</td><td class="txt">Matches the evaluation research. The final v1 gate set remains open in #20. <a href="research/evaluation.html">Research</a>.</td></tr>
+            <tr><td class="opt"><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/20">#20</a><span class="sub">Quality gates: choose the v1 eval suite</span></td><td><span class="state open">Open</span></td><td>13</td><td class="txt">Matches <strong>Evaluation</strong> and its final quality thresholds.</td></tr>
+            <tr><td class="opt"><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/21">#21</a><span class="sub">Guardrails policy</span></td><td><span class="state open">Open</span></td><td>12</td><td class="txt">Matches <strong>Guardrails</strong>: policy scope, out-of-scope questions, unanswerable questions, and refusal behavior.</td></tr>
+            <tr><td class="opt"><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/22">#22</a><span class="sub">Context management strategy</span></td><td><span class="state open">Open</span></td><td>09, 11</td><td class="txt">Matches <strong>Multi-turn handling</strong> and <strong>Context assembly &amp; prompt</strong>.</td></tr>
+            <tr><td class="opt"><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/23">#23</a><span class="sub">Generation, prompt, and citation-to-page: write generation.html</span></td><td><span class="state open">Open</span></td><td>05, 10, 11</td><td class="txt">Matches <strong>Chunk metadata &amp; the citation unit</strong>, <strong>Generation model</strong>, and <strong>Context assembly &amp; prompt</strong>.</td></tr>
+            <tr><td class="opt"><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/24">#24</a><span class="sub">UI design: streaming chat with exact-spot PDF citations</span></td><td><span class="state open">Open</span></td><td>05, 15</td><td class="txt">Matches citations and <strong>Frontend &amp; packaging</strong>.</td></tr>
+            <tr><td class="opt"><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/25">#25</a><span class="sub">Productionizing and hyperscaler deployment: write productionizing.html</span></td><td><span class="state open">Open</span></td><td>04, 06, 07, 10, 14, 15</td><td class="txt">Matches the production path across <strong>Chunking</strong>, <strong>Embedding model</strong>, <strong>Vector store</strong>, <strong>Generation model</strong>, <strong>Observability</strong>, and <strong>Frontend &amp; packaging</strong>.</td></tr>
+            <tr><td class="opt"><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/26">#26</a><span class="sub">Architecture doc and build-slice decomposition</span></td><td><span class="state open">Open</span></td><td>01-15</td><td class="txt">Matches the full dependency chain and vertical build slices. It does not close each choice by itself.</td></tr>
           </tbody>
         </table></div>
 
         <div class="callout warn">
           <span class="lbl">Coverage audit</span>
-          <p>Every existing issue name now has a matching location: #21 maps to <strong>Guardrails</strong>, #24 to citations and the chat surface, #25 to production concerns, #26 to the full architecture chain, #10 to <strong>Chunking</strong>, and #14 to <strong>Vector store</strong>.</p>
-          <p>The proposed titles cover the remaining focused gaps. The corpus is also named because it has no dedicated issue, even though the corpus itself is already present.</p>
+          <p>All 24 existing issue names are matched to a location in this document. Closed issues include their decision summary and links to the research or decision page where one exists.</p>
+          <p>Discussion stays outside this document. Any new issue title will be discussed in chat first. This page records only issues that already exist in GitHub.</p>
         </div>
       </section>
 
@@ -185,7 +182,7 @@
         </div>
 
         <p>Everything is from the PubMed Central Open Access subset, fetched from Europe PMC. No paywall was bypassed.</p>
-        <div class="callout note"><span class="lbl">Suggested issue</span><p><a href="#issue-corpus">Corpus provenance and ingestion acceptance</a>.</p></div>
+        <div class="callout note"><span class="lbl">GitHub coverage</span><p><strong><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/4">Issue #4</a></strong> records the 27-paper Europe PMC corpus and its provenance.</p></div>
 
         <h3>Why this set is hard on purpose</h3>
         <ul class="list-airy">
@@ -202,7 +199,7 @@
 
       <section id="c1">
         <h2><span class="idx">01</span> Product shape <span class="state open">Open</span></h2>
-        <div class="callout note"><span class="lbl">GitHub coverage</span><p><strong><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/26">Issue #26</a> is open.</strong> It covers the architecture and build-slice boundary for product shape, but it has no final product-shape decision yet.</p><p>Suggested issue: <a href="#issue-product-shape">Product shape and demo scope</a>.</p></div>
+        <div class="callout note"><span class="lbl">GitHub coverage</span><p><strong><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/1">Issue #1</a></strong> routes the work to the Live Long R&amp;D demo. <a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/26">Issue #26</a> covers the architecture and build-slice boundary.</p><p>This section still shows the product boundary as a choice because it lists shipped corpus, upload, and both without recording one final selection.</p></div>
         <p class="determines"><b>Determines</b> whether ingestion is a build step nobody sees or a live feature with upload UI, progress, and background jobs — and therefore how much of the build is retrieval work versus plumbing.</p>
 
         <div class="table-scroll"><table class="opts">
@@ -234,7 +231,7 @@
 
       <section id="c2">
         <h2><span class="idx">02</span> Framework or compose it ourselves <span class="state open">Open</span></h2>
-        <div class="callout note"><span class="lbl">GitHub coverage</span><p><strong><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/26">Issue #26</a> is open.</strong> It covers the architecture document, not a final framework decision.</p><p>Suggested issue: <a href="#issue-llamaindex">LlamaIndex architecture boundary</a>.</p></div>
+        <div class="callout note"><span class="lbl">Decision from closed issue</span><p><strong><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/2">Issue #2</a> is closed.</strong> <strong>Decision:</strong> use LlamaIndex.</p><p><strong>TL;DR:</strong> Keep orchestration explicit while retaining control of parsing, chunking, retrieval, prompts, evaluation, and observability. <a href="#c2">Choice rationale</a> · <a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/26">Issue #26</a> covers the wider architecture.</p></div>
         <p class="determines"><b>Determines</b> whether choices 03&ndash;14 are ours to make and defend, or arrive as a framework's defaults. Highest-leverage decision on the page.</p>
 
         <p>The framing that started this &mdash; framework means losing control &mdash; turned out to be wrong. <a href="#llamaindex">Section 02a</a> checks it against the brief's own grading list. Read that first; this table is the wider field.</p>
@@ -484,7 +481,7 @@ llama-index-core     base package, every integration added deliberately</code></
       <!-- ───────────────────────── 03 ───────────────────────── -->
       <section id="c3">
         <h2><span class="idx">03</span> PDF parsing <span class="state open">Open</span></h2>
-        <div class="callout note"><span class="lbl">GitHub coverage</span><p><strong><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/26">Issue #26</a> is open.</strong> It carries PDF parsing as part of the architecture chain. No focused repository issue is mapped to this choice.</p><p>Suggested issue: <a href="#issue-parsing">PDF parsing and provenance gates</a>.</p><p>The current decision page records Docling as the parser, with formula and node-level provenance tests still open. <a href="decisions.html#parsing">Decision page</a> · <a href="research/parsing.html">Research</a>.</p></div>
+        <div class="callout note"><span class="lbl">Decision from closed issue</span><p><strong><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/3">Issue #3</a> is closed.</strong> <strong>Decision:</strong> use Docling with MinerU as the comparison baseline.</p><p><strong>TL;DR:</strong> Docling wins the local structure and speed path, while formula, table, and node-provenance tests remain explicit limits. <a href="decisions.html#parsing">Decision page</a> · <a href="research/parsing.html">Research</a>.</p><p>Implementation and test work remains in <a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/7">#7</a> and <a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/9">#9</a>. <a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/26">Issue #26</a> carries the architecture chain.</p></div>
         <p class="determines"><b>Determines</b> whether heading hierarchy, table structure, two-column reading order and page numbers survive. Sets the ceiling on everything downstream &mdash; nothing later recovers what is lost here.</p>
 
         <p>Separable from choice 02: even inside a framework, the parser is a reader you plug in. What this corpus throws at it:</p>
@@ -716,7 +713,7 @@ llama-index-core     base package, every integration added deliberately</code></
 
       <section id="c5">
         <h2><span class="idx">05</span> Chunk metadata &amp; the citation unit <span class="state open">Open</span></h2>
-        <div class="callout note"><span class="lbl">GitHub coverage</span><p><strong><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/24">Issue #24</a> is open.</strong> It covers exact-spot PDF citations and source presentation. Issue #26 also covers the metadata boundary at architecture level.</p><p>No final citation-unit decision is recorded yet.</p><p>Suggested issue: <a href="#issue-citation">Citation metadata contract</a>.</p></div>
+        <div class="callout note"><span class="lbl">GitHub coverage</span><p><strong><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/8">Issue #8</a></strong> covers document, page, and bounding-box provenance in node metadata. <a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/23">Issue #23</a> covers citation-to-page behavior, and <a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/24">Issue #24</a> covers exact-spot presentation.</p><p>No final citation-unit decision is recorded yet.</p></div>
         <p class="determines"><b>Determines</b> what a source looks like in the UI, whether a reader can verify a claim, and what we can filter retrieval by.</p>
 
         <p>Two separable decisions. <strong>What we store on every chunk</strong>: document ID, title, first author, year, DOI, page number, section path, character offsets. Each one is either a filter, a citation field, or dead weight. <strong>What the user is shown as the source</strong>:</p>
@@ -750,7 +747,7 @@ llama-index-core     base package, every integration added deliberately</code></
 
       <section id="c6">
         <h2><span class="idx">06</span> Embedding model <span class="state open">Open</span></h2>
-        <div class="callout note"><span class="lbl">GitHub coverage</span><p><strong><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/25">Issue #25</a> is open.</strong> It covers production model serving and capacity. Issue #26 covers the embedding slot in the architecture chain.</p><p>The current decision page records Qwen3-Embedding-0.6B as the local reference. <a href="decisions.html#embedding">Decision page</a>.</p><p>Suggested issue: <a href="#issue-embedding">Embedding benchmark and model selection</a>.</p></div>
+        <div class="callout note"><span class="lbl">Decision from closed issue</span><p><strong><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/12">Issue #12</a> is closed.</strong> <strong>Decision:</strong> use Qwen3-Embedding-0.6B as the local reference.</p><p><strong>TL;DR:</strong> Pin a small, repeatable local model, then benchmark a larger production path separately. <a href="decisions.html#embedding">Decision page</a> · <a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/25">Issue #25</a> covers production model serving.</p></div>
         <p class="determines"><b>Determines</b> the retrieval quality ceiling, the ingest cost, the vector dimensions the store carries, and whether a reviewer needs an API key to run anything.</p>
 
         <div class="table-scroll"><table class="opts">
@@ -834,7 +831,7 @@ llama-index-core     base package, every integration added deliberately</code></
 
       <section id="c8">
         <h2><span class="idx">08</span> Retrieval strategy <span class="state open">Open</span></h2>
-        <div class="callout note"><span class="lbl">GitHub coverage</span><p><strong><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/26">Issue #26</a> is open.</strong> It covers retrieval in the architecture and build slices. No focused issue or final retrieval decision is recorded.</p><p>Suggested issue: <a href="#issue-retrieval">Retrieval strategy and hybrid fusion</a>.</p></div>
+        <div class="callout note"><span class="lbl">GitHub coverage</span><p><strong><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/15">Issue #15</a> is open.</strong> It covers the retrieval approach and hybrid-fusion verdict. <a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/26">Issue #26</a> carries retrieval in the architecture and build slices.</p></div>
         <p class="determines"><b>Determines</b> what text actually reaches the model — the single thing that most decides whether an answer is right.</p>
 
         <p>This corpus has two properties that push in different directions, and the strategy has to handle both.</p>
@@ -887,7 +884,7 @@ llama-index-core     base package, every integration added deliberately</code></
 
       <section id="c9">
         <h2><span class="idx">09</span> Multi-turn handling <span class="state open">Open</span></h2>
-        <div class="callout note"><span class="lbl">GitHub coverage</span><p><strong><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/26">Issue #26</a> is open.</strong> It covers multi-turn behavior only as part of the broader architecture. No focused issue or final decision is recorded.</p><p>Suggested issue: <a href="#issue-multiturn">Multi-turn query handling and conversation state</a>.</p></div>
+        <div class="callout note"><span class="lbl">GitHub coverage</span><p><strong><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/22">Issue #22</a> is open.</strong> It covers the context-management strategy for multi-turn behavior. <a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/26">Issue #26</a> carries the wider architecture boundary.</p></div>
         <p class="determines"><b>Determines</b> whether the thing is actually conversational. The brief says “conversational AI assistant”, and a demo gets judged on a conversation, not a single question.</p>
 
         <p>The failing case is short: ask “what did Hickson find about senolytics”, then ask “what about the other trial”. Retrieving on that second message alone returns nothing useful, because on its own it means nothing.</p>
@@ -931,7 +928,7 @@ llama-index-core     base package, every integration added deliberately</code></
 
       <section id="c10">
         <h2><span class="idx">10</span> Generation model <span class="state open">Open</span></h2>
-        <div class="callout note"><span class="lbl">GitHub coverage</span><p><strong><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/25">Issue #25</a> is open.</strong> It covers production model serving. Issue #26 covers the generation slot in the build-slice chain.</p><p>No final generation-model decision is recorded.</p><p>Suggested issue: <a href="#issue-generation">Generation model and streaming response contract</a>.</p></div>
+        <div class="callout note"><span class="lbl">GitHub coverage</span><p><strong><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/18">Issue #18</a> is open.</strong> It covers the OpenAI versus Gemini model lineup. <a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/23">Issue #23</a> covers generation and streaming behavior, while <a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/25">Issue #25</a> covers production model serving.</p><p>No final generation-model decision is recorded.</p></div>
         <p class="determines"><b>Determines</b> answer quality, per-answer cost, streaming latency, and how reliably instructions about citing and refusing are actually obeyed. Named explicitly in the brief as something to justify.</p>
 
         <div class="table-scroll"><table class="opts">
@@ -973,7 +970,7 @@ llama-index-core     base package, every integration added deliberately</code></
 
       <section id="c11">
         <h2><span class="idx">11</span> Context assembly &amp; prompt <span class="state open">Open</span></h2>
-        <div class="callout note"><span class="lbl">GitHub coverage</span><p><strong><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/24">Issue #24</a> is open.</strong> It covers streaming output and exact citation presentation. Issue #26 covers context assembly at architecture level.</p><p>No final prompt or context decision is recorded.</p><p>Suggested issue: <a href="#issue-context">Context assembly and prompt contract</a>.</p></div>
+        <div class="callout note"><span class="lbl">GitHub coverage</span><p><strong><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/22">Issue #22</a> is open.</strong> It covers context management, and <a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/23">Issue #23</a> covers generation, prompts, and citation-to-page behavior. <a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/24">Issue #24</a> covers streaming output and exact citation presentation.</p><p>No final prompt or context decision is recorded.</p></div>
         <p class="determines"><b>Determines</b> whether answers stay grounded, whether citations point at the right source, and what the system does when the retrieved passages disagree with each other.</p>
 
         <p>Several smaller decisions travel together here:</p>
@@ -993,7 +990,7 @@ llama-index-core     base package, every integration added deliberately</code></
 
       <section id="c12">
         <h2><span class="idx">12</span> Guardrails <span class="state open">Open</span></h2>
-        <div class="callout note"><span class="lbl">GitHub coverage</span><p><strong><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/21">Issue #21: GUARDRAILS POLICY</a></strong> is the focused issue for this section. It covers policy scope, out-of-scope questions, unanswerable questions, and refusal behavior.</p><p><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/26">Issue #26</a> also carries guardrails in the architecture chain.</p></div>
+        <div class="callout note"><span class="lbl">GitHub coverage</span><p><strong><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/21">Issue #21: Guardrails policy</a></strong> is the focused issue for this section. It covers policy scope, out-of-scope questions, unanswerable questions, and refusal behavior.</p><p><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/26">Issue #26</a> also carries guardrails in the architecture chain.</p></div>
         <p class="determines"><b>Determines</b> what happens on questions the corpus cannot answer, questions that are out of scope, and content in the documents that tries to influence the model. Named explicitly in the brief.</p>
 
         <div class="table-scroll"><table class="opts">
@@ -1035,7 +1032,7 @@ llama-index-core     base package, every integration added deliberately</code></
 
       <section id="c13">
         <h2><span class="idx">13</span> Evaluation <span class="state open">Open</span></h2>
-        <div class="callout note"><span class="lbl">GitHub coverage</span><p><strong><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/26">Issue #26</a> is open.</strong> It covers evaluation as a build slice, but no focused issue or final quality gate is recorded.</p><p><a href="research/evaluation.html">Evaluation research</a>.</p><p>Suggested issue: <a href="#issue-evaluation">Retrieval and answer quality evaluation gates</a>.</p></div>
+        <div class="callout note"><span class="lbl">GitHub coverage</span><p><strong><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/19">Issue #19</a> is closed</strong> for the evaluation options, and <strong><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/20">Issue #20</a> is open</strong> for the final v1 quality gates. <a href="research/evaluation.html">Research</a>.</p><p><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/9">Issue #9</a> also tests equations as a parser-quality gate.</p></div>
         <p class="determines"><b>Determines</b> whether every choice above is something we measured or something we asserted. “Quality Controls” is named in the brief, and this is where the README stops being opinion.</p>
 
         <p>This corpus was chosen partly because it makes evaluation cheap: the six contradiction pairs are questions with a known right shape of answer, where a bad retrieval produces a detectably wrong result rather than a slightly worse one.</p>
@@ -1079,7 +1076,7 @@ llama-index-core     base package, every integration added deliberately</code></
 
       <section id="c14">
         <h2><span class="idx">14</span> Observability <span class="state open">Open</span></h2>
-        <div class="callout note"><span class="lbl">GitHub coverage</span><p><strong><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/25">Issue #25</a> is open.</strong> It covers production observability. Issue #26 covers the observability slot in the architecture chain.</p><p>The current decision page records Arize Phoenix for the demo. <a href="decisions.html#observability">Decision page</a>.</p><p>Suggested issue: <a href="#issue-observability">RAG observability for the demo</a>.</p></div>
+        <div class="callout note"><span class="lbl">Decision from closed issue</span><p><strong><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/17">Issue #17</a> is closed.</strong> <strong>Decision:</strong> use Arize Phoenix for the demo.</p><p><strong>TL;DR:</strong> Keep RAG traces local, visible, and portable through OpenTelemetry. <a href="decisions.html#observability">Decision page</a> · <a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/25">Issue #25</a> covers production observability.</p></div>
         <p class="determines"><b>Determines</b> whether a bad answer can be diagnosed — which chunks were retrieved, with what scores, what the prompt actually contained, and where the latency went. Named in the brief.</p>
 
         <div class="table-scroll"><table class="opts">
@@ -1121,7 +1118,7 @@ llama-index-core     base package, every integration added deliberately</code></
 
       <section id="c15">
         <h2><span class="idx">15</span> Frontend &amp; packaging <span class="state open">Open</span></h2>
-        <div class="callout note"><span class="lbl">GitHub coverage</span><p><strong><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/24">Issue #24</a> is open</strong> for the chat surface, and <strong><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/25">Issue #25</a> is open</strong> for production packaging. Issue #26 covers the build slice.</p><p>No final frontend or packaging decision is recorded.</p></div>
+        <div class="callout note"><span class="lbl">GitHub coverage</span><p><strong><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/5">Issue #5</a> is closed</strong> for the web stack. <a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/24">Issue #24</a> covers the chat surface, and <a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/25">Issue #25</a> covers production packaging. <a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/26">Issue #26</a> covers the build slice.</p><p>No final frontend or packaging decision is recorded beyond the existing web-stack choice.</p></div>
         <p class="determines"><b>Determines</b> how the work is judged on sight, and how much setup friction stands between a reviewer and a working app. The brief asks for creativity in UI/UX and says outright that it expects a well designed application.</p>
 
         <div class="table-scroll"><table class="opts">
@@ -1181,4 +1178,3 @@ llama-index-core     base package, every integration added deliberately</code></
 <!-- ds:js:end -->
 </body>
 </html>
-
