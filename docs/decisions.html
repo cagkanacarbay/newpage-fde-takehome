@@ -457,8 +457,8 @@
           <details>
             <summary>Run as a blocking, path-scoped CI job</summary>
             <div class="body">
-              <p>The suite is a pytest suite with the <code>e2e</code> marker. It needs a pinned local embedding model, a fixed index build, and a fixed retrieval depth.</p>
-              <p>A GitHub Actions job blocks pull requests that touch <code>src/</code>, <code>data/index/</code>, or the eval set itself. The workflow is created when the retrieval slice lands, matching the deferred-CI trigger.</p>
+              <p>The suite uses pytest. Deterministic checks use embedding doubles and isolated indexes. Live checks record the OpenAI model, index build, and retrieval depth.</p>
+              <p>GitHub Actions runs Python, container, and web validation for every pull request and push to <code>main</code>. A path-scoped retrieval gate remains a future refinement.</p>
             </div>
           </details>
           <details>
@@ -487,7 +487,7 @@
             <p><strong>What:</strong> Build the image with <code>data/index</code> as a named Docker context. Serve the exported Next.js UI and FastAPI from port 8000.</p>
             <p><strong>Why:</strong> A reviewer starts one container and receives the exact 696-chunk index. LanceDB needs no separate database service.</p>
             <p><strong>Security:</strong> Pass <code>OPENAI_API_KEY</code> only at runtime. The build context excludes <code>.env</code>, the corpus, local caches, and model weights.</p>
-            <p><strong>Size control:</strong> Keep Docling, Torch, and parser integrations in the default ingest dependency group. Exclude that group from the runtime image.</p>
+            <p><strong>Size control:</strong> Keep Docling, Torch, and parser integrations in the <code>ingest</code> dependency group. Exclude that group from the runtime image.</p>
             <p><strong>Status:</strong> The verified 197 MB image contains 696 chunks. It loaded the UI and returned live citations from papers 017, 015, and 016.</p>
           </div>
         </div>
