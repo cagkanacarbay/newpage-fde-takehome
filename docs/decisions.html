@@ -30,6 +30,7 @@
         <li><a href="#vector-database"><span class="n">04</span><span>Vector database</span></a></li>
         <li><a href="#retrieval"><span class="n">05</span><span>Retrieval approach</span></a></li>
         <li><a href="#guardrails"><span class="n">06</span><span>Guardrails</span></a></li>
+        <li><a href="#context-management"><span class="n">07</span><span>Context management</span></a></li>
       </ol>
     </nav>
 
@@ -369,6 +370,61 @@
               <p>If some requested parts lack support, return the supported answer and identify the specific gaps in the retrieved evidence.</p>
               <p>If cleanup removes every factual claim, return that the retrieved evidence did not provide a supported answer.</p>
               <p>If the verifier times out or returns invalid output, return a verification error. Never return the unverified draft.</p>
+            </div>
+          </details>
+        </div>
+      </section>
+
+      <section id="context-management">
+        <h2><span class="idx">07</span> Context management: 100k-token history window, SQLite storage</h2>
+        <p class="lead">Keep the recent conversation verbatim within a generous token budget, tell the user when anything drops, and let the query planner decide what each turn needs.</p>
+
+        <div class="rec">
+          <div class="rec-head">TL;DR</div>
+          <div class="rec-body">
+            <p><strong>What:</strong> Keep the most recent turns verbatim within a 100k-token history budget. Drop oldest turns beyond the budget, with an inline notice to the user. Persist conversations in SQLite, bind-mounted outside the Docker container.</p>
+            <p><strong>Why:</strong> The model context window is large, so capacity is not the constraint. Demo-length conversations do not need summarization or retrieval over history, and a plain token window keeps every referenced entity verbatim.</p>
+            <p><strong>Status:</strong> Strategy decided. <a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/22">Issue 22 - context management strategy</a> records the grilling.</p>
+          </div>
+        </div>
+
+        <h3>How context is managed</h3>
+        <div class="accordion">
+          <details>
+            <summary>Window by tokens, not by turn count</summary>
+            <div class="body">
+              <p>Keep the newest turns verbatim until adding the next older turn would exceed 100k tokens.</p>
+              <p>There is no fixed turn limit. Short turns give a long memory; long turns give a short one.</p>
+              <p>Summarization and retrieval over history are rejected for v1. Both can mangle the exact entities, doses, and paper IDs that follow-up questions reference.</p>
+            </div>
+          </details>
+          <details>
+            <summary>Never truncate silently</summary>
+            <div class="body">
+              <p>When turns are dropped to fit the budget, place an inline notice in the conversation.</p>
+              <p>No permanent token meter and no near-cap banner. With a 100k budget, hitting it is rare.</p>
+            </div>
+          </details>
+          <details>
+            <summary>Let the query planner decide what a turn needs</summary>
+            <div class="body">
+              <p>The QueryPlan step from the retrieval contract reads the message and the history and decides the evidence need per turn.</p>
+              <p>A meta-question about the conversation itself, such as "what did it say earlier?", retrieves nothing and is answered from history alone.</p>
+              <p>The default posture is to give the model everything within budget. Evidence packing must account for the actual history size of the turn.</p>
+            </div>
+          </details>
+          <details>
+            <summary>Resolve follow-ups for retrieval, not for the answer</summary>
+            <div class="body">
+              <p>The planner resolves references such as "the second paper" or "it" into explicit retrieval queries.</p>
+              <p>The answer generator sees the windowed history and the retrieved evidence only. The resolved standalone question stays internal to retrieval, so the answer addresses the message as asked.</p>
+            </div>
+          </details>
+          <details>
+            <summary>Persist conversations in SQLite outside the container</summary>
+            <div class="body">
+              <p>Store every conversation in a SQLite database.</p>
+              <p>Bind-mount the database file from the host, so it survives the container. This is a one-line volume for the reviewer.</p>
             </div>
           </details>
         </div>

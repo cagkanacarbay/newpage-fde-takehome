@@ -20,7 +20,7 @@ table tracks status; the reasoning is written up in the README, not here.
 | Vector database | Open |
 | Retrieval approach | Open |
 | Prompt engineering | Open |
-| Context management | Open |
+| Context management | Decided |
 | Guardrails | Decided |
 | Quality controls | Open |
 | Observability | Open |
