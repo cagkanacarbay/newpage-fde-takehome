@@ -1,6 +1,6 @@
 {
   "fixture_version": 1,
-  "row_count": 27,
+  "row_count": 696,
   "source_sha256": {
     "001-sanada-2025-hallmarks-of-aging-therapeutic-targets.pdf": "a473673afa8910e33c16cf8e00de7d23f291d7c554e5fb1951d5b0cd8cd26c90",
     "002-garcia-barranquero-2025-sens-vs-hallmarks-of-aging-debate.pdf": "395739c9b29de060eb05ca7c914bf0869e8e2dc0fbb84c622d9ff41c62d035a0",
@@ -31,5 +31,5 @@
     "027-gavrilova-2025-compensation-effect-of-mortality.pdf": "efd3d4356abd875b311f368650f51f4160ed5add73382caf9f7ec94528d7dabe"
   },
   "table_name": "chunks",
-  "vector_dimensions": 128
+  "vector_dimensions": 3072
 }

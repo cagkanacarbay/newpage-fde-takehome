@@ -1,7 +1,6 @@
 """Deterministic scoring for the 24-item retrieval quality suite."""
 
 import json
-from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -16,6 +15,7 @@ from live_long_rnd.evaluation import (
     score_citation_support,
     score_quality_gates,
 )
+from live_long_rnd.golden_embeddings import GoldenFixtureEmbedder
 from live_long_rnd.query_planning import OpenAIQueryPlanner, QueryPlan, SearchIntent
 from live_long_rnd.retrieve import (
     FlashRankCrossEncoder,
@@ -27,13 +27,6 @@ from live_long_rnd.retrieve import (
 )
 
 _FIXTURE_INDEX = Path("tests/fixtures/golden_retrieval_index")
-
-
-class FixedEmbedder:
-    """Fixed external embedding response for the committed index schema."""
-
-    def embed(self, texts: Sequence[str]) -> list[list[float]]:
-        return [[0.0] * 128 for _ in texts]
 
 
 @dataclass
@@ -135,7 +128,7 @@ def test_retrieval_quality_gates_block_regressions(tmp_path: Path) -> None:
             ),
             dependencies=RetrievalDependencies(
                 store=store,
-                embedder=FixedEmbedder(),
+                embedder=GoldenFixtureEmbedder(),
                 planner=OpenAIQueryPlanner(client=_PlannerClient()),
                 reranker=FlashRankCrossEncoder(cache_dir=tmp_path / "flashrank"),
             ),
@@ -150,6 +143,8 @@ def test_retrieval_quality_gates_block_regressions(tmp_path: Path) -> None:
     assert scores.gold_documents >= 11, rankings
     assert scores.c1_passed, rankings
     assert scores.passed, rankings
+
+
 def _retrieval_result(
     *,
     document_id: str,

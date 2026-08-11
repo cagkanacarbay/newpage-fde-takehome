@@ -43,6 +43,7 @@ jobs:
               - 'pyproject.toml'
               - 'uv.lock'
               - 'Dockerfile'
+              - 'scripts/reindex_golden_retrieval_fixture.py'
               - 'src/live_long_rnd/api/retrieval.py'
               - 'src/live_long_rnd/calibration.py'
               - 'src/live_long_rnd/embeddings.py'
@@ -56,6 +57,7 @@ jobs:
               - 'tests/test_evaluation.py'
               - 'tests/test_query_planning.py'
               - 'tests/test_retrieve.py'
+              - 'tests/fixtures/golden_retrieval_index/**'
       - uses: astral-sh/setup-uv@v7
         if: steps.changes.outputs.retrieval == 'true'
         with:
