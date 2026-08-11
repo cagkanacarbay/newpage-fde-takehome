@@ -29,6 +29,7 @@ WORKDIR /app
 
 COPY --from=builder --chown=app:app /app/.venv /app/.venv
 COPY --from=index --chown=app:app / /app/data/index/
+COPY --from=corpus --chown=app:app / /app/data/corpus/longevity/
 COPY --from=web-builder --chown=app:app /web/out /app/web
 
 ENV PATH="/app/.venv/bin:$PATH" \
@@ -36,7 +37,8 @@ ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 \
     LIVE_LONG_RETRIEVER=lancedb \
     LIVE_LONG_LLM=openai \
-    LIVE_LONG_WEB_DIR=/app/web
+    LIVE_LONG_WEB_DIR=/app/web \
+    LIVE_LONG_CORPUS_DIR=/app/data/corpus/longevity
 
 USER app
 EXPOSE 8000
