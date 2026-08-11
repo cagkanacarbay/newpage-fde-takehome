@@ -48,6 +48,7 @@ jobs:
               - 'src/live_long_rnd/calibration.py'
               - 'src/live_long_rnd/embeddings.py'
               - 'src/live_long_rnd/evaluation.py'
+              - 'src/live_long_rnd/golden_embeddings.py'
               - 'src/live_long_rnd/index_config.py'
               - 'src/live_long_rnd/ingest.py'
               - 'src/live_long_rnd/query_planning.py'

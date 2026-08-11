@@ -1,5 +1,6 @@
 """Deterministic scoring for the 24-item retrieval quality suite."""
 
+import hashlib
 import json
 from dataclasses import dataclass
 from pathlib import Path
@@ -115,17 +116,15 @@ def test_citation_support_requires_every_target_page_for_each_item() -> None:
 @pytest.mark.e2e
 def test_retrieval_quality_gates_block_regressions(tmp_path: Path) -> None:
     assert _FIXTURE_INDEX.is_dir()
+    _assert_fixture_matches_corpus()
     store = LanceDBHybridStore(_FIXTURE_INDEX)
     rankings: dict[str, list[str]] = {}
+    evidence: dict[str, list[RetrievalResult]] = {}
 
     for item in EVALUATION_ITEMS:
         results = retrieve(
             item.question,
-            config=RetrievalConfig(
-                candidate_depth=40,
-                source_budget_tokens=12_000,
-                document_diversity_penalty=0.15,
-            ),
+            config=RetrievalConfig(),
             dependencies=RetrievalDependencies(
                 store=store,
                 embedder=GoldenFixtureEmbedder(),
@@ -133,9 +132,11 @@ def test_retrieval_quality_gates_block_regressions(tmp_path: Path) -> None:
                 reranker=FlashRankCrossEncoder(cache_dir=tmp_path / "flashrank"),
             ),
         )
+        evidence[item.item_id] = results
         rankings[item.item_id] = [result.document_id for result in results[:10]]
 
     scores = score_quality_gates(rankings)
+    citations = score_citation_support(evidence)
 
     ranking_report = json.dumps(rankings, indent=2)
     assert scores.contradiction_pairs == 6, ranking_report
@@ -143,6 +144,16 @@ def test_retrieval_quality_gates_block_regressions(tmp_path: Path) -> None:
     assert scores.gold_documents >= 11, rankings
     assert scores.c1_passed, rankings
     assert scores.passed, rankings
+    assert citations.supported_items == citations.total_items
+
+
+def _assert_fixture_matches_corpus() -> None:
+    manifest = json.loads((_FIXTURE_INDEX / "manifest.json").read_text(encoding="utf-8"))
+    corpus_hashes = {
+        source.name: hashlib.sha256(source.read_bytes()).hexdigest()
+        for source in sorted(Path("data/corpus/longevity").glob("*.pdf"))
+    }
+    assert manifest["source_sha256"] == corpus_hashes
 
 
 def _retrieval_result(

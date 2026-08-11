@@ -273,6 +273,7 @@ def run_live_calibration(index_dir: Path) -> CalibrationReport:
     aspect_embedder.prewarm(
         [intent.dense_query for plan in aspect_plans for intent in plan.search_intents]
     )
+    _prewarm_reranker(mini_reranker)
 
     variants = (
         _measure_baseline(store, baseline_embedder),
@@ -374,6 +375,22 @@ def run_live_calibration(index_dir: Path) -> CalibrationReport:
             "document_diversity_penalty": diversity_penalty,
             "source_budget_tokens": source_budget,
         },
+    )
+
+
+def _prewarm_reranker(reranker: Reranker) -> None:
+    reranker.rerank(
+        "warmup",
+        [
+            RetrievalResult(
+                document_id="warmup",
+                page_numbers=[1],
+                bboxes=[{"page": 1, "l": 0.0, "t": 0.0, "r": 1.0, "b": 1.0}],
+                heading_path=["warmup"],
+                original_text="warmup",
+                score=0.0,
+            )
+        ],
     )
 
 

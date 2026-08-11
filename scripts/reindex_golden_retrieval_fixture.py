@@ -15,16 +15,19 @@ from live_long_rnd.parsing import create_reader
 
 TABLE_NAME = "chunks"
 FIXTURE_VERSION = 1
+DEFAULT_OUTPUT = Path("tests/fixtures/golden_retrieval_index")
 
 
 def main(argv: list[str] | None = None) -> int:
     """Create a page-level LanceDB fixture after explicit corpus approval."""
     parser = argparse.ArgumentParser(prog="reindex-golden-retrieval-fixture")
     parser.add_argument("--corpus-dir", type=Path, default=Path("data/corpus/longevity"))
-    parser.add_argument("--output", type=Path, default=Path("tests/fixtures/golden_retrieval_index"))
+    parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     args = parser.parse_args(argv)
     if os.environ.get("ALLOW_CORPUS_REINDEX") != "1":
         parser.error("Set ALLOW_CORPUS_REINDEX=1 to rebuild the golden corpus fixture.")
+    if args.output.resolve() != DEFAULT_OUTPUT.resolve():
+        parser.error(f"Golden fixture output must be {DEFAULT_OUTPUT}.")
     sources = sorted(args.corpus_dir.glob("*.pdf"))
     if len(sources) != 27:
         parser.error(f"Expected 27 canonical PDFs in {args.corpus_dir}, found {len(sources)}.")
@@ -58,6 +61,8 @@ def main(argv: list[str] | None = None) -> int:
         encoding="utf-8",
     )
     return 0
+
+
 def _sha256(source: Path) -> str:
     return hashlib.sha256(source.read_bytes()).hexdigest()
 
