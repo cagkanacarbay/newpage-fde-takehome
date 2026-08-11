@@ -36,17 +36,23 @@ export function withDroppedTurnsNotice(
   const earlierNotice = messages.find((message) => message.role === "system");
   const earlierTurns = Number.parseInt(earlierNotice?.text ?? "", 10) || 0;
   const totalTurns = earlierTurns + turns;
-  let remainingMessages = turns * 2;
-  const retained = messages.filter((message) => {
-    if (message.role === "system") {
-      return false;
+  const visibleMessages = messages.filter((message) => message.role !== "system");
+  const droppedMessageIds = new Set<string>();
+  let droppedTurns = 0;
+
+  for (let index = 0; index < visibleMessages.length - 1 && droppedTurns < turns; index += 1) {
+    const user = visibleMessages[index];
+    const assistant = visibleMessages[index + 1];
+    if (user.role !== "user" || assistant.role !== "assistant" || assistant.error) {
+      continue;
     }
-    if (remainingMessages === 0) {
-      return true;
-    }
-    remainingMessages -= 1;
-    return false;
-  });
+    droppedMessageIds.add(user.id);
+    droppedMessageIds.add(assistant.id);
+    droppedTurns += 1;
+    index += 1;
+  }
+
+  const retained = visibleMessages.filter((message) => !droppedMessageIds.has(message.id));
 
   return [
     {

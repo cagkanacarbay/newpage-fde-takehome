@@ -34,8 +34,16 @@ describe("retryFailedTurn", () => {
 });
 
 describe("withDroppedTurnsNotice", () => {
-  it("replaces the oldest complete turns with an inline notice", () => {
-    const result = withDroppedTurnsNotice(messages, 1, "notice");
+  it("keeps failed turns visible while removing the oldest saved turn", () => {
+    const result = withDroppedTurnsNotice(
+      [
+        ...messages,
+        { id: "q3", role: "user", text: "Third question", citations: [] },
+        { id: "a3", role: "assistant", text: "Third answer", citations: [] },
+      ],
+      1,
+      "notice",
+    );
 
     assert.deepEqual(result, [
       {
@@ -44,8 +52,23 @@ describe("withDroppedTurnsNotice", () => {
         text: "1 earlier turn is not included in the assistant context.",
         citations: [],
       },
-      { id: "q2", role: "user", text: "Second question", citations: [] },
-      { id: "a2", role: "assistant", text: "Second answer", citations: [] },
+      {
+        id: "q1",
+        role: "user",
+        text: "First question",
+        citations: [],
+      },
+      {
+        id: "a1",
+        role: "assistant",
+        text: "",
+        citations: [],
+        error: "First request failed",
+        replyTo: "q1",
+        retryMessage: "First question",
+      },
+      { id: "q3", role: "user", text: "Third question", citations: [] },
+      { id: "a3", role: "assistant", text: "Third answer", citations: [] },
     ]);
   });
 
