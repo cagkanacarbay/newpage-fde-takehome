@@ -105,7 +105,7 @@
           <li><b>Search the sparse query</b><span class="d">Search BM25 with the exact lexical terms.</span></li>
           <li><b>Fuse broad candidates</b><span class="d">Use RRF to combine the dense and BM25 candidate lists.</span></li>
           <li><b>Merge intent results</b><span class="d">Deduplicate the union from every SearchIntent before reranking.</span></li>
-          <li><b>Pack complete evidence</b><span class="d">Select diverse chunks and needed neighbors until the source-token budget is full.</span></li>
+          <li><b>Pack complete evidence</b><span class="d">Select diverse retrieved chunks until the source-token budget is full.</span></li>
         </ol>
 
         <div class="callout warn">
@@ -169,7 +169,7 @@
               <tr><td class="opt">Candidate depth</td><td>20 fused candidates</td><td>Depth 10 missed one contradiction pair. Depth 20 cleared every gate.</td></tr>
               <tr><td class="opt">Document diversity</td><td>0.15 repeated-document penalty</td><td>Penalty 0 failed one contradiction pair. Penalty 0.15 passed.</td></tr>
               <tr><td class="opt">Final evidence</td><td>12,000 source tokens</td><td>The 6,000-token control missed one contradiction pair.</td></tr>
-              <tr><td class="opt">Adjacent chunks</td><td>Keep when needed</td><td>Methods, results, and limits can span chunks.</td></tr>
+              <tr><td class="opt">Retrieved chunks</td><td>Keep each chunk complete</td><td>Methods, results, and limits can span chunk boundaries.</td></tr>
             </tbody>
           </table>
         </div>

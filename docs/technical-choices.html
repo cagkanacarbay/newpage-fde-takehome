@@ -830,8 +830,8 @@ llama-index-core     base package, every integration added deliberately</code></
       </section>
 
       <section id="c8">
-        <h2><span class="idx">08</span> Retrieval strategy <span class="state open">Open</span></h2>
-        <div class="callout note"><span class="lbl">GitHub coverage</span><p><strong><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/15">Issue #15</a> is open.</strong> It covers the retrieval approach and hybrid-fusion verdict. <a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/26">Issue #26</a> carries retrieval in the architecture and build slices.</p></div>
+        <h2><span class="idx">08</span> Retrieval strategy <span class="state done">Decided</span></h2>
+        <div class="callout note"><span class="lbl">Decision</span><p><a href="retrieval.html">The retrieval approach</a> owns the implemented contract and calibration results. <a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/15">Issue #15</a> records its original scope.</p></div>
         <p class="determines"><b>Determines</b> what text actually reaches the model — the single thing that most decides whether an answer is right.</p>
 
         <p>This corpus has two properties that push in different directions, and the strategy has to handle both.</p>
@@ -855,13 +855,13 @@ llama-index-core     base package, every integration added deliberately</code></
             </tr>
             <tr>
               <td>+ Reranker</td>
-              <td>A cross-encoder rescores the top 50 down to the top 5, reading query and passage together. Usually the largest single quality gain available.</td>
+              <td>A cross-encoder rescores the fused candidate pool before token packing, reading query and passage together. It improved exact-page support in calibration.</td>
               <td>Another model, and latency on every query. An API reranker adds a second vendor; a local one adds weight.</td>
             </tr>
             <tr>
               <td>+ Diversity / per-document cap</td>
               <td>Limits how many chunks any one paper can contribute, so opposing findings survive into the context. The direct answer to the contradiction problem.</td>
-              <td>Can dilute results for questions that genuinely live in a single paper. Needs tuning against real questions.</td>
+              <td>Can dilute results for questions that genuinely live in a single paper. The 24-item calibration selected a 0.15 penalty.</td>
             </tr>
             <tr>
               <td>+ Query rewriting</td>
@@ -877,8 +877,8 @@ llama-index-core     base package, every integration added deliberately</code></
         </table></div>
 
         <div class="decider">
-          <span class="lbl">What settles it</span>
-          <p>Whether we treat “surface the disagreement” as a core product behaviour or an edge case. If it is core — and this corpus was picked because it is — then plain top-k is not enough, and the choice is which of the additions above earns its latency. Each one is independently switchable, so this can be built as a baseline plus measured increments rather than one big bet.</p>
+          <span class="lbl">What settled it</span>
+          <p>The 24-item corpus calibration selected dense and BM25 retrieval, reciprocal-rank fusion, MiniLM reranking, and diversity-aware token packing. See the <a href="retrieval.html#calibration">measured result</a>.</p>
         </div>
       </section>
 

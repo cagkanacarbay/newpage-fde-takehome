@@ -267,7 +267,8 @@ def score_citation_support(
         item_results = results.get(item_id, ())
         if all(
             any(
-                _paper_id(result.document_id) == document_id and _emitted_citation_page(result) == page
+                _paper_id(result.document_id) == document_id
+                and _emitted_citation_page(result) == page
                 for result in item_results
             )
             for document_id, page in targets
