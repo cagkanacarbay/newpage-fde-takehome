@@ -18,6 +18,15 @@ describe("ConversationSelection", () => {
     assert.equal(selection.isCurrent(secondA), true);
   });
 
+  it("rejects a pending load when the user sends a message", () => {
+    const selection = new ConversationSelection();
+
+    const pendingLoad = selection.select("conversation-a");
+    selection.select("conversation-a");
+
+    assert.equal(selection.isCurrent(pendingLoad), false);
+  });
+
   it("rejects an earlier conversation-list refresh", () => {
     const refresh = new ConversationListRefresh();
 

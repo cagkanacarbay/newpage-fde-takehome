@@ -52,9 +52,15 @@ export function ChatApp() {
 
   const refreshConversations = useCallback(async () => {
     const generation = listRefreshRef.current.start();
-    const next = await client.listConversations();
-    if (listRefreshRef.current.isCurrent(generation)) {
-      setConversations(next);
+    try {
+      const next = await client.listConversations();
+      if (listRefreshRef.current.isCurrent(generation)) {
+        setConversations(next);
+      }
+    } catch (error) {
+      if (listRefreshRef.current.isCurrent(generation)) {
+        console.error("Conversation list loading failed.", error);
+      }
     }
   }, [client]);
 
@@ -85,26 +91,33 @@ export function ChatApp() {
     draftsRef.current.set(draftKeyFor(activeId), composer);
     const load = selectionRef.current.select(id);
     setActiveId(id);
+    setMessages([]);
     setComposer(draftsRef.current.get(draftKeyFor(id)));
     setPdf(null);
     setSidebarOpen(false);
     if (id === null) {
-      setMessages([]);
       return;
     }
-    void client.getConversation(id).then((conversation) => {
-      if (!selectionRef.current.isCurrent(load)) {
-        return;
-      }
-      setMessages(
-        conversation.messages.map((message, index) => ({
-          id: `${conversation.id}-${index}`,
-          role: message.role,
-          text: message.text,
-          citations: message.citations,
-        })),
-      );
-    });
+    void client
+      .getConversation(id)
+      .then((conversation) => {
+        if (!selectionRef.current.isCurrent(load)) {
+          return;
+        }
+        setMessages(
+          conversation.messages.map((message, index) => ({
+            id: `${conversation.id}-${index}`,
+            role: message.role,
+            text: message.text,
+            citations: message.citations,
+          })),
+        );
+      })
+      .catch((error: unknown) => {
+        if (selectionRef.current.isCurrent(load)) {
+          console.error("Conversation loading failed.", error);
+        }
+      });
   }
 
   async function send(text: string) {
@@ -113,6 +126,7 @@ export function ChatApp() {
       return;
     }
 
+    selectionRef.current.select(activeId);
     const assistantId = crypto.randomUUID();
     const userId = crypto.randomUUID();
     setMessages((current) => [
