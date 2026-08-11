@@ -186,10 +186,10 @@
           <table class="matrix wide">
             <thead><tr><th>Variant</th><th>Contradictions</th><th>Entities</th><th>Gold</th><th>Exact-page support</th><th>Median / p95</th><th>24-query API cost</th></tr></thead>
             <tbody>
-              <tr><td class="opt">PR 31 baseline, k = 10</td><td>6/6</td><td>6/6</td><td>12/12</td><td>15/24</td><td>23.9 / 43.0 ms</td><td>$0.000046</td></tr>
-              <tr><td class="opt">Raw-only, depth 10</td><td>5/6</td><td>5/6</td><td>12/12</td><td>21/24</td><td>1,078.8 / 1,461.7 ms</td><td>$0.000046</td></tr>
-              <tr><td class="opt">Dual-query, depth 10</td><td>5/6</td><td>5/6</td><td>12/12</td><td>21/24</td><td>1,093.5 / 1,429.3 ms</td><td>$0.005212</td></tr>
-              <tr><td class="opt">Aspect-decomposed, depth 10</td><td>5/6</td><td>6/6</td><td>12/12</td><td>22/24</td><td>1,592.5 / 1,929.4 ms</td><td>$0.004670</td></tr>
+              <tr><td class="opt">PR 31 baseline, k = 10</td><td>6/6</td><td>6/6</td><td>12/12</td><td>15/24</td><td>25.5 / 37.0 ms</td><td>$0.000046</td></tr>
+              <tr><td class="opt">Raw-only, depth 10</td><td>5/6</td><td>5/6</td><td>12/12</td><td>21/24</td><td>1,270.3 / 1,790.8 ms</td><td>$0.000046</td></tr>
+              <tr><td class="opt">Dual-query, depth 10</td><td>5/6</td><td>5/6</td><td>12/12</td><td>21/24</td><td>1,332.4 / 1,849.8 ms</td><td>$0.005212</td></tr>
+              <tr><td class="opt">Aspect-decomposed, depth 10</td><td>5/6</td><td>6/6</td><td>12/12</td><td>21/24</td><td>1,403.4 / 7,749.7 ms</td><td>$0.004670</td></tr>
             </tbody>
           </table>
         </div>
@@ -202,21 +202,40 @@
         </div>
 
         <div class="table-scroll">
+          <table class="matrix wide">
+            <thead><tr><th>Variant</th><th>Gate regressions</th><th>Top unique IDs for failed items</th><th>Page-support misses</th></tr></thead>
+            <tbody>
+              <tr><td class="opt">Raw-only</td><td>A4, B2</td><td>A4: 012 only. B2: 015, then 016.</td><td>A4, A5, B4</td></tr>
+              <tr><td class="opt">Dual-query</td><td>A4, B2</td><td>A4: 012 only. B2: 015, then 016.</td><td>A2, A3, A4</td></tr>
+              <tr><td class="opt">Aspect-decomposed</td><td>A4</td><td>A4: 012, then 019; 013 is absent.</td><td>A2, A4, B4</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout warn">
+          <span class="lbl">Why the planned variants regress</span>
+          <p>A4 asks for both metformin and rapamycin. The raw and dual top 10 repeat paper 012, so paper 013 never enters the document set. Aspect planning adds paper 019 but still omits 013.</p>
+          <p>B2 asks for D+Q doses in idiopathic pulmonary fibrosis. Raw and dual rank the lookalike diabetic-kidney paper 015 above the gold IPF paper 016. Aspect planning reverses that order and passes B2.</p>
+          <p>The 10-candidate controls show a recall and ranking failure, not a gold-document failure. Every variant still reaches 12/12 gold items and C1.</p>
+        </div>
+
+        <div class="table-scroll">
           <table class="matrix">
             <thead><tr><th>Control</th><th>Gate result</th><th>Exact-page support</th><th>Measured effect</th></tr></thead>
             <tbody>
-              <tr><td class="opt">Depth 10</td><td>5/6, 6/6, 12/12</td><td>22/24</td><td>Missed one contradiction pair.</td></tr>
-              <tr><td class="opt">Depth 20</td><td>6/6, 6/6, 12/12</td><td>22/24</td><td>First depth to clear every gate.</td></tr>
-              <tr><td class="opt">Depth 40</td><td>6/6, 6/6, 12/12</td><td>20/24</td><td>Added candidates without a quality gain.</td></tr>
-              <tr><td class="opt">Penalty 0</td><td>6/6, 6/6, 12/12</td><td>24/24</td><td>Passed, with a 48.7 ms cached p95.</td></tr>
-              <tr><td class="opt">Penalty 0.15</td><td>6/6, 6/6, 12/12</td><td>24/24</td><td>Passed, with a 42.0 ms cached p95.</td></tr>
-              <tr><td class="opt">Budget 6,000</td><td>5/6, 5/6, 12/12</td><td>18/24</td><td>Removed needed comparison and entity evidence.</td></tr>
+              <tr><td class="opt">Depth 10</td><td>5/6, 5/6, 12/12</td><td>21/24</td><td>Missed A4 and mis-ranked B2.</td></tr>
+              <tr><td class="opt">Depth 20</td><td>6/6, 5/6, 12/12</td><td>22/24</td><td>Found A4 but still mis-ranked B2 before reranking.</td></tr>
+              <tr><td class="opt">Depth 40</td><td>6/6, 5/6, 12/12</td><td>21/24</td><td>Added candidates without fixing the entity rank.</td></tr>
+              <tr><td class="opt">RRF only</td><td>6/6, 5/6, 12/12</td><td>22/24</td><td>Did not fix the B2 entity order.</td></tr>
+              <tr><td class="opt">MiniLM</td><td>6/6, 6/6, 12/12</td><td>24/24</td><td>Added the cross-encoder ranking signal.</td></tr>
+              <tr><td class="opt">Penalty 0.15</td><td>6/6, 6/6, 12/12</td><td>24/24</td><td>Matched penalty 0 with a lower cached p95.</td></tr>
+              <tr><td class="opt">Budget 6,000</td><td>6/6, 6/6, 12/12</td><td>19/24</td><td>Packed less exact page evidence.</td></tr>
             </tbody>
           </table>
         </div>
 
         <p>Variant latency uses prewarmed planner and embedding caches, so it isolates retrieval, reranking, and evidence packing.</p>
-        <p>The final MiniLM depth-20 control measured 2.88 seconds median and 4.50 seconds p95 on this Apple Silicon run.</p>
+        <p>The final MiniLM depth-20 control measured 1.62 seconds median and 10.59 seconds p95 on this Apple Silicon run.</p>
         <p>The run used all 696 indexed chunks and an FTS index rebuilt with phrase positions.</p>
         <p>API cost uses the published <a href="https://developers.openai.com/api/docs/models/gpt-5.6-luna">GPT-5.6 Luna</a> and <a href="https://developers.openai.com/api/docs/models/text-embedding-3-large">text-embedding-3-large</a> prices.</p>
       </section>
