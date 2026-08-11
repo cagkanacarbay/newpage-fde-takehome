@@ -652,3 +652,27 @@ def test_lancedb_applies_document_filter_before_candidate_limit(tmp_path: Path) 
     )
 
     assert [row["id"] for row in results] == ["target"]
+
+
+@pytest.mark.e2e
+def test_lancedb_matches_an_accented_author_filter(tmp_path: Path) -> None:
+    index_dir = tmp_path / "index"
+    lancedb.connect(str(index_dir)).create_table(
+        "chunks",
+        data=[
+            {
+                "id": "target",
+                "vector": [1.0, 0.0],
+                "text": "target paper",
+                "metadata": _row("002-garcia-barranquero-2025", 0.0)["metadata"],
+            }
+        ],
+    )
+
+    results = LanceDBHybridStore(index_dir).dense_search(
+        [1.0, 0.0],
+        filters=MetadataFilters(author="García Barranquero"),
+        limit=1,
+    )
+
+    assert [row["id"] for row in results] == ["target"]

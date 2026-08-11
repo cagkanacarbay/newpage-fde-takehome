@@ -398,7 +398,7 @@ def _filter_rows(
         if filters.document_id is not None and document_id != filters.document_id:
             continue
         if filters.author is not None:
-            author_slug = filters.author.casefold().replace(" ", "-")
+            author_slug = _slug(filters.author)
             if f"-{author_slug}-" not in f"-{document_id.casefold()}-":
                 continue
         selected.append(row)

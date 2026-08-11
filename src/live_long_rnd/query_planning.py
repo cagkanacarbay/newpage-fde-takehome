@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 from collections.abc import Sequence
 from dataclasses import dataclass
+from threading import Lock
 from typing import Any, Literal, Protocol, TypedDict, cast
 
 from openai import OpenAI
@@ -137,6 +138,7 @@ class OpenAIQueryPlanner:
         self._client = client
         self._max_intents = max_intents
         self._usage = PlannerUsage()
+        self._usage_lock = Lock()
 
     @property
     def usage(self) -> PlannerUsage:
@@ -174,11 +176,12 @@ class OpenAIQueryPlanner:
                 f"search intents; maximum is {self._max_intents}."
             )
         usage = getattr(response, "usage", None)
-        self._usage = PlannerUsage(
-            calls=self._usage.calls + 1,
-            input_tokens=self._usage.input_tokens + int(getattr(usage, "input_tokens", 0)),
-            output_tokens=self._usage.output_tokens + int(getattr(usage, "output_tokens", 0)),
-        )
+        with self._usage_lock:
+            self._usage = PlannerUsage(
+                calls=self._usage.calls + 1,
+                input_tokens=self._usage.input_tokens + int(getattr(usage, "input_tokens", 0)),
+                output_tokens=self._usage.output_tokens + int(getattr(usage, "output_tokens", 0)),
+            )
         return response.output_parsed
 
 
