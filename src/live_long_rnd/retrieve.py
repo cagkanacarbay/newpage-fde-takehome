@@ -12,6 +12,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path, PurePosixPath
 from typing import Any, Protocol, TypedDict, cast
 
+import httpx
 import lancedb
 import tiktoken
 from flashrank import Ranker as FlashRanker
@@ -32,7 +33,11 @@ RRF_RANK_CONSTANT = 60
 FLASHRANK_MODEL = "ms-marco-MiniLM-L-12-v2"
 FLASHRANK_MAX_LENGTH = 512
 DEFAULT_RERANKER_CACHE_DIR = Path("data/models/flashrank")
-FLASHRANK_MODEL_ARCHIVE = DEFAULT_RERANKER_CACHE_DIR / f"{FLASHRANK_MODEL}.zip"
+FLASHRANK_MODEL_REVISION = "858a1ac046a05663a35367eac852d7f76feeefdd"
+FLASHRANK_MODEL_URL = (
+    "https://huggingface.co/prithivida/flashrank/resolve/"
+    f"{FLASHRANK_MODEL_REVISION}/{FLASHRANK_MODEL}.zip"
+)
 FLASHRANK_MODEL_SHA256 = "bdd3772b651ffc34f70e414049285bb55ccc6d1b8e29d0640f836d44f70ec77a"
 DEFAULT_CANDIDATE_DEPTH = 20
 DEFAULT_SOURCE_BUDGET_TOKENS = 12_000
@@ -230,16 +235,37 @@ class FlashRankCrossEncoder:
 
 
 def prepare_flashrank_model(cache_dir: Path = DEFAULT_RERANKER_CACHE_DIR) -> None:
-    """Install the pinned FlashRank archive into one local cache directory."""
+    """Download, verify, and install the immutable FlashRank artifact."""
     model_dir = cache_dir / FLASHRANK_MODEL
-    if model_dir.is_dir():
+    checksum_marker = model_dir / ".artifact-sha256"
+    if (
+        model_dir.is_dir()
+        and checksum_marker.is_file()
+        and checksum_marker.read_text(encoding="utf-8").strip() == FLASHRANK_MODEL_SHA256
+    ):
         return
+    if model_dir.exists():
+        raise ValueError(f"Unverified FlashRank model directory: {model_dir}")
 
-    archive = FLASHRANK_MODEL_ARCHIVE
-    if not archive.is_file():
-        raise FileNotFoundError(f"Missing bundled FlashRank archive: {archive}")
-    if _sha256(archive) != FLASHRANK_MODEL_SHA256:
-        raise ValueError("Bundled FlashRank archive checksum does not match")
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    archive = cache_dir / f"{FLASHRANK_MODEL}.zip"
+    partial_archive = archive.with_suffix(".zip.partial")
+    try:
+        with httpx.stream(
+            "GET",
+            FLASHRANK_MODEL_URL,
+            follow_redirects=True,
+            timeout=120.0,
+        ) as response:
+            response.raise_for_status()
+            with partial_archive.open("wb") as file:
+                for chunk in response.iter_bytes():
+                    file.write(chunk)
+        if _sha256(partial_archive) != FLASHRANK_MODEL_SHA256:
+            raise ValueError("Downloaded FlashRank archive checksum does not match")
+        partial_archive.replace(archive)
+    finally:
+        partial_archive.unlink(missing_ok=True)
 
     with zipfile.ZipFile(archive) as bundle:
         names = bundle.namelist()
@@ -250,8 +276,12 @@ def prepare_flashrank_model(cache_dir: Path = DEFAULT_RERANKER_CACHE_DIR) -> Non
             or not name.startswith(allowed_prefixes)
             for name in names
         ):
-            raise ValueError("Bundled FlashRank archive has an unexpected layout")
-        bundle.extractall(cache_dir)
+            raise ValueError("Downloaded FlashRank archive has an unexpected layout")
+        for name in names:
+            if name.startswith(f"{FLASHRANK_MODEL}/"):
+                bundle.extract(name, cache_dir)
+    checksum_marker.write_text(f"{FLASHRANK_MODEL_SHA256}\n", encoding="utf-8")
+    archive.unlink()
 
 
 def _sha256(path: Path) -> str:

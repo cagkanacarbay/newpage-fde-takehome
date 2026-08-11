@@ -19,8 +19,9 @@ from live_long_rnd.evaluation import (
 from live_long_rnd.golden_embeddings import GoldenFixtureEmbedder
 from live_long_rnd.query_planning import OpenAIQueryPlanner, QueryPlan, SearchIntent
 from live_long_rnd.retrieve import (
-    FLASHRANK_MODEL_ARCHIVE,
+    FLASHRANK_MODEL_REVISION,
     FLASHRANK_MODEL_SHA256,
+    FLASHRANK_MODEL_URL,
     FlashRankCrossEncoder,
     LanceDBHybridStore,
     RetrievalConfig,
@@ -146,10 +147,13 @@ def test_citation_support_requires_every_target_page_for_each_item() -> None:
     assert scores == CitationScores(supported_items=23, total_items=24)
 
 
-def test_bundled_flashrank_artifact_matches_its_pinned_checksum() -> None:
-    digest = hashlib.sha256(FLASHRANK_MODEL_ARCHIVE.read_bytes()).hexdigest()
-
-    assert digest == FLASHRANK_MODEL_SHA256
+def test_flashrank_artifact_uses_an_immutable_revision_and_checksum() -> None:
+    assert FLASHRANK_MODEL_REVISION == "858a1ac046a05663a35367eac852d7f76feeefdd"
+    assert f"/resolve/{FLASHRANK_MODEL_REVISION}/" in FLASHRANK_MODEL_URL
+    assert "/resolve/main/" not in FLASHRANK_MODEL_URL
+    assert FLASHRANK_MODEL_SHA256 == (
+        "bdd3772b651ffc34f70e414049285bb55ccc6d1b8e29d0640f836d44f70ec77a"
+    )
 
 
 @pytest.mark.e2e

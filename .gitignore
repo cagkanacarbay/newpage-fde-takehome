@@ -22,9 +22,6 @@ htmlcov/
 
 # Model weights and HuggingFace caches pulled at runtime
 models/
-!data/models/
-!data/models/flashrank/
-!data/models/flashrank/ms-marco-MiniLM-L-12-v2.zip
 .cache/
 
 # Node.js and Next.js generated files

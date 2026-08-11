@@ -8,7 +8,6 @@ WORKDIR /app
 
 COPY pyproject.toml uv.lock README.md ./
 COPY src ./src
-COPY data/models/flashrank/ms-marco-MiniLM-L-12-v2.zip ./data/models/flashrank/
 RUN uv sync --locked --no-default-groups --no-editable
 RUN uv run --no-sync python -c "from live_long_rnd.retrieve import prepare_flashrank_model; prepare_flashrank_model()"
 
