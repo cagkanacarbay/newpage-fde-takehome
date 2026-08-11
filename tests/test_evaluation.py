@@ -8,6 +8,7 @@ from collections.abc import Sequence
 from dataclasses import replace
 from pathlib import Path
 
+import lancedb
 import pytest
 from lancedb.index import FTS
 
@@ -32,32 +33,82 @@ _TOKEN_PATTERN = re.compile(r"[a-z0-9]+")
 _VECTOR_DIMENSIONS = 128
 
 _CORPUS_EVIDENCE = {
-    "001": "Hallmarks of Aging therapies include senolytics, NAD boosters, metformin, and rapamycin.",
-    "002": "SENS reverses aging damage, while Hallmarks of Aging optimizes function and healthspan.",
-    "003": "Cellular senescence triggers include DNA damage, oxidative stress, telomere shortening, SASP, and cell-cycle arrest.",
-    "004": "The single shortest telomere is the primary cause of proliferation limit and senescence.",
-    "005": "Telomere dysfunction is not the primary senescence driver; proteostasis decline is a distinct pathway.",
+    "001": (
+        "Hallmarks of Aging therapies include senolytics, NAD boosters, metformin, and rapamycin."
+    ),
+    "002": (
+        "SENS reverses aging damage, while Hallmarks of Aging optimizes function and healthspan."
+    ),
+    "003": (
+        "Cellular senescence triggers include DNA damage, oxidative stress, telomere shortening, "
+        "SASP, and cell-cycle arrest."
+    ),
+    "004": (
+        "The single shortest telomere is the primary cause of proliferation limit and senescence."
+    ),
+    "005": (
+        "Telomere dysfunction is not the primary senescence driver; proteostasis decline is a "
+        "distinct pathway."
+    ),
     "006": "The NAD homeostasis supplement framework combines NMN NR, PQQ, and EGT.",
     "007": "DNAm PhenoAge is a person's predicted epigenetic age.",
     "008": "DunedinPoAm is a rate measure and speedometer for how fast a subject is aging.",
-    "009": "In BASE-II, DunedinPACE best predicted mortality and ranked above GrimAge after adjustment.",
+    "009": (
+        "In BASE-II, DunedinPACE best predicted mortality and ranked above GrimAge after "
+        "adjustment."
+    ),
     "010": "One mammalian epigenetic clock predicts age across more than 100 mammal species.",
     "011": "The insect results do not support a claim comparable to mammalian epigenetic clocks.",
-    "012": "Evidence that metformin is a proven anti-aging drug or increases lifespan remains controversial.",
-    "013": "A meta-analysis of 911 effects from 167 papers and eight vertebrate species found rapamycin, not metformin, mirrors dietary restriction.",
-    "014": "Combined trametinib and rapamycin increased mouse median and maximum lifespan more than either treatment.",
-    "015": "In humans, senolytic treatment with D plus Q used dasatinib 100 mg and quercetin 1000 mg for diabetic kidney disease and reduced cellular senescent-cell burden.",
-    "016": "The first-in-human senolytic pilot used D 100 mg/day plus Q 1250 mg/day doses for idiopathic pulmonary fibrosis and supported feasibility.",
-    "017": "Senolytic treatment did not reverse cellular senescence methylation signatures in humans.",
-    "018": "Calorie restriction changed mouse-liver DNA methylation toward a younger epigenetic age.",
+    "012": (
+        "Evidence that metformin is a proven anti-aging drug or increases lifespan remains "
+        "controversial."
+    ),
+    "013": (
+        "A meta-analysis of 911 effects from 167 papers and eight vertebrate species found "
+        "rapamycin, not metformin, mirrors dietary restriction."
+    ),
+    "014": (
+        "Combined trametinib and rapamycin increased mouse median and maximum lifespan more than "
+        "either treatment."
+    ),
+    "015": (
+        "In humans, senolytic treatment with D plus Q used dasatinib 100 mg and quercetin 1000 mg "
+        "for diabetic kidney disease and reduced cellular senescent-cell burden."
+    ),
+    "016": (
+        "The first-in-human senolytic pilot used D 100 mg/day plus Q 1250 mg/day doses for "
+        "idiopathic pulmonary fibrosis and supported feasibility."
+    ),
+    "017": (
+        "Senolytic treatment did not reverse cellular senescence methylation signatures in humans."
+    ),
+    "018": (
+        "Calorie restriction changed mouse-liver DNA methylation toward a younger epigenetic age."
+    ),
     "019": "Chemical partial reprogramming extended C. elegans lifespan and healthspan.",
-    "020": "Chemical partial reprogramming caused mouse lipid accumulation, weight loss, and toxicity.",
-    "021": "Network theory with mean-field and homogeneity assumptions derived the Gompertz mortality law.",
-    "022": "The Gompertz law emerges from inter-dependencies between organism sub-components in a stochastic system.",
+    "020": (
+        "Chemical partial reprogramming caused mouse lipid accumulation, weight loss, and toxicity."
+    ),
+    "021": (
+        "Network theory with mean-field and homogeneity assumptions derived the Gompertz mortality "
+        "law."
+    ),
+    "022": (
+        "The Gompertz law emerges from inter-dependencies between organism sub-components in a "
+        "stochastic system."
+    ),
     "023": "Loss of physiological resilience implies a human lifespan limit of 120 to 150 years.",
-    "024": "A hierarchical process model links behavioral aging, VMC timing, and lifespan in C. elegans.",
-    "025": "The epigenetic pacemaker uses elastic-net penalized regression to reduce prediction error.",
-    "026": "The Strehler-Mildvan correlation links mortality parameters for population health monitoring.",
+    "024": (
+        "A hierarchical process model links behavioral aging, VMC timing, and lifespan in C. "
+        "elegans."
+    ),
+    "025": (
+        "The epigenetic pacemaker uses elastic-net penalized regression to reduce prediction error."
+    ),
+    "026": (
+        "The Strehler-Mildvan correlation links mortality parameters for population health "
+        "monitoring."
+    ),
     "027": "The Gompertz-Makeham compensation effect was fit across 251 countries and regions.",
 }
 

@@ -197,6 +197,36 @@ class CachingEmbedder:
             self._vectors.update(zip(missing, vectors, strict=True))
 
 
+class CachingReranker:
+    """Reuse expensive cross-encoder rankings across packing controls."""
+
+    def __init__(self, reranker: Reranker) -> None:
+        self._reranker = reranker
+        self._rankings: dict[
+            tuple[str, tuple[tuple[str, tuple[int, ...], str, float], ...]],
+            list[RetrievalResult],
+        ] = {}
+
+    def rerank(
+        self,
+        query: str,
+        candidates: Sequence[RetrievalResult],
+    ) -> list[RetrievalResult]:
+        candidate_key = tuple(
+            (
+                candidate.document_id,
+                tuple(candidate.page_numbers),
+                candidate.original_text,
+                candidate.score,
+            )
+            for candidate in candidates
+        )
+        key = (query, candidate_key)
+        if key not in self._rankings:
+            self._rankings[key] = self._reranker.rerank(query, candidates)
+        return list(self._rankings[key])
+
+
 def _retry[T](operation: Callable[[], T]) -> T:
     """Retry transient provider failures during a long calibration run."""
     for attempt in range(4):
@@ -227,8 +257,8 @@ def run_live_calibration(index_dir: Path) -> CalibrationReport:
     dual_embedder = CachingEmbedder(OpenAIEmbedder())
     aspect_planner = CachingPlanner(OpenAIQueryPlanner(max_intents=3))
     aspect_embedder = CachingEmbedder(OpenAIEmbedder())
-    mini_reranker = FlashRankCrossEncoder()
-    base_config = RetrievalConfig()
+    mini_reranker = CachingReranker(FlashRankCrossEncoder())
+    base_config = RetrievalConfig(candidate_depth=10)
     questions = [item.question for item in EVALUATION_ITEMS]
     baseline_embedder.prewarm(questions)
     raw_plans = raw_planner.prewarm(questions)
@@ -279,7 +309,7 @@ def run_live_calibration(index_dir: Path) -> CalibrationReport:
             RetrievalConfig(candidate_depth=depth),
             latency_scope="cached planning and embedding",
         )
-        for depth in (20, 40, 80)
+        for depth in (10, 20, 40)
     )
     candidate_depth = int(_winner(candidate_runs).measurement.settings["candidate_depth"])
 
@@ -297,7 +327,7 @@ def run_live_calibration(index_dir: Path) -> CalibrationReport:
         )
         for name, reranker in rerankers
     )
-    winning_reranker_run = _winner(reranker_runs)
+    winning_reranker_run = _winner(reranker_runs[1:])
     reranker_name = str(winning_reranker_run.measurement.settings["reranker"])
     reranker = dict(rerankers)[reranker_name]
 

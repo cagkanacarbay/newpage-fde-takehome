@@ -27,7 +27,7 @@
     </ol></nav>
     <div class="col">
       <section id="proposal">
-        <h2><span class="idx">01</span> Proposed v1 gates</h2>
+        <h2><span class="idx">01</span> Calibrated v1 gates</h2>
         <p class="lead">Three deterministic gates test the corpus’s designed failure cases without an LLM judge.</p>
         <div class="status">
           <div><span class="v">6</span><span class="k">contradiction pairs</span></div>
@@ -35,14 +35,14 @@
           <div><span class="v">12</span><span class="k">single-source questions</span></div>
         </div>
         <p>Score at the document-ID level. This keeps the set stable when chunking changes.</p>
-        <div class="callout note"><span class="lbl">This is a candidate set, not the final one</span><p>Every quote below is a provisional hit target, picked by reading the papers. The first run goes out at <strong>k = 10</strong> and its real job is inspection: what does the retriever actually return for each query? If it surfaces passages more relevant than the ones selected here, the quotes get corrected against that output, and only then are thresholds and a tighter k fixed. Treat every item as subject to revision after the first run.</p></div>
+        <div class="callout note"><span class="lbl">Calibration complete</span><p>The 2026-08-11 run used all 27 papers and kept the 24 questions and target passages unchanged. Candidate depth 40 reached 6/6 contradiction pairs, 6/6 entity traps, and 12/12 gold documents, including C1.</p></div>
         <p>Click any row to see the paper, the PDF page, and the exact passage the retriever must surface for that item to count as a hit. All quotes were extracted verbatim from the corpus PDFs.</p>
-        <div class="callout note"><span class="lbl">Decision boundary</span><p>The questions and quotes are research output. Cha still chooses the thresholds and the final v1 gate set.</p></div>
+        <div class="callout note"><span class="lbl">Confirmed thresholds</span><p>The blocking v1 thresholds remain 6/6, 6/6, and 11/12 with C1 mandatory. The measured run exceeded Gate C by one item.</p></div>
       </section>
 
       <section id="contradictions">
         <h2><span class="idx">02</span> Gate A: contradiction coverage</h2>
-        <p>Each query passes only when both sides of the disagreement appear in the top 10. The proposed suite threshold is 6 of 6. The pairs exist because the corpus was built with papers that disagree; a retriever that surfaces only one side lets the generator answer a contested question with false confidence.</p>
+        <p>Each query passes only when both sides of the disagreement appear in the top 10. The confirmed suite threshold is 6 of 6. The pairs exist because the corpus was built with papers that disagree; a retriever that surfaces only one side lets the generator answer a contested question with false confidence.</p>
         <div class="table-scroll"><table class="matrix wide">
           <thead><tr><th>Question</th><th>Gold papers</th><th>What it tests</th></tr></thead>
           <tbody>
@@ -104,7 +104,7 @@
 
       <section id="entities">
         <h2><span class="idx">03</span> Gate B: entity recall</h2>
-        <p>The corpus plants lookalike entities: rapamycin vs trametinib, dasatinib + quercetin in two different diseases, PhenoAge vs GrimAge vs DunedinPoAm. The gold paper must appear in the top 10 and rank above each named distractor. The proposed threshold is 6 of 6. A distractor is a paper that matches the query’s vocabulary but names the wrong entity, so ranking it above the gold is a visible, deterministic failure.</p>
+        <p>The corpus plants lookalike entities: rapamycin vs trametinib, dasatinib + quercetin in two different diseases, PhenoAge vs GrimAge vs DunedinPoAm. The gold paper must appear in the top 10 and rank above each named distractor. The confirmed threshold is 6 of 6. A distractor is a paper that matches the query’s vocabulary but names the wrong entity, so ranking it above the gold is a visible, deterministic failure.</p>
         <div class="table-scroll"><table class="matrix wide">
           <thead><tr><th>Trap</th><th>Gold</th><th>Distractors</th></tr></thead>
           <tbody>
@@ -270,16 +270,16 @@
         </table></div>
         <p><a href="https://docs.llamaindex.ai/en/stable/module_guides/evaluating/">LlamaIndex evaluation guide</a> · <a href="https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/">RAGAS metrics</a></p>
         <p>Deterministic CI uses fixed embedding doubles and isolated indexes. Live evaluation records the OpenAI model, 3,072 dimensions, index build, and retrieval depth.</p>
-        <p>The depth stays k = 10 while the set is calibrated. Tighten it only after reviewing the first full-corpus run.</p>
+        <p>Quality scoring uses the top 10 unique document IDs. Runtime candidate depth is 40 before evidence packing.</p>
       </section>
 
       <section id="open">
-        <h2><span class="idx">06</span> Choices for the quality session</h2>
+        <h2><span class="idx">06</span> Calibration decisions</h2>
         <ol>
-          <li>Run the set at k = 10 and inspect what actually comes back. Correct any quote that real retrieval output beats, then pick the final k per gate.</li>
-          <li>Confirm the proposed 6/6, 6/6, and 11/12 thresholds once the depth is fixed.</li>
-          <li>Choose whether Gate C grows from 12 items to one item per paper.</li>
-          <li>Choose when “both sides retrieved” becomes “both sides cited.”</li>
+          <li>Keep the 24 questions and exact page targets unchanged.</li>
+          <li>Keep the 6/6, 6/6, and 11/12 thresholds with C1 mandatory.</li>
+          <li>Score the top 10 unique document IDs after retrieval.</li>
+          <li>Keep citation-level blocking gates deferred. Exact-page support remains a reported metric.</li>
         </ol>
       </section>
     </div>

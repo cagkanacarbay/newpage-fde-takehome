@@ -1,8 +1,8 @@
 """Retrieval calibration reporting tests."""
 
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Sequence
 
-from live_long_rnd.calibration import measure_variant
+from live_long_rnd.calibration import CachingReranker, measure_variant
 from live_long_rnd.evaluation import CITATION_TARGETS, EVALUATION_ITEMS
 from live_long_rnd.retrieve import RetrievalResult
 
@@ -31,6 +31,32 @@ def test_measure_variant_records_gates_pages_tokens_and_latency() -> None:
     assert measurement.mean_packed_tokens > 0
     assert measurement.rankings["C1"] == ["009-paper", "009-paper"]
     assert measurement.page_hits["C1"] == ["009-paper:1", "009-paper:10"]
+
+
+def test_caching_reranker_reuses_identical_candidate_rankings() -> None:
+    reranker = RecordingReranker()
+    caching_reranker = CachingReranker(reranker)
+    candidates = [_result("009", 1), _result("007", 2)]
+
+    first = caching_reranker.rerank("Which clock predicts mortality?", candidates)
+    second = caching_reranker.rerank("Which clock predicts mortality?", candidates)
+
+    assert first == second
+    assert reranker.calls == 1
+
+
+class RecordingReranker:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def rerank(
+        self,
+        query: str,
+        candidates: Sequence[RetrievalResult],
+    ) -> list[RetrievalResult]:
+        del query
+        self.calls += 1
+        return list(reversed(candidates))
 
 
 def _clock(ticks: Iterator[float]) -> Callable[[], float]:
