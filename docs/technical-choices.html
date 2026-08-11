@@ -1119,7 +1119,7 @@ llama-index-core     base package, every integration added deliberately</code></
 
       <section id="c15">
         <h2><span class="idx">15</span> Frontend &amp; packaging <span class="state set">Set</span></h2>
-        <div class="callout note"><span class="lbl">Current decision</span><p><strong>Ship one indexed application image.</strong> It serves the exported Next.js UI and FastAPI on port 8000. The named Docker context copies the completed LanceDB index into the image.</p><p><a href="decisions.html#packaging">Decision page</a> · <a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/25">Issue #25</a> remains open for hyperscaler production packaging.</p></div>
+        <div class="callout note"><span class="lbl">Current decision</span><p><a href="decisions.html#packaging">The decision page</a> owns the current packaging contract, including the required index and corpus Docker contexts.</p><p><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/25">Issue #25</a> remains open for hyperscaler production packaging.</p></div>
         <p class="determines"><b>Determines</b> how the work is judged on sight, and how much setup friction stands between a reviewer and a working app. The brief asks for creativity in UI/UX and says outright that it expects a well designed application.</p>
 
         <div class="table-scroll"><table class="opts">
