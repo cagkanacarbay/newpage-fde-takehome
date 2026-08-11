@@ -34,11 +34,15 @@ key. The same key serves embedding and live answer generation.
 5. Start the complete application on port 8000:
 
    ```bash
-   docker run --rm --env-file .env --publish 8000:8000 live-long-rnd
+   docker run --rm --env-file .env --publish 8000:8000 \
+     --volume "$(pwd)/data:/app/data" \
+     live-long-rnd
    ```
 
    Open http://localhost:8000.
    The runtime key serves query embeddings and answer generation.
+   The bind mount keeps conversations in `data/conversations.db` after the
+   container stops.
 
 For local development, run the API and UI as separate processes.
 The API defaults to deterministic stubs when the live adapter variables are absent.
@@ -169,7 +173,7 @@ Given this scenario I would:
 5. Authentication has not been considered as part of this work. In a real scenario we would deploy within the authentication paradigm of the customer.
 6. Work with the actual corpus, which would likely be thousands of papers, as well as other sorts of documents, to select each part of the pipeline. I'd run tests similar to the ones I've ran at a smaller scope in this repo, understand the corpus' nature, which chunking methodology provides better results in retrieveal and other tests. 
 7. Parent-child retrieval. A likely addition I would make to this system. This improves the general reliability of the system. It would require another data store to store the parents and add a level of complexity that is overengineering for the purposes of this simple demo, but a production system would benefit from this.
-8. Conversation management is kept very simple. It's a simple session system. User can start a new conversation or continue older one. There is no compaction. No context management within and beyond sessions. This would be an area of improvement in any production system. For long chats only the last 100k tokens are used as input.
+8. Conversation management is intentionally simple. The current persistence and history-window contract is in `docs/decisions.html#context-management`. A production system could add summarization, cross-session retrieval, and access controls.
 9. For simplicity sake the corpus raw PDFs are part of the docker image and served directly through there. We use that to directly cite the papers in the chat. In a production system we would need to serve them through a filesystem. 
 
 

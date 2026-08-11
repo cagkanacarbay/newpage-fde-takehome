@@ -383,7 +383,7 @@
         <div class="rec">
           <div class="rec-head">TL;DR</div>
           <div class="rec-body">
-            <p><strong>What:</strong> Keep the most recent turns verbatim within a 100k-token history budget. Drop oldest turns beyond the budget, with an inline notice to the user. Persist conversations in SQLite, bind-mounted outside the Docker container.</p>
+            <p><strong>What:</strong> Keep the most recent complete turns verbatim within a 100k-token history budget. Drop oldest turns beyond the budget, with an SSE notice in the conversation. Persist completed turns in SQLite at <code>data/conversations.db</code>. Bind-mount <code>data/</code> to <code>/app/data</code> in Docker.</p>
             <p><strong>Why:</strong> The model context window is large, so capacity is not the constraint. Demo-length conversations do not need summarization or retrieval over history, and a plain token window keeps every referenced entity verbatim.</p>
             <p><strong>Status:</strong> Strategy decided. <a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/22">Issue 22 - context management strategy</a> records the grilling.</p>
           </div>
@@ -395,15 +395,22 @@
             <summary>Window by tokens, not by turn count</summary>
             <div class="body">
               <p>Keep the newest turns verbatim until adding the next older turn would exceed 100k tokens.</p>
-              <p>There is no fixed turn limit. Short turns give a long memory; long turns give a short one.</p>
+              <p>There is no fixed model-history turn limit. Short turns give a long memory; long turns give a short one.</p>
               <p>Summarization and retrieval over history are rejected for v1. Both can mangle the exact entities, doses, and paper IDs that follow-up questions reference.</p>
             </div>
           </details>
           <details>
             <summary>Never truncate silently</summary>
             <div class="body">
-              <p>When turns are dropped to fit the budget, place an inline notice in the conversation.</p>
+              <p>When turns are dropped to fit the budget, send an SSE notice and place it in the conversation.</p>
               <p>No permanent token meter and no near-cap banner. With a 100k budget, hitting it is rare.</p>
+            </div>
+          </details>
+          <details>
+            <summary>Return thirty complete turns for the chat view</summary>
+            <div class="body">
+              <p>Return the newest 30 completed user-assistant turns in one conversation response.</p>
+              <p>This display limit does not change the 100k-token model-history window.</p>
             </div>
           </details>
           <details>
@@ -424,8 +431,8 @@
           <details>
             <summary>Persist conversations in SQLite outside the container</summary>
             <div class="body">
-              <p>Store every conversation in a SQLite database.</p>
-              <p>Bind-mount the database file from the host, so it survives the container. This is a one-line volume for the reviewer.</p>
+              <p>Store completed user-assistant turns in <code>data/conversations.db</code>. Failed streams leave no partial turn.</p>
+              <p>Bind-mount the host <code>data/</code> directory to <code>/app/data</code>, so the database survives the container.</p>
             </div>
           </details>
         </div>
