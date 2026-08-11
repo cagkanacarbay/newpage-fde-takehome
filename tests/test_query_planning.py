@@ -79,7 +79,9 @@ def test_retrieve_plan_requires_at_least_one_search_intent() -> None:
 
 
 def test_dual_query_plan_rejects_identical_query_forms() -> None:
-    with pytest.raises(ValidationError, match="dual-query search intents require distinct query forms"):
+    with pytest.raises(
+        ValidationError, match="dual-query search intents require distinct query forms"
+    ):
         SearchIntent(dense_query="What dose was used?", sparse_query="What dose was used?")
 
 

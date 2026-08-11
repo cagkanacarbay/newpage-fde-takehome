@@ -20,10 +20,10 @@ from live_long_rnd.retrieve import (
     FlashRankCrossEncoder,
     IdentityReranker,
     LanceDBHybridStore,
-    prepare_flashrank_model,
     RetrievalConfig,
     RetrievalDependencies,
     RetrievalResult,
+    prepare_flashrank_model,
     retrieve,
     retrieve_baseline,
     to_citation_payload,
@@ -359,7 +359,7 @@ def test_flashrank_checksum_mismatch_does_not_install_an_artifact(
 
     monkeypatch.setattr(
         "live_long_rnd.retrieve.httpx.stream",
-        lambda *args, **kwargs: CorruptDownload(),
+        lambda *_args, **_kwargs: CorruptDownload(),
     )
 
     with pytest.raises(ValueError, match="checksum does not match"):

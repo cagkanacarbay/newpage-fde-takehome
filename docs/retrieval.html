@@ -67,15 +67,15 @@
         <pre><code>message
   -&gt; QueryPlan with strict JSON output
   -&gt; one to three SearchIntents
-  -&gt; hybrid search for each intent
-  -&gt; RRF fusion, deduplication, and cross-encoder reranking
+  -&gt; dense and BM25 search for each intent
+  -&gt; RRF fusion, deduplication, diversity selection, and cross-encoder reranking
   -&gt; diversity-aware token packing
   -&gt; grounded answer with exact citations</code></pre>
 
         <div class="callout note">
           <span class="lbl">One SearchIntent</span>
           <p>A SearchIntent represents one distinct evidence need, not one user message.</p>
-          <p>A direct question and a context-resolved follow-up create one intent.</p>
+          <p>A direct question and a follow-up resolved from caller-supplied history create one intent.</p>
           <p>A comparison or request with separate aspects creates two or three intents.</p>
         </div>
 
@@ -85,7 +85,8 @@
     {
       "dense_query": "What doses and adverse events were reported in the Hickson senolytic trial?",
       "sparse_query": "Hickson senolytic dose adverse events",
-      "filters": {}
+      "variant": "dual-query",
+      "filters": {"document_id": null, "author": null}
     }
   ]
 }</code></pre>
@@ -99,13 +100,20 @@
           <li><b>Clarify absent intent</b><span class="d">If the user only supplies material, return <code>clarify</code> instead of searching without a stated task.</span></li>
         </ol>
 
+        <p><code>QueryPlan</code>, <code>SearchIntent</code>, and <code>filters</code> reject unknown fields.</p>
+        <p>A retrieve plan has one to three intents.</p>
+        <p>A clarify plan has no intents.</p>
+        <p>Production intents use <code>"variant": "dual-query"</code> and require different dense and sparse query strings.</p>
+        <p><code>"variant": "raw-only"</code> exists only for the controlled evaluation variant, where both strings match.</p>
+
         <h3>Retrieval for each SearchIntent</h3>
         <ol class="numbered">
           <li><b>Embed the dense query</b><span class="d">Search the vector index with the semantic query.</span></li>
           <li><b>Search the sparse query</b><span class="d">Search BM25 with the exact lexical terms.</span></li>
           <li><b>Fuse broad candidates</b><span class="d">Use RRF to combine the dense and BM25 candidate lists.</span></li>
           <li><b>Merge intent results</b><span class="d">Deduplicate the union from every SearchIntent before reranking.</span></li>
-          <li><b>Pack complete evidence</b><span class="d">Select diverse retrieved chunks until the source-token budget is full.</span></li>
+          <li><b>Select and rerank candidates</b><span class="d">Apply the diversity penalty to the fused pool, then use MiniLM to rerank the selected candidates.</span></li>
+          <li><b>Pack complete evidence</b><span class="d">Select diverse reranked chunks until the source-token budget is full.</span></li>
         </ol>
 
         <div class="callout warn">
@@ -121,7 +129,7 @@
 
         <div class="callout note">
           <span class="lbl">Query plan</span>
-          <p>A short model call reads the current message and saved conversation history.</p>
+          <p>A short model call reads the current message and any history supplied by its caller.</p>
           <p>It returns query strings for semantic search, exact lexical anchors for BM25, and optional paper or author filters.</p>
         </div>
 
@@ -130,11 +138,12 @@
   "search_intents": [{
     "dense_query": "full semantic question or aspect",
     "sparse_query": "verbatim paper, author, drug, dose, year, phrase",
+    "variant": "dual-query",
     "filters": {"document_id": null, "author": null}
   }]
 }</code></pre>
 
-        <p>Each dense query must resolve references such as “it” or “the other trial.”</p>
+        <p>Each dense query must resolve references such as “it” or “the other trial” when supplied history makes that possible.</p>
         <p>The plan can return multiple queries for a comparison or independent requests in one message.</p>
         <p>It must not add scientific facts, synonyms, or inferred entities.</p>
         <p>If a user only pastes material, it returns <code>clarify</code> instead of inventing a research task.</p>
@@ -147,7 +156,7 @@
           <li><b>Index both signals</b><span class="d">Embed the searchable text and store the same text in the BM25 index.</span></li>
           <li><b>Plan retrieval</b><span class="d">Create zero, one, or several semantic queries and a lexical-anchor list.</span></li>
           <li><b>Search broadly</b><span class="d">Run dense and BM25 search with each intent's distinct query form.</span></li>
-          <li><b>Fuse and rerank</b><span class="d">Deduplicate candidates, fuse ranks, and rerank the combined pool.</span></li>
+          <li><b>Fuse and rerank</b><span class="d">Deduplicate candidates, fuse ranks, apply the diversity penalty, and rerank the selected pool.</span></li>
           <li><b>Pack evidence</b><span class="d">Add diverse, complete evidence units until the source-token budget is full.</span></li>
         </ol>
 
@@ -166,7 +175,7 @@
           <table class="matrix">
             <thead><tr><th>Control</th><th>Rule</th><th>Reason</th></tr></thead>
             <tbody>
-              <tr><td class="opt">Candidate depth</td><td>20 fused candidates</td><td>Depth 10 missed one contradiction pair. Depth 20 cleared every gate.</td></tr>
+              <tr><td class="opt">Candidate depth</td><td>20 candidates after fusion and diversity selection</td><td>Depth 10 missed one contradiction pair. Depth 20 cleared every gate.</td></tr>
               <tr><td class="opt">Document diversity</td><td>0.15 repeated-document penalty</td><td>Penalty 0 failed one contradiction pair. Penalty 0.15 passed.</td></tr>
               <tr><td class="opt">Final evidence</td><td>12,000 source tokens</td><td>The 6,000-token control missed five exact-page targets.</td></tr>
               <tr><td class="opt">Retrieved chunks</td><td>Keep each chunk complete</td><td>Methods, results, and limits can span chunk boundaries.</td></tr>
@@ -248,6 +257,12 @@
         <p>The final MiniLM depth-20 control measured 1.62 seconds median and 10.59 seconds p95 on this Apple Silicon run.</p>
         <p>The run used all 696 indexed chunks and an FTS index rebuilt with phrase positions.</p>
         <p>API cost uses the published <a href="https://developers.openai.com/api/docs/models/gpt-5.6-luna">GPT-5.6 Luna</a> and <a href="https://developers.openai.com/api/docs/models/text-embedding-3-large">text-embedding-3-large</a> prices.</p>
+
+        <h3>Pin the reranker artifact</h3>
+        <p>The runtime downloads <code>ms-marco-MiniLM-L-12-v2</code> from FlashRank commit <code>858a1ac046a05663a35367eac852d7f76feeefdd</code>.</p>
+        <p>It verifies archive SHA-256 <code>bdd3772b651ffc34f70e414049285bb55ccc6d1b8e29d0640f836d44f70ec77a</code> before installation.</p>
+        <p>Docker preloads the verified artifact into the image.</p>
+        <p>At runtime, the loader rejects a cached model that lacks the matching verification marker.</p>
       </section>
 
       <section id="research">
@@ -281,6 +296,7 @@
             <thead><tr><th>Feature</th><th>v1</th><th>Reason</th></tr></thead>
             <tbody>
               <tr><td class="opt">Cross-encoder reranking</td><td><span class="tag ok">included</span></td><td>MiniLM reranks the fused candidate pool before token packing.</td></tr>
+              <tr><td class="opt">Conversation persistence and history selection</td><td><span class="tag">deferred</span></td><td>Issue 22 owns stored conversations and deciding which turns reach the planner. The current chat path sends only the current message.</td></tr>
               <tr><td class="opt">Adaptive second retrieval</td><td><span class="tag">deferred</span></td><td>It adds a quality-assessment loop that needs calibration and corpus evidence.</td></tr>
               <tr><td class="opt">LLM-generated chunk context</td><td><span class="tag">excluded</span></td><td>Deterministic labels provide context without generated text or ingestion calls.</td></tr>
             </tbody>
