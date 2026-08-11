@@ -100,7 +100,7 @@
               <tr><td class="n">05</td><td class="c"><a href="#c5">Metadata &amp; citation unit</a></td><td class="d">What the UI can show as a source, and what we can filter on</td><td class="s"><span class="state open">Open</span></td></tr>
 
               <tr class="group"><td colspan="4"><span class="grouplabel">The index</span></td></tr>
-              <tr><td class="n">06</td><td class="c"><a href="#c6">Embedding model</a></td><td class="d">Retrieval quality ceiling, running cost, and whether setup needs a key</td><td class="s"><span class="state open">Open</span></td></tr>
+              <tr><td class="n">06</td><td class="c"><a href="#c6">Embedding model</a></td><td class="d">Retrieval quality ceiling, running cost, and whether setup needs a key</td><td class="s"><span class="state done">Decided</span></td></tr>
               <tr><td class="n">07</td><td class="c"><a href="#c7">Vector store</a></td><td class="d">Whether hybrid search is one query or hand-wired, and the deploy shape</td><td class="s"><span class="state set">Set</span></td></tr>
 
               <tr class="group"><td colspan="4"><span class="grouplabel">Getting the right text back</span></td></tr>
@@ -117,7 +117,7 @@
               <tr><td class="n">14</td><td class="c"><a href="#c14">Observability</a></td><td class="d">Whether we can see why a bad answer happened</td><td class="s"><span class="state open">Open</span></td></tr>
 
               <tr class="group"><td colspan="4"><span class="grouplabel">Shipping it</span></td></tr>
-              <tr><td class="n">15</td><td class="c"><a href="#c15">Frontend &amp; packaging</a></td><td class="d">Setup friction for the reviewer, and where the design effort goes</td><td class="s"><span class="state open">Open</span></td></tr>
+              <tr><td class="n">15</td><td class="c"><a href="#c15">Frontend &amp; packaging</a></td><td class="d">Setup friction for the reviewer, and where the design effort goes</td><td class="s"><span class="state set">Set</span></td></tr>
             </tbody>
           </table>
         </div>
@@ -145,7 +145,7 @@
             <tr><td class="opt"><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/8">#8</a><span class="sub">Citation provenance: document, page, and bounding box must survive into node.metadata</span></td><td><span class="state open">Open</span></td><td>05</td><td class="txt">Matches <strong>Chunk metadata &amp; the citation unit</strong>.</td></tr>
             <tr><td class="opt"><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/9">#9</a><span class="sub">Equation test: Docling vs MinerU on papers 021-027</span></td><td><span class="state open">Open</span></td><td>03, 13</td><td class="txt">Matches parser limits in <strong>PDF parsing</strong> and the quality gate in <strong>Evaluation</strong>.</td></tr>
             <tr><td class="opt"><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/10">#10</a><span class="sub">Chunking research: structure-aware chunks and contextual retrieval</span></td><td><span class="state done">Closed</span></td><td>04</td><td class="txt"><strong>Decision:</strong> use Docling HybridChunker with flat retrieval for v1, provisionally until the corpus gates pass. <strong>TL;DR:</strong> start with structure-aware chunks and keep contextual retrieval under test. <a href="research/chunking.html">Research</a>.</td></tr>
-            <tr><td class="opt"><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/12">#12</a><span class="sub">Embedding selection: discrimination test on entity traps, write embedding.html</span></td><td><span class="state done">Closed</span></td><td>06</td><td class="txt"><strong>Decision:</strong> use Qwen3-Embedding-0.6B as the local reference. <strong>TL;DR:</strong> pin a small, repeatable local model, then benchmark a larger production path separately. <a href="decisions.html#embedding">Decision page</a>.</td></tr>
+            <tr><td class="opt"><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/12">#12</a><span class="sub">Embedding selection: discrimination test on entity traps, write embedding.html</span></td><td><span class="state done">Closed</span></td><td>06</td><td class="txt"><strong>Superseded decision:</strong> Qwen3-Embedding-0.6B could not complete the full local index build. <strong>Current decision:</strong> use OpenAI <code>text-embedding-3-large</code> with 3,072 dimensions. <a href="decisions.html#embedding">Decision page</a>.</td></tr>
             <tr><td class="opt"><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/13">#13</a><span class="sub">Vector database survey</span></td><td><span class="state done">Closed</span></td><td>07</td><td class="txt">Matches the storage comparison behind <strong>Vector store</strong>. <a href="research/vector-database.html">Research</a>.</td></tr>
             <tr><td class="opt"><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/14">#14</a><span class="sub">Vector database selection: LanceDB for the demo</span></td><td><span class="state done">Closed</span></td><td>07</td><td class="txt"><strong>Decision:</strong> use LanceDB for the local Docker demo. <strong>TL;DR:</strong> embedded, natively hybrid, and supported by LlamaIndex. <a href="research/vector-database.html">Research</a> · <a href="decisions.html#vector-database">Decision page</a>.</td></tr>
             <tr><td class="opt"><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/15">#15</a><span class="sub">Retrieval approach: confirm hybrid fusion verdict, write retrieval.html</span></td><td><span class="state open">Open</span></td><td>08</td><td class="txt">Matches <strong>Retrieval strategy</strong>.</td></tr>
@@ -746,8 +746,8 @@ llama-index-core     base package, every integration added deliberately</code></
       </section>
 
       <section id="c6">
-        <h2><span class="idx">06</span> Embedding model <span class="state open">Open</span></h2>
-        <div class="callout note"><span class="lbl">Decision from closed issue</span><p><strong><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/12">Issue #12</a> is closed.</strong> <strong>Decision:</strong> use Qwen3-Embedding-0.6B as the local reference.</p><p><strong>TL;DR:</strong> Pin a small, repeatable local model, then benchmark a larger production path separately. <a href="decisions.html#embedding">Decision page</a> · <a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/25">Issue #25</a> covers production model serving.</p></div>
+        <h2><span class="idx">06</span> Embedding model <span class="state done">Decided</span></h2>
+        <div class="callout note"><span class="lbl">Current decision</span><p><strong>Use OpenAI <code>text-embedding-3-large</code> with 3,072 dimensions.</strong> <a href="decisions.html#embedding">The decision page</a> owns the measured evidence, limits, and revisit triggers.</p><p><strong><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/12">Issue #12</a> is closed.</strong> Its local Qwen decision is superseded. <a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/25">Issue #25</a> covers production model serving.</p></div>
         <p class="determines"><b>Determines</b> the retrieval quality ceiling, the ingest cost, the vector dimensions the store carries, and whether a reviewer needs an API key to run anything.</p>
 
         <div class="table-scroll"><table class="opts">
@@ -777,8 +777,8 @@ llama-index-core     base package, every integration added deliberately</code></
         </table></div>
 
         <div class="decider">
-          <span class="lbl">What settles it</span>
-          <p>Two things. First, whether “quick setup” is allowed to require API keys at all — and note that choice 10 almost certainly requires one anyway, so the zero-key argument may already be lost. Second, whether we intend to measure this or assert it: the difference between “we chose X” and “we chose X and here is the retrieval score against Y” is exactly the kind of thing this assignment rewards.</p>
+          <span class="lbl">What would reopen it</span>
+          <p>Reopen the choice if the 24-item retrieval evaluation fails, external processing violates customer policy, or measured indexing cost exceeds the deployment budget.</p>
         </div>
       </section>
 
@@ -1118,8 +1118,8 @@ llama-index-core     base package, every integration added deliberately</code></
       </section>
 
       <section id="c15">
-        <h2><span class="idx">15</span> Frontend &amp; packaging <span class="state open">Open</span></h2>
-        <div class="callout note"><span class="lbl">GitHub coverage</span><p><strong><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/5">Issue #5</a> is closed</strong> for the web stack. <a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/24">Issue #24</a> covers the chat surface, and <a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/25">Issue #25</a> covers production packaging. <a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/26">Issue #26</a> covers the build slice.</p><p>No final frontend or packaging decision is recorded beyond the existing web-stack choice.</p></div>
+        <h2><span class="idx">15</span> Frontend &amp; packaging <span class="state set">Set</span></h2>
+        <div class="callout note"><span class="lbl">Current decision</span><p><strong>Ship one indexed application image.</strong> It serves the exported Next.js UI and FastAPI on port 8000. The named Docker context copies the completed LanceDB index into the image.</p><p><a href="decisions.html#packaging">Decision page</a> · <a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/25">Issue #25</a> remains open for hyperscaler production packaging.</p></div>
         <p class="determines"><b>Determines</b> how the work is judged on sight, and how much setup friction stands between a reviewer and a working app. The brief asks for creativity in UI/UX and says outright that it expects a well designed application.</p>
 
         <div class="table-scroll"><table class="opts">
@@ -1148,7 +1148,7 @@ llama-index-core     base package, every integration added deliberately</code></
           </tbody>
         </table></div>
 
-        <p class="mt-6"><strong>Packaging</strong> is a separate call: a single container, a compose file covering app plus vector store plus tracing, or plain local commands with no container at all. The brief asks for “ideally a simple containerised solution”, and the productionization section has to explain how this reaches a hyperscaler.</p>
+        <p class="mt-6"><strong>Packaging:</strong> build one image with the static UI, API, and prebuilt LanceDB index. Pass the OpenAI key only when the container starts. Keep Phoenix separate because it is optional observability infrastructure.</p>
 
         <div class="decider">
           <span class="lbl">What settles it</span>

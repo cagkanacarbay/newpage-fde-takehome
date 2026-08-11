@@ -1,0 +1,201 @@
+"""Container packaging end-to-end test."""
+
+from __future__ import annotations
+
+import json
+import math
+import os
+import subprocess
+import time
+import urllib.error
+import urllib.request
+from http.client import RemoteDisconnected
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from threading import Thread
+from typing import Any, ClassVar
+
+import pytest
+from llama_index.core.schema import NodeRelationship, RelatedNodeInfo, TextNode
+
+from live_long_rnd.ingest import LanceDBNodeStore
+
+
+class OpenAIEmbeddingsHandler(BaseHTTPRequestHandler):
+    """OpenAI-compatible embedding endpoint reachable from Docker."""
+
+    requests: ClassVar[list[dict[str, Any]]] = []
+
+    def do_POST(self) -> None:
+        body_size = int(self.headers["Content-Length"])
+        payload = json.loads(self.rfile.read(body_size))
+        self.requests.append(payload)
+        inputs = payload["input"]
+        if isinstance(inputs, str):
+            inputs = [inputs]
+        value = 1.0 / math.sqrt(3_072)
+        body = json.dumps(
+            {
+                "object": "list",
+                "data": [
+                    {
+                        "object": "embedding",
+                        "index": index,
+                        "embedding": [value] * 3_072,
+                    }
+                    for index, _text in enumerate(inputs)
+                ],
+                "model": "text-embedding-3-large",
+                "usage": {"prompt_tokens": len(inputs), "total_tokens": len(inputs)},
+            }
+        ).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def log_message(self, _format: str, *args: object) -> None:
+        del args
+
+
+def _create_fixture_index(index_dir: Path) -> None:
+    value = 1.0 / math.sqrt(3_072)
+    node = TextNode(
+        text="Senolytics selectively remove senescent cells.",
+        metadata={
+            "document_id": "docker-paper",
+            "source_path": "docker-paper.pdf",
+            "page_numbers": json.dumps([2]),
+            "bboxes": json.dumps([{"page": 2, "l": 1.0, "t": 2.0, "r": 3.0, "b": 4.0}]),
+            "heading_path": json.dumps(["Results"]),
+            "element_types": json.dumps(["text"]),
+            "captions": json.dumps([]),
+            "doc_item_refs": json.dumps(["#/texts/1"]),
+            "original_text": "Senolytics selectively remove senescent cells.",
+        },
+        embedding=[value] * 3_072,
+    )
+    node.relationships[NodeRelationship.SOURCE] = RelatedNodeInfo(node_id="docker-paper")
+    store = LanceDBNodeStore(index_dir)
+    store.add([node])
+    store.finalize()
+
+
+def _wait_for_api(port: int) -> None:
+    deadline = time.monotonic() + 60
+    url = f"http://127.0.0.1:{port}/docs"
+    while time.monotonic() < deadline:
+        try:
+            with urllib.request.urlopen(url, timeout=1) as response:
+                if response.status == 200:
+                    return
+        except (
+            ConnectionResetError,
+            urllib.error.URLError,
+            RemoteDisconnected,
+            TimeoutError,
+        ):
+            time.sleep(0.2)
+    raise AssertionError("Container API did not become ready within 60 seconds")
+
+
+def _published_port(container_id: str) -> int:
+    result = subprocess.run(
+        ["docker", "port", container_id, "8000/tcp"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return int(result.stdout.rsplit(":", maxsplit=1)[1])
+
+
+@pytest.mark.e2e
+def test_api_image_serves_citations_from_its_baked_index(tmp_path: Path) -> None:
+    if os.environ.get("RUN_DOCKER_E2E") != "1":
+        pytest.skip("set RUN_DOCKER_E2E=1 to build and run the API image")
+
+    index_dir = tmp_path / "index"
+    _create_fixture_index(index_dir)
+    image_tag = f"live-long-rnd-e2e:{os.getpid()}"
+    OpenAIEmbeddingsHandler.requests = []
+    server = ThreadingHTTPServer(("0.0.0.0", 0), OpenAIEmbeddingsHandler)
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    container_id = ""
+
+    try:
+        subprocess.run(
+            [
+                "docker",
+                "build",
+                "--build-context",
+                f"index={index_dir}",
+                "--tag",
+                image_tag,
+                ".",
+            ],
+            check=True,
+        )
+        result = subprocess.run(
+            [
+                "docker",
+                "run",
+                "--detach",
+                "--rm",
+                "--add-host",
+                "host.docker.internal:host-gateway",
+                "--publish",
+                "127.0.0.1::8000",
+                "--env",
+                "OPENAI_API_KEY=test-key",
+                "--env",
+                f"OPENAI_BASE_URL=http://host.docker.internal:{server.server_port}/v1",
+                "--env",
+                "LIVE_LONG_LLM=stub",
+                image_tag,
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        container_id = result.stdout.strip()
+        port = _published_port(container_id)
+        _wait_for_api(port)
+        with urllib.request.urlopen(f"http://127.0.0.1:{port}/", timeout=10) as response:
+            home_page = response.read().decode()
+        request = urllib.request.Request(
+            f"http://127.0.0.1:{port}/api/chat",
+            data=json.dumps({"message": "What do senolytics do?"}).encode(),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(request, timeout=30) as response:
+            body = response.read().decode()
+
+        events = [
+            json.loads(line.removeprefix("data: "))
+            for line in body.splitlines()
+            if line.startswith("data: ")
+        ]
+        citation_event = next(event for event in events if event["type"] == "citations")
+        assert "<title>Live Long R&amp;D</title>" in home_page
+        assert response.status == 200
+        assert citation_event["citations"][0]["document_id"] == "docker-paper"
+        assert events[-1] == {"type": "done"}
+        assert OpenAIEmbeddingsHandler.requests
+    finally:
+        if container_id:
+            subprocess.run(
+                ["docker", "rm", "--force", container_id],
+                check=False,
+                capture_output=True,
+            )
+        subprocess.run(
+            ["docker", "image", "rm", "--force", image_tag],
+            check=False,
+            capture_output=True,
+        )
+        server.shutdown()
+        server.server_close()
+        thread.join()

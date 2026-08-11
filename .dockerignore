@@ -1,0 +1,15 @@
+**
+!pyproject.toml
+!uv.lock
+!README.md
+!src/**
+!web/package.json
+!web/pnpm-lock.yaml
+!web/next.config.ts
+!web/tsconfig.json
+!web/next-env.d.ts
+!web/postcss.config.mjs
+!web/components.json
+!web/app/**
+!web/components/**
+!web/lib/**
