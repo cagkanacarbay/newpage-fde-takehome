@@ -1,43 +1,63 @@
 import { readSseStream, type ChatEvent, type Citation } from "./sse";
 
 const mockCitation: Citation = {
-  document_id: "015-hickson-2019-senolytics-dasatinib-quercetin-first-in-human",
-  page: 2,
-  heading_path: ["Research in context", "1. Introduction"],
-  bbox: { l: 310.5, t: 332.6, r: 561.6, b: 53.3 },
-  snippet: "Dasatinib plus quercetin was evaluated in a first-in-human pilot study.",
+  document_id: "001-sanada-2025-hallmarks-of-aging-therapeutic-targets",
+  page: 3,
+  heading_path: ["2 Hallmarks of aging and possible interventions", "Figure 2"],
+  bbox: { l: 62.4, t: 498.9, r: 532.9, b: 446.2 },
+  snippet:
+    "The hallmarks of aging can be categorized into three interconnected layers: primary, antagonistic, and integrative.",
+};
+
+const mockCitationSecond: Citation = {
+  document_id: "001-sanada-2025-hallmarks-of-aging-therapeutic-targets",
+  page: 3,
+  heading_path: ["2 Hallmarks of aging and possible interventions", "Table 1"],
+  bbox: { l: 53.2, t: 381.6, r: 545.7, b: 201.0 },
+  snippet:
+    "Table 1 lists therapeutic strategies for each hallmark, including NAD+ boosters, rapamycin, metformin, and senolytics.",
 };
 
 const mockEvents: ChatEvent[] = [
   {
     type: "token",
-    text: "The first-in-human pilot study evaluated dasatinib plus quercetin in people with idiopathic pulmonary fibrosis. ",
+    text: "The hallmarks of aging form **three interconnected layers**. Primary hallmarks reflect accumulating cellular damage. ",
   },
   {
     type: "token",
-    text: "It reported improved physical function measures, while its small size means the result needs larger controlled studies.",
+    text: "Antagonistic hallmarks are compensatory responses that can become harmful, while integrative hallmarks drive systemic decline.\n\n",
   },
-  { type: "citations", citations: [mockCitation] },
+  {
+    type: "token",
+    text: "The review maps interventions to each hallmark. Examples include NAD+ boosters, rapamycin or metformin, and senolytics.",
+  },
+  { type: "citations", citations: [mockCitation, mockCitationSecond, mockCitation] },
   { type: "done" },
 ];
 
 const pause = () => new Promise<void>((resolve) => setTimeout(resolve, 80));
 
-async function streamMockChat(onEvent: (event: ChatEvent) => void): Promise<void> {
+/** Mock assistant reply: tokens, citations, done. No conversation event. */
+export async function streamMockReply(onEvent: (event: ChatEvent) => void): Promise<void> {
   for (const event of mockEvents) {
     await pause();
     onEvent(event);
   }
 }
 
+export type StreamChatOptions = {
+  conversationId?: string;
+};
+
 export async function streamChat(
   message: string,
   onEvent: (event: ChatEvent) => void,
+  options: StreamChatOptions = {},
 ): Promise<void> {
   const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "");
 
   if (!baseUrl) {
-    await streamMockChat(onEvent);
+    await streamMockReply(onEvent);
     return;
   }
 
@@ -45,7 +65,7 @@ export async function streamChat(
     const response = await fetch(`${baseUrl}/api/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message }),
+      body: JSON.stringify({ message, conversation_id: options.conversationId }),
     });
 
     if (!response.ok) {

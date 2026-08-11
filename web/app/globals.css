@@ -1,23 +1,113 @@
 @import "tailwindcss";
 
-:root {
-  --background: #fafafa;
-  --foreground: #18181b;
+/*
+ * NewPage design system tokens, ported from docs/_assets/docs.css.
+ * Light mode only. Signature look: no borders, no box-shadows; depth comes
+ * from fill + big radius. Orange emphasises, teal acts, yellow is a small
+ * state only.
+ */
+@theme {
+  --font-sans: var(--font-red-hat-display), -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+
+  --color-bg: #fafafa;
+  --color-surface: #ffffff;
+  --color-surface-2: #f2f2f2;
+  --color-ink: #000000;
+  --color-body: #404040;
+  --color-muted: #5c5c5c;
+  --color-faint: #737373;
+  --color-line: #e8e8e8;
+  --color-line-strong: #d2d2d2;
+
+  --color-orange: #ff7f1f;
+  --color-orange-bg: #fff2e9;
+  --color-orange-mid: #ffd9bc;
+  --color-orange-ink: #a34700;
+
+  --color-teal: #008c85;
+  --color-teal-bg: #e6f4f3;
+  --color-teal-mid: #80c5c2;
+  --color-teal-ink: #00615c;
+
+  --color-yellow: #ffcf36;
+  --color-yellow-bg: #fffbeb;
+  --color-yellow-mid: #ffe79a;
+  --color-yellow-ink: #7a5600;
+
+  --color-on-accent: #ffffff;
+
+  /* shadcn cssVariables conventions, mapped onto the brand tokens */
+  --color-background: var(--color-bg);
+  --color-foreground: var(--color-ink);
+  --color-card: var(--color-surface);
+  --color-card-foreground: var(--color-ink);
+  --color-popover: var(--color-surface);
+  --color-popover-foreground: var(--color-ink);
+  --color-primary: var(--color-teal);
+  --color-primary-foreground: var(--color-on-accent);
+  --color-secondary: var(--color-surface-2);
+  --color-secondary-foreground: var(--color-body);
+  --color-accent: var(--color-teal-bg);
+  --color-accent-foreground: var(--color-teal-ink);
+  --color-destructive: var(--color-orange-ink);
+  --color-destructive-foreground: var(--color-on-accent);
+  --color-muted-foreground: var(--color-muted);
+  --color-border: var(--color-line);
+  --color-input: var(--color-line);
+  --color-ring: var(--color-teal);
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-2xl: 32px;
+  --radius-3xl: 48px;
 }
 
 * {
   box-sizing: border-box;
 }
 
+html,
 body {
-  min-height: 100vh;
+  height: 100%;
+}
+
+body {
   margin: 0;
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-bg);
+  color: var(--color-body);
+  font-family: var(--font-sans);
+  letter-spacing: 0.01em;
 }
 
 button,
-input {
+input,
+textarea {
   font: inherit;
+}
+
+/* Citation highlight in the PDF panel: orange (emphasis role). Pulses once
+   on open, then settles to a persistent soft outline. */
+@keyframes highlight-pulse {
+  0% {
+    background-color: rgb(255 127 31 / 0.45);
+    outline-color: var(--color-orange);
+    outline-width: 3px;
+  }
+  100% {
+    background-color: rgb(255 127 31 / 0.2);
+    outline-color: rgb(255 127 31 / 0.6);
+    outline-width: 2px;
+  }
+}
+
+.citation-highlight {
+  position: absolute;
+  border-radius: var(--radius-sm);
+  background-color: rgb(255 127 31 / 0.2);
+  outline: 2px solid rgb(255 127 31 / 0.6);
+  animation: highlight-pulse 1.2s ease-out 1;
+  pointer-events: none;
 }

@@ -82,6 +82,18 @@ def _create_fixture_index(index_dir: Path) -> None:
     store.finalize()
 
 
+def _create_fixture_corpus(corpus_dir: Path) -> None:
+    corpus_dir.mkdir()
+    (corpus_dir / "MANIFEST.md").write_text(
+        "# Corpus\n\n"
+        "| # | Filename | Title |\n"
+        "|---|---|---|\n"
+        "| 001 | `docker-paper.pdf` | Senolytics in a container |\n",
+        encoding="utf-8",
+    )
+    (corpus_dir / "docker-paper.pdf").write_bytes(b"%PDF-1.4\n%fixture\n%%EOF\n")
+
+
 def _wait_for_api(port: int) -> None:
     deadline = time.monotonic() + 60
     url = f"http://127.0.0.1:{port}/docs"
@@ -117,6 +129,8 @@ def test_api_image_serves_citations_from_its_baked_index(tmp_path: Path) -> None
 
     index_dir = tmp_path / "index"
     _create_fixture_index(index_dir)
+    corpus_dir = tmp_path / "corpus"
+    _create_fixture_corpus(corpus_dir)
     image_tag = f"live-long-rnd-e2e:{os.getpid()}"
     OpenAIEmbeddingsHandler.requests = []
     server = ThreadingHTTPServer(("0.0.0.0", 0), OpenAIEmbeddingsHandler)
@@ -131,6 +145,8 @@ def test_api_image_serves_citations_from_its_baked_index(tmp_path: Path) -> None
                 "build",
                 "--build-context",
                 f"index={index_dir}",
+                "--build-context",
+                f"corpus={corpus_dir}",
                 "--tag",
                 image_tag,
                 ".",
@@ -184,6 +200,18 @@ def test_api_image_serves_citations_from_its_baked_index(tmp_path: Path) -> None
         assert citation_event["citations"][0]["document_id"] == "docker-paper"
         assert events[-1] == {"type": "done"}
         assert OpenAIEmbeddingsHandler.requests
+
+        metadata_url = f"http://127.0.0.1:{port}/api/documents/docker-paper"
+        with urllib.request.urlopen(metadata_url, timeout=10) as metadata_response:
+            metadata = json.loads(metadata_response.read().decode())
+        assert metadata == {
+            "document_id": "docker-paper",
+            "title": "Senolytics in a container",
+        }
+        pdf_url = f"http://127.0.0.1:{port}/api/documents/docker-paper/pdf"
+        with urllib.request.urlopen(pdf_url, timeout=10) as pdf_response:
+            assert pdf_response.headers["Content-Type"] == "application/pdf"
+            assert pdf_response.read().startswith(b"%PDF-")
     finally:
         if container_id:
             subprocess.run(
