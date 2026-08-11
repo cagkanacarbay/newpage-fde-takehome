@@ -58,10 +58,17 @@ class LanceDbRetriever:
         dependencies: RetrievalDependencies | None = None,
     ) -> None:
         self._config = config
-        self._dependencies = dependencies or RetrievalDependencies(
-            store=LanceDBHybridStore(DEFAULT_INDEX_DIR), embedder=OpenAIEmbedder(),
-            planner=OpenAIQueryPlanner(), reranker=FlashRankCrossEncoder(),
-        )
+        self._dependencies = dependencies
+
+    def _dependencies_for_retrieval(self) -> RetrievalDependencies:
+        if self._dependencies is None:
+            self._dependencies = RetrievalDependencies(
+                store=LanceDBHybridStore(DEFAULT_INDEX_DIR),
+                embedder=OpenAIEmbedder(),
+                planner=OpenAIQueryPlanner(),
+                reranker=FlashRankCrossEncoder(),
+            )
+        return self._dependencies
 
     async def retrieve(
         self,
@@ -73,7 +80,7 @@ class LanceDbRetriever:
             message,
             history=history,
             config=self._config,
-            dependencies=self._dependencies,
+            dependencies=self._dependencies_for_retrieval(),
         )
         return [
             RetrievedChunk(
