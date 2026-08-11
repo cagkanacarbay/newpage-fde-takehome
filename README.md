@@ -130,7 +130,6 @@ The thing about this is, with LLMs, tests are free. Having LLMs write these test
 ### Write a test when there is an issue found
 Any issue found, a bug, an unconsidered problem, gets its own test through the previously described TDD methodology. This makes sure real world bugs, problems encountered etc. then feed back into the system as improvements of the codebase. The tests run all the time, so these issues never come back.
 
-
 ### Test Pruning
 Adding a bunch of tests and running them on auto makes the codebase brittle long term. To make tests pass the codebase will be a certain way and will evolve with a lot of limitations.
 
@@ -170,6 +169,9 @@ Given this scenario I would:
 5. Authentication has not been considered as part of this work. In a real scenario we would deploy within the authentication paradigm of the customer.
 6. Work with the actual corpus, which would likely be thousands of papers, as well as other sorts of documents, to select each part of the pipeline. I'd run tests similar to the ones I've ran at a smaller scope in this repo, understand the corpus' nature, which chunking methodology provides better results in retrieveal and other tests. 
 7. Parent-child retrieval. A likely addition I would make to this system. This improves the general reliability of the system. It would require another data store to store the parents and add a level of complexity that is overengineering for the purposes of this simple demo, but a production system would benefit from this.
+8. Conversation management is kept very simple. It's a simple session system. User can start a new conversation or continue older one. There is no compaction. No context management within and beyond sessions. This would be an area of improvement in any production system. For long chats only the last 100k tokens are used as input.
+9. For simplicity sake the corpus raw PDFs are part of the docker image and served directly through there. We use that to directly cite the papers in the chat. In a production system we would need to serve them through a filesystem. 
+
 
 ## Screenshots
 
