@@ -208,15 +208,19 @@ export function ChatApp() {
   }
 
   async function deleteConversation(id: string) {
-    await client.deleteConversation(id);
-    if (id === activeId) {
-      selectionRef.current.select(null);
-      setActiveId(null);
-      setMessages([]);
-      setComposer(draftsRef.current.get(NEW_CONVERSATION_KEY));
-      setPdf(null);
+    try {
+      await client.deleteConversation(id);
+      if (id === activeId) {
+        selectionRef.current.select(null);
+        setActiveId(null);
+        setMessages([]);
+        setComposer(draftsRef.current.get(NEW_CONVERSATION_KEY));
+        setPdf(null);
+      }
+      await refreshConversations();
+    } catch (error) {
+      console.error("Conversation deletion failed.", error);
     }
-    await refreshConversations();
   }
 
   const sidebar = (
