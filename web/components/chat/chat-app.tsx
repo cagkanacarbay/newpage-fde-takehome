@@ -11,7 +11,10 @@ import {
   type ConversationClient,
   type ConversationSummary,
 } from "@/lib/conversations";
-import { ConversationSelection } from "@/lib/conversation-selection";
+import {
+  ConversationListRefresh,
+  ConversationSelection,
+} from "@/lib/conversation-selection";
 import { DraftStore } from "@/lib/drafts";
 import type { Citation } from "@/lib/sse";
 
@@ -34,6 +37,7 @@ export function ChatApp() {
   }
   const client = clientRef.current;
   const selectionRef = useRef(new ConversationSelection());
+  const listRefreshRef = useRef(new ConversationListRefresh());
 
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -47,7 +51,11 @@ export function ChatApp() {
   const draftsRef = useRef(new DraftStore());
 
   const refreshConversations = useCallback(async () => {
-    setConversations(await client.listConversations());
+    const generation = listRefreshRef.current.start();
+    const next = await client.listConversations();
+    if (listRefreshRef.current.isCurrent(generation)) {
+      setConversations(next);
+    }
   }, [client]);
 
   useEffect(() => {
@@ -75,7 +83,7 @@ export function ChatApp() {
       return;
     }
     draftsRef.current.set(draftKeyFor(activeId), composer);
-    selectionRef.current.select(id);
+    const load = selectionRef.current.select(id);
     setActiveId(id);
     setComposer(draftsRef.current.get(draftKeyFor(id)));
     setPdf(null);
@@ -85,7 +93,7 @@ export function ChatApp() {
       return;
     }
     void client.getConversation(id).then((conversation) => {
-      if (!selectionRef.current.isCurrent(id)) {
+      if (!selectionRef.current.isCurrent(load)) {
         return;
       }
       setMessages(
