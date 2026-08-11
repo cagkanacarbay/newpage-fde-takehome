@@ -12,6 +12,7 @@ export type Citation = {
 };
 
 export type ChatEvent =
+  | { type: "conversation"; id: string; title: string }
   | { type: "token"; text: string }
   | { type: "citations"; citations: Citation[] }
   | { type: "done" }
@@ -22,7 +23,7 @@ function isChatEvent(value: unknown): value is ChatEvent {
     return false;
   }
 
-  return ["token", "citations", "done", "error"].includes(
+  return ["conversation", "token", "citations", "done", "error"].includes(
     (value as { type: unknown }).type as string,
   );
 }
