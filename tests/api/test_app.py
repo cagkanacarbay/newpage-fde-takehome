@@ -48,6 +48,30 @@ class RecordingHistoryLLM:
         return tokens()
 
 
+class FirstTitleRaceLLM:
+    def __init__(self) -> None:
+        self.second_request_started = asyncio.Event()
+        self.allow_second_request = asyncio.Event()
+
+    def stream_answer(
+        self,
+        message: str,
+        chunks: Sequence[RetrievedChunk],
+        history: Sequence[StoredMessage],
+    ) -> AsyncIterator[str]:
+        del chunks, history
+
+        async def tokens() -> AsyncIterator[str]:
+            if message == "second request":
+                self.second_request_started.set()
+                await self.allow_second_request.wait()
+            else:
+                await self.second_request_started.wait()
+            yield "answer"
+
+        return tokens()
+
+
 @pytest.mark.e2e
 def test_new_chat_streams_conversation_before_answer(
     tmp_path: Path,
@@ -202,6 +226,53 @@ def test_first_chat_uses_and_titles_an_empty_conversation(tmp_path: Path) -> Non
         "user",
         "assistant",
     ]
+
+
+@pytest.mark.e2e
+def test_first_completed_chat_claims_an_empty_conversation_title(tmp_path: Path) -> None:
+    async def exercise() -> dict[str, object]:
+        llm = FirstTitleRaceLLM()
+        transport = httpx.ASGITransport(
+            app=create_app(
+                retriever=StubRetriever(),
+                llm_client=llm,
+                config=ApplicationConfig(database_path=tmp_path / "conversations.db"),
+            )
+        )
+        async with httpx.AsyncClient(
+            transport=transport,
+            base_url="http://testserver",
+        ) as client:
+            created = (await client.post("/api/conversations")).json()
+            second = asyncio.create_task(
+                client.post(
+                    "/api/chat",
+                    json={
+                        "conversation_id": created["id"],
+                        "message": "second request",
+                    },
+                )
+            )
+            await llm.second_request_started.wait()
+            first = await client.post(
+                "/api/chat",
+                json={
+                    "conversation_id": created["id"],
+                    "message": "first request",
+                },
+            )
+            llm.allow_second_request.set()
+            completed_second = await second
+            loaded = await client.get(f"/api/conversations/{created['id']}")
+            assert first.status_code == 200
+            assert first.headers["content-type"].startswith("text/event-stream")
+            assert completed_second.status_code == 200
+            assert completed_second.headers["content-type"].startswith("text/event-stream")
+            return loaded.json()
+
+    conversation = asyncio.run(exercise())
+
+    assert conversation["title"] == "first request"
 
 
 @pytest.mark.e2e

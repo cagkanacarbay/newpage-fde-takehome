@@ -156,6 +156,20 @@ class ConversationStore:
     ) -> None:
         created_at = _now()
         with self._connect() as connection:
+            connection.execute(
+                """
+                UPDATE conversations
+                SET title = CASE
+                    WHEN NOT EXISTS (
+                        SELECT 1 FROM messages WHERE conversation_id = ?
+                    ) THEN ?
+                    ELSE title
+                END,
+                updated_at = ?
+                WHERE id = ?
+                """,
+                (conversation_id, conversation_title, created_at, conversation_id),
+            )
             connection.executemany(
                 """
                 INSERT INTO messages (
@@ -173,10 +187,6 @@ class ConversationStore:
                         created_at,
                     ),
                 ),
-            )
-            connection.execute(
-                "UPDATE conversations SET title = ?, updated_at = ? WHERE id = ?",
-                (conversation_title, created_at, conversation_id),
             )
 
     def get(self, conversation_id: str) -> Conversation | None:

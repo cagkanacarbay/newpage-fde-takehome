@@ -383,7 +383,7 @@
         <div class="rec">
           <div class="rec-head">TL;DR</div>
           <div class="rec-body">
-            <p><strong>What:</strong> Keep the most recent complete turns verbatim within a 100k-token history budget. Drop oldest turns beyond the budget, with an SSE notice in the conversation. Persist completed turns in SQLite at <code>data/conversations.db</code>. Bind-mount a host directory to <code>/app/state</code> in Docker.</p>
+            <p><strong>What:</strong> Keep the most recent complete turns verbatim within a 100k-token history budget. Drop oldest turns beyond the budget, with an SSE notice in the conversation. Persist completed turns in SQLite at <code>data/conversations.db</code> during local development and at <code>/app/state/conversations.db</code> in Docker. Bind-mount a host directory to <code>/app/state</code> in Docker.</p>
             <p><strong>Why:</strong> The model context window is large, so capacity is not the constraint. Demo-length conversations do not need summarization or retrieval over history, and a plain token window keeps every referenced entity verbatim.</p>
             <p><strong>Status:</strong> Strategy decided. <a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/22">Issue 22 - context management strategy</a> records the grilling.</p>
           </div>
@@ -431,7 +431,7 @@
           <details>
             <summary>Persist conversations in SQLite outside the container</summary>
             <div class="body">
-              <p>Store completed user-assistant turns in <code>data/conversations.db</code>. Failed streams leave no partial turn.</p>
+              <p>Store completed user-assistant turns in <code>data/conversations.db</code> during local development. Failed streams leave no partial turn.</p>
               <p>Docker stores the database at <code>/app/state/conversations.db</code>.</p>
               <p>Bind-mount a writable host directory to <code>/app/state</code>, so the database survives without hiding the baked corpus or index.</p>
             </div>
