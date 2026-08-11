@@ -10,6 +10,7 @@ import zipfile
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from pathlib import Path, PurePosixPath
+from tempfile import TemporaryDirectory
 from typing import Any, Protocol, TypedDict, cast
 
 import httpx
@@ -267,21 +268,28 @@ def prepare_flashrank_model(cache_dir: Path = DEFAULT_RERANKER_CACHE_DIR) -> Non
     finally:
         partial_archive.unlink(missing_ok=True)
 
-    with zipfile.ZipFile(archive) as bundle:
-        names = bundle.namelist()
-        allowed_prefixes = (f"{FLASHRANK_MODEL}/", "__MACOSX/")
-        if not names or any(
-            PurePosixPath(name).is_absolute()
-            or ".." in PurePosixPath(name).parts
-            or not name.startswith(allowed_prefixes)
-            for name in names
-        ):
-            raise ValueError("Downloaded FlashRank archive has an unexpected layout")
-        for name in names:
-            if name.startswith(f"{FLASHRANK_MODEL}/"):
-                bundle.extract(name, cache_dir)
-    checksum_marker.write_text(f"{FLASHRANK_MODEL_SHA256}\n", encoding="utf-8")
-    archive.unlink()
+    try:
+        with TemporaryDirectory(dir=cache_dir) as extraction_dir:
+            extraction_root = Path(extraction_dir)
+            with zipfile.ZipFile(archive) as bundle:
+                names = bundle.namelist()
+                allowed_prefixes = (f"{FLASHRANK_MODEL}/", "__MACOSX/")
+                if not names or any(
+                    PurePosixPath(name).is_absolute()
+                    or ".." in PurePosixPath(name).parts
+                    or not name.startswith(allowed_prefixes)
+                    for name in names
+                ):
+                    raise ValueError("Downloaded FlashRank archive has an unexpected layout")
+                for name in names:
+                    if name.startswith(f"{FLASHRANK_MODEL}/"):
+                        bundle.extract(name, extraction_root)
+            staged_model_dir = extraction_root / FLASHRANK_MODEL
+            staged_marker = staged_model_dir / checksum_marker.name
+            staged_marker.write_text(f"{FLASHRANK_MODEL_SHA256}\n", encoding="utf-8")
+            staged_model_dir.replace(model_dir)
+    finally:
+        archive.unlink(missing_ok=True)
 
 
 def _sha256(path: Path) -> str:
