@@ -33,7 +33,7 @@ COPY --from=builder --chown=app:app /app/data/models/flashrank /app/data/models/
 COPY --from=index --chown=app:app / /app/data/index/
 COPY --from=corpus --chown=app:app / /app/data/corpus/longevity/
 COPY --from=web-builder --chown=app:app /web/out /app/web
-RUN chown app:app /app/data
+RUN mkdir --parents /app/state && chown app:app /app/state
 
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONDONTWRITEBYTECODE=1 \
@@ -42,8 +42,9 @@ ENV PATH="/app/.venv/bin:$PATH" \
     LIVE_LONG_LLM=openai \
     LIVE_LONG_WEB_DIR=/app/web \
     LIVE_LONG_CORPUS_DIR=/app/data/corpus/longevity \
-    LIVE_LONG_CONVERSATIONS_DB=/app/data/conversations.db
+    LIVE_LONG_CONVERSATIONS_DB=/app/state/conversations.db
 
+VOLUME ["/app/state"]
 USER app
 EXPOSE 8000
 HEALTHCHECK --interval=10s --timeout=3s --start-period=20s --retries=3 \

@@ -185,6 +185,9 @@ def test_api_image_serves_citations_from_its_baked_index(tmp_path: Path) -> None
     _create_fixture_index(index_dir)
     corpus_dir = tmp_path / "corpus"
     _create_fixture_corpus(corpus_dir)
+    state_dir = tmp_path / "state"
+    state_dir.mkdir()
+    state_dir.chmod(0o777)
     image_tag = f"live-long-rnd-e2e:{os.getpid()}"
     OpenAIHandler.requests = []
     server = ThreadingHTTPServer(("0.0.0.0", 0), OpenAIHandler)
@@ -217,6 +220,8 @@ def test_api_image_serves_citations_from_its_baked_index(tmp_path: Path) -> None
                 "host.docker.internal:host-gateway",
                 "--publish",
                 "127.0.0.1::8000",
+                "--volume",
+                f"{state_dir}:/app/state",
                 "--env",
                 "OPENAI_API_KEY=test-key",
                 "--env",
@@ -253,6 +258,8 @@ def test_api_image_serves_citations_from_its_baked_index(tmp_path: Path) -> None
         assert response.status == 200
         assert citation_event["citations"][0]["document_id"] == "docker-paper"
         assert events[-1] == {"type": "done"}
+        assert OpenAIHandler.requests
+        assert (state_dir / "conversations.db").is_file()
         metadata_url = f"http://127.0.0.1:{port}/api/documents/docker-paper"
         with urllib.request.urlopen(metadata_url, timeout=10) as metadata_response:
             metadata = json.loads(metadata_response.read().decode())
