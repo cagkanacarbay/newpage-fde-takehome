@@ -211,6 +211,34 @@ def _run_api_container(
     return container_id, port
 
 
+def _chat_events(port: int, message: str) -> list[dict[str, Any]]:
+    request = urllib.request.Request(
+        f"http://127.0.0.1:{port}/api/chat",
+        data=json.dumps({"message": message}).encode(),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    with urllib.request.urlopen(request, timeout=30) as response:
+        assert response.status == 200
+        body = response.read().decode()
+    return [
+        json.loads(line.removeprefix("data: "))
+        for line in body.splitlines()
+        if line.startswith("data: ")
+    ]
+
+
+def _assert_persisted_conversation(port: int, conversation_id: str) -> None:
+    with urllib.request.urlopen(
+        f"http://127.0.0.1:{port}/api/conversations/{conversation_id}",
+        timeout=10,
+    ) as conversation_response:
+        conversation = json.loads(conversation_response.read().decode())
+    messages = conversation["messages"]
+    assert messages[0]["text"] == "What do senolytics do?"
+    assert messages[1]["text"].startswith("Senolytics are drugs")
+
+
 @pytest.mark.e2e
 def test_api_image_serves_citations_from_its_baked_index(tmp_path: Path) -> None:
     if os.environ.get("RUN_DOCKER_E2E") != "1":
@@ -252,23 +280,9 @@ def test_api_image_serves_citations_from_its_baked_index(tmp_path: Path) -> None
         )
         with urllib.request.urlopen(f"http://127.0.0.1:{port}/", timeout=10) as response:
             home_page = response.read().decode()
-        request = urllib.request.Request(
-            f"http://127.0.0.1:{port}/api/chat",
-            data=json.dumps({"message": "What do senolytics do?"}).encode(),
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
-        with urllib.request.urlopen(request, timeout=30) as response:
-            body = response.read().decode()
-
-        events = [
-            json.loads(line.removeprefix("data: "))
-            for line in body.splitlines()
-            if line.startswith("data: ")
-        ]
+        events = _chat_events(port, "What do senolytics do?")
         citation_event = next(event for event in events if event["type"] == "citations")
         assert "<title>Live Long R&amp;D</title>" in home_page
-        assert response.status == 200
         assert citation_event["citations"][0]["document_id"] == "docker-paper"
         assert events[-1] == {"type": "done"}
         assert OpenAIHandler.requests
@@ -285,29 +299,8 @@ def test_api_image_serves_citations_from_its_baked_index(tmp_path: Path) -> None
             state_dir,
             server.server_port,
         )
-
-        with urllib.request.urlopen(
-            f"http://127.0.0.1:{port}/api/conversations/{conversation_id}",
-            timeout=10,
-        ) as conversation_response:
-            conversation = json.loads(conversation_response.read().decode())
-        messages = conversation["messages"]
-        assert messages[0]["text"] == "What do senolytics do?"
-        assert messages[1]["text"].startswith("Senolytics are drugs")
-
-        restarted_request = urllib.request.Request(
-            f"http://127.0.0.1:{port}/api/chat",
-            data=json.dumps({"message": "What do senolytics do after restart?"}).encode(),
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
-        with urllib.request.urlopen(restarted_request, timeout=30) as restarted_response:
-            restarted_body = restarted_response.read().decode()
-        restarted_events = [
-            json.loads(line.removeprefix("data: "))
-            for line in restarted_body.splitlines()
-            if line.startswith("data: ")
-        ]
+        _assert_persisted_conversation(port, conversation_id)
+        restarted_events = _chat_events(port, "What do senolytics do after restart?")
         restarted_citations = next(
             event for event in restarted_events if event["type"] == "citations"
         )

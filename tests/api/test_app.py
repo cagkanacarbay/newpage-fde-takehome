@@ -268,7 +268,7 @@ def test_first_completed_chat_claims_an_empty_conversation_title(tmp_path: Path)
             assert first.headers["content-type"].startswith("text/event-stream")
             assert completed_second.status_code == 200
             assert completed_second.headers["content-type"].startswith("text/event-stream")
-            return loaded.json()
+            return cast(dict[str, object], loaded.json())
 
     conversation = asyncio.run(exercise())
 
