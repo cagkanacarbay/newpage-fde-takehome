@@ -43,7 +43,7 @@ class EvidenceResult(Protocol):
     """Retrieval result fields needed for citation-support scoring."""
 
     document_id: str
-    page_numbers: list[int]
+    bboxes: list[Mapping[str, int | float]]
 
 
 EVALUATION_ITEMS: tuple[EvaluationItem, ...] = (
@@ -267,7 +267,7 @@ def score_citation_support(
         item_results = results.get(item_id, ())
         if all(
             any(
-                _paper_id(result.document_id) == document_id and page in result.page_numbers
+                _paper_id(result.document_id) == document_id and _emitted_citation_page(result) == page
                 for result in item_results
             )
             for document_id, page in targets
@@ -277,6 +277,11 @@ def score_citation_support(
         supported_items=supported_items,
         total_items=len(CITATION_TARGETS),
     )
+
+
+def _emitted_citation_page(result: EvidenceResult) -> int:
+    """Return the page exposed by the API citation payload."""
+    return int(result.bboxes[0]["page"])
 
 
 def _entity_item_passes(item: EvaluationItem, documents: Sequence[str]) -> bool:

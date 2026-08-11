@@ -383,7 +383,7 @@ def _measure_baseline(
 ) -> MeasuredRun:
     measurement = measure_variant(
         name="PR-31 baseline",
-        settings={"k": 10, "per_document_cap": 3, "latency_scope": "end-to-end"},
+        settings={"k": 10, "per_document_cap": 3, "latency_scope": "prewarmed retrieval"},
         search=lambda question: retrieve_baseline(
             question,
             k=10,
