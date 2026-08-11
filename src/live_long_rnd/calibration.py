@@ -19,8 +19,10 @@ from openai import APIConnectionError, APITimeoutError, RateLimitError
 from live_long_rnd.embeddings import EMBEDDING_ENCODING_NAME, Embedder, OpenAIEmbedder
 from live_long_rnd.evaluation import (
     EVALUATION_ITEMS,
+    AnswerQualityScores,
     CitationScores,
     GateScores,
+    score_answer_quality,
     score_citation_support,
     score_quality_gates,
 )
@@ -61,6 +63,7 @@ class VariantMeasurement:
     settings: Mapping[str, SettingValue]
     gates: GateScores
     citations: CitationScores
+    answer_quality: AnswerQualityScores
     median_latency_ms: float
     p95_latency_ms: float
     mean_packed_tokens: float
@@ -133,6 +136,7 @@ def measure_variant(
         settings=settings,
         gates=score_quality_gates(rankings),
         citations=score_citation_support(results_by_item),
+        answer_quality=score_answer_quality(results_by_item),
         median_latency_ms=round(statistics.median(latencies_ms), 3),
         p95_latency_ms=round(ordered_latencies[p95_index], 3),
         mean_packed_tokens=round(statistics.mean(packed_tokens), 1),
@@ -312,7 +316,7 @@ def run_live_calibration(index_dir: Path) -> CalibrationReport:
         )
         for depth in (10, 20, 40)
     )
-    candidate_depth = int(_winner(candidate_runs).measurement.settings["candidate_depth"])
+    candidate_depth = int(select_best_run(candidate_runs).measurement.settings["candidate_depth"])
 
     rerankers: tuple[tuple[str, Reranker], ...] = (
         ("RRF only", IdentityReranker()),
@@ -328,7 +332,7 @@ def run_live_calibration(index_dir: Path) -> CalibrationReport:
         )
         for name, reranker in rerankers
     )
-    winning_reranker_run = _winner(reranker_runs)
+    winning_reranker_run = select_best_run(reranker_runs)
     reranker_name = str(winning_reranker_run.measurement.settings["reranker"])
     reranker = dict(rerankers)[reranker_name]
 
@@ -346,7 +350,7 @@ def run_live_calibration(index_dir: Path) -> CalibrationReport:
         for penalty in (0.0, 0.15)
     )
     diversity_penalty = float(
-        _winner(diversity_runs).measurement.settings["document_diversity_penalty"]
+        select_best_run(diversity_runs).measurement.settings["document_diversity_penalty"]
     )
 
     budget_runs = tuple(
@@ -363,7 +367,7 @@ def run_live_calibration(index_dir: Path) -> CalibrationReport:
         )
         for budget in (6_000, 12_000)
     )
-    source_budget = int(_winner(budget_runs).measurement.settings["source_budget_tokens"])
+    source_budget = int(select_best_run(budget_runs).measurement.settings["source_budget_tokens"])
 
     return CalibrationReport(
         variants=variants,
@@ -470,13 +474,14 @@ def _winning_query_runtime(
     aspect: tuple[CachingPlanner, CachingEmbedder],
 ) -> tuple[CachingPlanner, CachingEmbedder, str]:
     planned_runs = variants[1:]
-    winning_name = _winner(planned_runs).measurement.name
+    winning_name = select_best_run(planned_runs).measurement.name
     runtimes = {"raw-only": raw, "dual-query": dual, "aspect-decomposed": aspect}
     planner, embedder = runtimes[winning_name]
     return planner, embedder, winning_name
 
 
-def _winner(runs: tuple[MeasuredRun, ...]) -> MeasuredRun:
+def select_best_run(runs: tuple[MeasuredRun, ...]) -> MeasuredRun:
+    """Select a runtime from measured quality, performance, and cost evidence."""
     return max(runs, key=_quality_key)
 
 
@@ -489,7 +494,10 @@ def _quality_key(run: MeasuredRun) -> tuple[int | float, ...]:
         measurement.gates.gold_documents,
         int(measurement.gates.c1_passed),
         measurement.citations.supported_items,
+        measurement.answer_quality.fully_answerable_items,
+        measurement.answer_quality.covered_facts,
         -measurement.p95_latency_ms,
+        -run.api_cost.estimated_usd,
         -measurement.mean_packed_tokens,
     )
 

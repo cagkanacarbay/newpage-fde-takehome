@@ -264,6 +264,7 @@
             <tr><td>LlamaIndex hit rate and MRR</td><td>No</td><td><span class="tag ok">yes</span></td></tr>
             <tr><td>RAGAS ID-based context recall</td><td>No</td><td><span class="tag ok">yes</span></td></tr>
             <tr><td>Distractor-rank and both-sides assertions</td><td>No</td><td><span class="tag ok">yes</span></td></tr>
+            <tr><td>Reference-answer fact coverage in packed evidence</td><td>No</td><td><span class="tag ok">yes</span></td></tr>
             <tr><td>Faithfulness and answer correctness</td><td>Yes, or a local model</td><td><span class="tag">v2</span></td></tr>
             <tr><td>Synthetic question generation</td><td>Yes</td><td><span class="tag warn">no</span></td></tr>
           </tbody>
@@ -271,6 +272,7 @@
         <p><a href="https://docs.llamaindex.ai/en/stable/module_guides/evaluating/">LlamaIndex evaluation guide</a> · <a href="https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/">RAGAS metrics</a></p>
         <p>Deterministic CI uses fixed embedding doubles and isolated indexes. Live evaluation records the OpenAI model, 3,072 dimensions, index build, and retrieval depth.</p>
         <p>Quality scoring uses the top 10 unique document IDs. Runtime candidate depth is 20 before evidence packing.</p>
+        <p>Answer-quality scoring checks 60 corpus-backed facts across the 24 items. It reports partial fact coverage and fully answerable items.</p>
       </section>
 
       <section id="open">

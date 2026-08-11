@@ -174,7 +174,7 @@
           </table>
         </div>
 
-        <p>The 24-item suite measures document recall, page support, packed tokens, latency, and API cost.</p>
+        <p>The 24-item suite measures document recall, page support, answer-fact coverage, packed tokens, latency, and API cost.</p>
         <p>Do not use an RRF score threshold as a universal stop rule because RRF ranks are not calibrated relevance probabilities.</p>
       </section>
 
@@ -199,6 +199,16 @@
           <p>Use aspect-aware planning, candidate depth 20, <code>ms-marco-MiniLM-L-12-v2</code>, diversity penalty 0.15, and 12,000 source tokens.</p>
           <p>At depth 20, RRF-only reached 22/24 exact-page support. MiniLM reached 24/24.</p>
           <p>Both rerankers cleared 6/6, 6/6, and 12/12. MiniLM supplies the required cross-encoder stage and stronger page support.</p>
+        </div>
+
+        <div class="callout note">
+          <span class="lbl">Deterministic answer-quality measure</span>
+          <p>The suite defines 60 required answer facts from its exact corpus-backed reference passages.</p>
+          <p>It normalizes punctuation and case, then checks whether the packed original text contains each required fact.</p>
+          <p>The report records fact coverage for each item, total facts found, and items with every required fact.</p>
+          <p>Runtime selection uses complete items and total facts after recall and citation support, but before latency and API cost.</p>
+          <p>The bundled selected-runtime fixture found 49/60 facts and made 18/24 items fully answerable.</p>
+          <p>The earlier live variant run did not capture this field, so no historical answer-quality values are inferred.</p>
         </div>
 
         <div class="table-scroll">

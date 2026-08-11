@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Literal, Protocol
@@ -39,10 +40,23 @@ class CitationScores:
     total_items: int
 
 
+@dataclass(frozen=True)
+class AnswerQualityScores:
+    """Reference-answer facts present in the packed evidence."""
+
+    covered_facts: int
+    total_facts: int
+    fully_answerable_items: int
+    total_items: int
+    mean_fact_coverage: float
+    item_coverage: Mapping[str, float]
+
+
 class EvidenceResult(Protocol):
     """Retrieval result fields needed for citation-support scoring."""
 
     document_id: str
+    original_text: str
 
     @property
     def bboxes(self) -> Sequence[Mapping[str, int | float]]: ...
@@ -228,6 +242,119 @@ CITATION_TARGETS: Mapping[str, tuple[tuple[str, int], ...]] = {
     "C12": (("016", 1),),
 }
 
+# Each inner tuple lists accepted text forms for one required answer fact. These
+# phrases come from the corpus-backed reference passages in the evaluation document.
+ANSWER_FACT_TARGETS: Mapping[str, tuple[tuple[str, ...], ...]] = {
+    "A1": (
+        ("primary cause of proliferation limit",),
+        ("proteotoxic stress",),
+    ),
+    "A2": (
+        ("stayed the same or even accelerated",),
+        ("reduced adipose tissue senescent cell burden",),
+    ),
+    "A3": (
+        ("extended c elegans lifespan and healthspan",),
+        ("significant lipid accumulation",),
+    ),
+    "A4": (
+        ("metformin increases lifespan remains controversial",),
+        ("rapamycin but not metformin produced a significant lifespan extension",),
+    ),
+    "A5": (
+        ("sens advocating for the reversal of aging",),
+        ("hoa focusing on optimizing biological function",),
+    ),
+    "A6": (
+        ("over 100 distinct mammalian species",),
+        ("results do not support such a conclusion",),
+    ),
+    "B1": (
+        ("34.9% and 32.4%",),
+        ("27.4% and 26.1%",),
+    ),
+    "B2": (
+        ("100 mg/day",),
+        ("1250 mg/day",),
+        ("three consecutive days in three consecutive weeks",),
+    ),
+    "B3": (
+        ("3 days", "three days"),
+        ("d 100 mg",),
+        ("q 1000 mg",),
+        ("diabetic kidney disease",),
+    ),
+    "B4": (
+        ("dunedinpoam is a rate measure",),
+        ("function as a speedometer",),
+        ("dn am phenoage", "dnam phenoage"),
+    ),
+    "B5": (
+        ("rapamycin and dr confer comparable lifespan extension",),
+        ("but not metformin",),
+    ),
+    "B6": (
+        ("40cr moved towards the values in 8 month old",),
+        ("effective epigenetic age of about 12 months",),
+    ),
+    "C1": (
+        ("dunedinpace emerging as the strongest predictor",),
+        ("grimage",),
+    ),
+    "C2": (
+        ("120 150 years", "120 to 150 years"),
+        ("complete loss of resilience", "resilience disappears"),
+    ),
+    "C3": (
+        ("gompertz law emerges naturally",),
+        ("inter dependencies",),
+    ),
+    "C4": (
+        ("strehler mildvan",),
+        ("linear relationship",),
+    ),
+    "C5": (
+        ("hierarchical process model",),
+        ("uncoupling of vmc timing and lifespan",),
+    ),
+    "C6": (
+        ("convergence of mortality rates at advanced ages",),
+        ("gompertz slope parameter",),
+        ("intercept parameter",),
+    ),
+    "C7": (
+        ("elastic net model",),
+        ("reducing the prediction error",),
+    ),
+    "C8": (
+        ("911 effect sizes", "911 effects"),
+        ("167 papers",),
+        ("eight different vertebrate species", "eight vertebrate species"),
+    ),
+    "C9": (
+        ("nmn/nr", "nmn nr"),
+        ("pqq",),
+        ("l ergothioneine", "egt"),
+    ),
+    "C10": (
+        ("mean field assumption",),
+        ("homogeneity assumption",),
+        ("network theory",),
+    ),
+    "C11": (
+        ("dna damage",),
+        ("oxidative stress",),
+        ("telomere shortening",),
+        ("sasp",),
+        ("arrested cell cycle", "cell cycle arrest"),
+    ),
+    "C12": (
+        ("first in humans open label pilot",),
+        ("supports study feasibility",),
+        ("physical dysfunction in ipf",),
+    ),
+}
+
 
 def score_quality_gates(rankings: Mapping[str, Sequence[str]]) -> GateScores:
     """Score top-10 document rankings against the three decided gates."""
@@ -282,9 +409,47 @@ def score_citation_support(
     )
 
 
+def score_answer_quality(
+    results: Mapping[str, Sequence[EvidenceResult]],
+) -> AnswerQualityScores:
+    """Measure reference-answer fact coverage in the packed evidence."""
+    item_coverage: dict[str, float] = {}
+    covered_facts = 0
+    total_facts = 0
+    fully_answerable_items = 0
+    for item in EVALUATION_ITEMS:
+        targets = ANSWER_FACT_TARGETS[item.item_id]
+        evidence = _normalize_text(
+            " ".join(result.original_text for result in results.get(item.item_id, ()))
+        )
+        covered = sum(
+            any(_normalize_text(phrase) in evidence for phrase in accepted_phrases)
+            for accepted_phrases in targets
+        )
+        coverage = covered / len(targets)
+        item_coverage[item.item_id] = round(coverage, 4)
+        covered_facts += covered
+        total_facts += len(targets)
+        fully_answerable_items += int(covered == len(targets))
+
+    return AnswerQualityScores(
+        covered_facts=covered_facts,
+        total_facts=total_facts,
+        fully_answerable_items=fully_answerable_items,
+        total_items=len(EVALUATION_ITEMS),
+        mean_fact_coverage=round(sum(item_coverage.values()) / len(EVALUATION_ITEMS), 4),
+        item_coverage=item_coverage,
+    )
+
+
 def _emitted_citation_page(result: EvidenceResult) -> int:
     """Return the page exposed by the API citation payload."""
     return int(result.bboxes[0]["page"])
+
+
+def _normalize_text(value: str) -> str:
+    """Normalize source and reference wording for deterministic phrase matching."""
+    return " ".join(re.sub(r"[^\w]+", " ", value.casefold()).split())
 
 
 def _entity_item_passes(item: EvaluationItem, documents: Sequence[str]) -> bool:
