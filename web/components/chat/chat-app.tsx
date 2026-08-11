@@ -208,10 +208,9 @@ export function ChatApp() {
   }
 
   async function deleteConversation(id: string) {
-    const deletion = selectionRef.current.current();
     try {
       await client.deleteConversation(id);
-      if (deletion.id === id && selectionRef.current.isCurrent(deletion)) {
+      if (selectionRef.current.current().id === id) {
         selectionRef.current.select(null);
         setActiveId(null);
         setMessages([]);
