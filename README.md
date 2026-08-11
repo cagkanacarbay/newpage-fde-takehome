@@ -34,11 +34,19 @@ key. The same key serves embedding and live answer generation.
 5. Start the complete application on port 8000:
 
    ```bash
-   docker run --rm --env-file .env --publish 8000:8000 live-long-rnd
+   mkdir -p data/state
+   chgrp "$(id -g)" data/state
+   chmod 0770 data/state
+   docker run --rm --env-file .env --publish 8000:8000 \
+     --group-add "$(id -g)" \
+     --volume "$(pwd)/data/state:/app/state" \
+     live-long-rnd
    ```
 
    Open http://localhost:8000.
    The runtime key serves query embeddings and answer generation.
+   The bind mount keeps conversations in `data/state/conversations.db` after the
+   container stops.
 
 For local development, run the API and UI as separate processes.
 The API defaults to deterministic stubs when the live adapter variables are absent.

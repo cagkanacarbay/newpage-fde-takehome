@@ -191,6 +191,8 @@ def _run_api_container(
             "host.docker.internal:host-gateway",
             "--publish",
             "127.0.0.1::8000",
+            "--group-add",
+            str(os.getgid()),
             "--volume",
             f"{state_dir}:/app/state",
             "--env",
@@ -239,6 +241,15 @@ def _assert_persisted_conversation(port: int, conversation_id: str) -> None:
     assert messages[1]["text"].startswith("Senolytics are drugs")
 
 
+def _citation_event(events: list[dict[str, Any]]) -> dict[str, Any]:
+    event = next(
+        (item for item in events if item["type"] == "citations"),
+        None,
+    )
+    assert event is not None, events
+    return event
+
+
 @pytest.mark.e2e
 def test_api_image_serves_citations_from_its_baked_index(tmp_path: Path) -> None:
     if os.environ.get("RUN_DOCKER_E2E") != "1":
@@ -250,7 +261,7 @@ def test_api_image_serves_citations_from_its_baked_index(tmp_path: Path) -> None
     _create_fixture_corpus(corpus_dir)
     state_dir = tmp_path / "state"
     state_dir.mkdir()
-    state_dir.chmod(0o777)
+    state_dir.chmod(0o770)
     image_tag = f"live-long-rnd-e2e:{os.getpid()}"
     OpenAIHandler.requests = []
     server = ThreadingHTTPServer(("0.0.0.0", 0), OpenAIHandler)
@@ -281,7 +292,7 @@ def test_api_image_serves_citations_from_its_baked_index(tmp_path: Path) -> None
         with urllib.request.urlopen(f"http://127.0.0.1:{port}/", timeout=10) as response:
             home_page = response.read().decode()
         events = _chat_events(port, "What do senolytics do?")
-        citation_event = next(event for event in events if event["type"] == "citations")
+        citation_event = _citation_event(events)
         assert "<title>Live Long R&amp;D</title>" in home_page
         assert citation_event["citations"][0]["document_id"] == "docker-paper"
         assert events[-1] == {"type": "done"}
@@ -301,9 +312,7 @@ def test_api_image_serves_citations_from_its_baked_index(tmp_path: Path) -> None
         )
         _assert_persisted_conversation(port, conversation_id)
         restarted_events = _chat_events(port, "What do senolytics do after restart?")
-        restarted_citations = next(
-            event for event in restarted_events if event["type"] == "citations"
-        )
+        restarted_citations = _citation_event(restarted_events)
         assert restarted_citations["citations"][0]["document_id"] == "docker-paper"
 
         metadata_url = f"http://127.0.0.1:{port}/api/documents/docker-paper"
