@@ -2,6 +2,10 @@
 !pyproject.toml
 !uv.lock
 !README.md
+!data/
+!data/models/
+!data/models/flashrank/
+!data/models/flashrank/ms-marco-MiniLM-L-12-v2.zip
 !src/**
 !web/package.json
 !web/pnpm-lock.yaml

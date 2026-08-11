@@ -5,9 +5,11 @@ from __future__ import annotations
 import json
 import re
 import unicodedata
+import zipfile
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from pathlib import Path
+from pathlib import PurePosixPath
 from typing import Any, Protocol, TypedDict, cast
 
 import lancedb
@@ -30,6 +32,8 @@ RRF_RANK_CONSTANT = 60
 FLASHRANK_MODEL = "ms-marco-MiniLM-L-12-v2"
 FLASHRANK_MAX_LENGTH = 512
 DEFAULT_RERANKER_CACHE_DIR = Path("data/models/flashrank")
+FLASHRANK_MODEL_ARCHIVE = DEFAULT_RERANKER_CACHE_DIR / f"{FLASHRANK_MODEL}.zip"
+FLASHRANK_MODEL_SHA256 = "bdd3772b651ffc34f70e414049285bb55ccc6d1b8e29d0640f836d44f70ec77a"
 DEFAULT_CANDIDATE_DEPTH = 20
 DEFAULT_CANDIDATE_DOCUMENT_CAP = 5
 DEFAULT_SOURCE_BUDGET_TOKENS = 12_000
@@ -204,6 +208,7 @@ class FlashRankCrossEncoder:
             return []
         ranker = self._ranker
         if ranker is None:
+            prepare_flashrank_model(self._cache_dir)
             ranker = cast(
                 FlashRankClient,
                 FlashRanker(
@@ -223,6 +228,41 @@ class FlashRankCrossEncoder:
             replace(candidates[int(passage["id"])], score=float(passage["score"]))
             for passage in ranked_passages
         ]
+
+
+def prepare_flashrank_model(cache_dir: Path = DEFAULT_RERANKER_CACHE_DIR) -> None:
+    """Install the pinned FlashRank archive into one local cache directory."""
+    model_dir = cache_dir / FLASHRANK_MODEL
+    if model_dir.is_dir():
+        return
+
+    archive = FLASHRANK_MODEL_ARCHIVE
+    if not archive.is_file():
+        raise FileNotFoundError(f"Missing bundled FlashRank archive: {archive}")
+    if _sha256(archive) != FLASHRANK_MODEL_SHA256:
+        raise ValueError("Bundled FlashRank archive checksum does not match")
+
+    with zipfile.ZipFile(archive) as bundle:
+        names = bundle.namelist()
+        allowed_prefixes = (f"{FLASHRANK_MODEL}/", "__MACOSX/")
+        if not names or any(
+            PurePosixPath(name).is_absolute()
+            or ".." in PurePosixPath(name).parts
+            or not name.startswith(allowed_prefixes)
+            for name in names
+        ):
+            raise ValueError("Bundled FlashRank archive has an unexpected layout")
+        bundle.extractall(cache_dir)
+
+
+def _sha256(path: Path) -> str:
+    import hashlib
+
+    digest = hashlib.sha256()
+    with path.open("rb") as file:
+        for chunk in iter(lambda: file.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 class IdentityReranker:
