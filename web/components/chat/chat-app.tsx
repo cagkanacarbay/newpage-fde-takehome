@@ -11,6 +11,7 @@ import {
   type ConversationClient,
   type ConversationSummary,
 } from "@/lib/conversations";
+import { ConversationSelection } from "@/lib/conversation-selection";
 import { DraftStore } from "@/lib/drafts";
 import type { Citation } from "@/lib/sse";
 
@@ -32,6 +33,7 @@ export function ChatApp() {
     clientRef.current = createConversationClient();
   }
   const client = clientRef.current;
+  const selectionRef = useRef(new ConversationSelection());
 
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -73,6 +75,7 @@ export function ChatApp() {
       return;
     }
     draftsRef.current.set(draftKeyFor(activeId), composer);
+    selectionRef.current.select(id);
     setActiveId(id);
     setComposer(draftsRef.current.get(draftKeyFor(id)));
     setPdf(null);
@@ -82,6 +85,9 @@ export function ChatApp() {
       return;
     }
     void client.getConversation(id).then((conversation) => {
+      if (!selectionRef.current.isCurrent(id)) {
+        return;
+      }
       setMessages(
         conversation.messages.map((message, index) => ({
           id: `${conversation.id}-${index}`,
@@ -121,6 +127,7 @@ export function ChatApp() {
     await client.sendMessage({ conversationId, message }, (event) => {
       if (event.type === "conversation") {
         conversationId = event.id;
+        selectionRef.current.select(event.id);
         setActiveId(event.id);
         setConversations((current) => {
           const rest = current.filter((item) => item.id !== event.id);
@@ -180,6 +187,7 @@ export function ChatApp() {
   async function deleteConversation(id: string) {
     await client.deleteConversation(id);
     if (id === activeId) {
+      selectionRef.current.select(null);
       setActiveId(null);
       setMessages([]);
       setComposer(draftsRef.current.get(NEW_CONVERSATION_KEY));
