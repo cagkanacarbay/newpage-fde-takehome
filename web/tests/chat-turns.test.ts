@@ -48,4 +48,29 @@ describe("withDroppedTurnsNotice", () => {
       { id: "a2", role: "assistant", text: "Second answer", citations: [] },
     ]);
   });
+
+  it("replaces an earlier notice when the cumulative dropped-turn count grows", () => {
+    const threeTurns: UiMessage[] = [
+      { id: "q1", role: "user", text: "First question", citations: [] },
+      { id: "a1", role: "assistant", text: "First answer", citations: [] },
+      { id: "q2", role: "user", text: "Second question", citations: [] },
+      { id: "a2", role: "assistant", text: "Second answer", citations: [] },
+      { id: "q3", role: "user", text: "Third question", citations: [] },
+      { id: "a3", role: "assistant", text: "Third answer", citations: [] },
+    ];
+
+    const firstTrim = withDroppedTurnsNotice(threeTurns, 1, "notice-1");
+    const secondTrim = withDroppedTurnsNotice(firstTrim, 1, "notice-2");
+
+    assert.deepEqual(secondTrim, [
+      {
+        id: "notice-2",
+        role: "system",
+        text: "2 earlier turns are not included in the assistant context.",
+        citations: [],
+      },
+      { id: "q3", role: "user", text: "Third question", citations: [] },
+      { id: "a3", role: "assistant", text: "Third answer", citations: [] },
+    ]);
+  });
 });

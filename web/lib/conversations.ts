@@ -1,4 +1,4 @@
-import { streamMockReply } from "./chat";
+import { streamChat } from "./chat";
 import type { ChatEvent, Citation } from "./sse";
 
 export type ConversationSummary = {
@@ -181,15 +181,24 @@ class MockConversationClient implements ConversationClient {
 
     let text = "";
     let citations: Citation[] = [];
-    await streamMockReply((event) => {
+    let failed = false;
+    await streamChat(input.message, (event) => {
       if (event.type === "token") {
         text += event.text;
       }
       if (event.type === "citations") {
         citations = event.citations;
       }
+      if (event.type === "error") {
+        failed = true;
+      }
       onEvent(event);
-    });
+    }, input.conversationId ? { conversationId: input.conversationId } : {});
+
+    if (failed) {
+      target.messages.pop();
+      return;
+    }
 
     target.messages.push({
       role: "assistant",

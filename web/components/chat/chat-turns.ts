@@ -33,9 +33,15 @@ export function withDroppedTurnsNotice(
     return messages;
   }
 
+  const earlierNotice = messages.find((message) => message.role === "system");
+  const earlierTurns = Number.parseInt(earlierNotice?.text ?? "", 10) || 0;
+  const totalTurns = earlierTurns + turns;
   let remainingMessages = turns * 2;
   const retained = messages.filter((message) => {
-    if (message.role === "system" || remainingMessages === 0) {
+    if (message.role === "system") {
+      return false;
+    }
+    if (remainingMessages === 0) {
       return true;
     }
     remainingMessages -= 1;
@@ -46,7 +52,7 @@ export function withDroppedTurnsNotice(
     {
       id,
       role: "system",
-      text: `${turns} earlier ${turns === 1 ? "turn is" : "turns are"} not included in the assistant context.`,
+      text: `${totalTurns} earlier ${totalTurns === 1 ? "turn is" : "turns are"} not included in the assistant context.`,
       citations: [],
     },
     ...retained,

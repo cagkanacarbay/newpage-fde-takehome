@@ -24,6 +24,7 @@ import type { PdfTarget, UiMessage } from "./types";
 const PdfPanel = dynamic(() => import("@/components/pdf/pdf-panel"), { ssr: false });
 
 const NEW_CONVERSATION_KEY = "__new__";
+const DESKTOP_MEDIA_QUERY = "(min-width: 768px)";
 
 export function ChatApp() {
   const clientRef = useRef<ConversationClient | null>(null);
@@ -39,6 +40,7 @@ export function ChatApp() {
   const [composer, setComposer] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [pdf, setPdf] = useState<PdfTarget | null>(null);
+  const [desktopPdfDocked, setDesktopPdfDocked] = useState(false);
 
   const draftsRef = useRef(new DraftStore());
 
@@ -49,6 +51,14 @@ export function ChatApp() {
   useEffect(() => {
     void refreshConversations();
   }, [refreshConversations]);
+
+  useEffect(() => {
+    const media = window.matchMedia(DESKTOP_MEDIA_QUERY);
+    const update = () => setDesktopPdfDocked(media.matches);
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
 
   const activeTitle = activeId
     ? (conversations.find((item) => item.id === activeId)?.title ?? "Live Long R&D")
@@ -259,7 +269,10 @@ export function ChatApp() {
         </section>
       ) : null}
 
-      <Sheet open={pdf !== null} onOpenChange={(open) => !open && setPdf(null)}>
+      <Sheet
+        open={pdf !== null && !desktopPdfDocked}
+        onOpenChange={(open) => !open && setPdf(null)}
+      >
         <SheetContent side="full" hideClose className="md:hidden">
           {pdf ? (
             <PdfPanel

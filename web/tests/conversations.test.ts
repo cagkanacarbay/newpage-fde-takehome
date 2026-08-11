@@ -87,6 +87,40 @@ describe("MockConversationClient", () => {
     assert.equal(events.at(-1)?.type, "done");
   });
 
+  it("surfaces configured chat failures without persisting the failed turn", async () => {
+    const originalBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
+    const originalFetch = globalThis.fetch;
+    process.env.NEXT_PUBLIC_API_BASE_URL = ".";
+    globalThis.fetch = () => Promise.reject(new Error("network unavailable"));
+
+    try {
+      const client = createMock();
+      const events: ChatEvent[] = [];
+      await client.sendMessage(
+        { conversationId: null, message: "Will this request recover?" },
+        (event) => events.push(event),
+      );
+
+      const conversationEvent = events[0];
+      assert.equal(conversationEvent.type, "conversation");
+      assert.deepEqual(events.at(-1), {
+        type: "error",
+        message: "network unavailable",
+      });
+      if (conversationEvent.type === "conversation") {
+        const conversation = await client.getConversation(conversationEvent.id);
+        assert.deepEqual(conversation.messages, []);
+      }
+    } finally {
+      globalThis.fetch = originalFetch;
+      if (originalBaseUrl === undefined) {
+        delete process.env.NEXT_PUBLIC_API_BASE_URL;
+      } else {
+        process.env.NEXT_PUBLIC_API_BASE_URL = originalBaseUrl;
+      }
+    }
+  });
+
   it("persists the exchange so getConversation returns it", async () => {
     const client = createMock();
     const events: ChatEvent[] = [];

@@ -40,7 +40,7 @@ function CitationChip({
       </button>
       <span
         role="tooltip"
-        className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 hidden w-64 -translate-x-1/2 rounded-xl bg-ink px-3 py-2 text-xs leading-5 text-surface group-hover:block"
+        className="pointer-events-none absolute bottom-full left-0 z-10 mb-2 hidden w-64 rounded-xl bg-ink px-3 py-2 text-xs leading-5 text-surface group-hover:block"
       >
         {citation.snippet}
       </span>
