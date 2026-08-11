@@ -859,8 +859,8 @@ llama-index-core     base package, every integration added deliberately</code></
               <td>Another model, and latency on every query. An API reranker adds a second vendor; a local one adds weight.</td>
             </tr>
             <tr>
-              <td>+ Diversity / per-document cap</td>
-              <td>Limits how many chunks any one paper can contribute, so opposing findings survive into the context. The direct answer to the contradiction problem.</td>
+              <td>+ Diversity penalty</td>
+              <td>Applies a soft penalty to repeated chunks from one paper, so opposing findings can survive into the context without a hard per-paper cap.</td>
               <td>Can dilute results for questions that genuinely live in a single paper. The 24-item calibration selected a 0.15 penalty.</td>
             </tr>
             <tr>
