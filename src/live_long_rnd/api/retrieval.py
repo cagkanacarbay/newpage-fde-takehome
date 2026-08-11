@@ -7,10 +7,15 @@ from typing import Protocol, TypedDict, cast
 from live_long_rnd.query_planning import ConversationMessage
 from live_long_rnd.retrieve import (
     DEFAULT_RETRIEVAL_CONFIG,
+    FlashRankCrossEncoder,
+    LanceDBHybridStore,
     RetrievalConfig,
     RetrievalDependencies,
     to_citation_payload,
 )
+from live_long_rnd.embeddings import OpenAIEmbedder
+from live_long_rnd.index_config import DEFAULT_INDEX_DIR
+from live_long_rnd.query_planning import OpenAIQueryPlanner
 from live_long_rnd.retrieve import retrieve as hybrid_retrieve
 
 
@@ -53,7 +58,10 @@ class LanceDbRetriever:
         dependencies: RetrievalDependencies | None = None,
     ) -> None:
         self._config = config
-        self._dependencies = dependencies
+        self._dependencies = dependencies or RetrievalDependencies(
+            store=LanceDBHybridStore(DEFAULT_INDEX_DIR), embedder=OpenAIEmbedder(),
+            planner=OpenAIQueryPlanner(), reranker=FlashRankCrossEncoder(),
+        )
 
     async def retrieve(
         self,

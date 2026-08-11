@@ -328,7 +328,7 @@ def run_live_calibration(index_dir: Path) -> CalibrationReport:
         )
         for name, reranker in rerankers
     )
-    winning_reranker_run = _winner(reranker_runs[1:])
+    winning_reranker_run = _winner(reranker_runs)
     reranker_name = str(winning_reranker_run.measurement.settings["reranker"])
     reranker = dict(rerankers)[reranker_name]
 

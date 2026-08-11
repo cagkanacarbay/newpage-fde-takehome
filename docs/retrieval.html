@@ -64,7 +64,7 @@
         <h2><span class="idx">02</span> Implementation contract</h2>
         <p class="lead">The runtime uses this deterministic path before any adaptive retrieval loop.</p>
 
-        <pre><code>message + saved conversation history
+        <pre><code>message
   -&gt; QueryPlan with strict JSON output
   -&gt; one to three SearchIntents
   -&gt; hybrid search for each intent
@@ -121,7 +121,7 @@
 
         <div class="callout note">
           <span class="lbl">Query plan</span>
-          <p>A short model call reads the current message and relevant conversation history.</p>
+          <p>A short model call reads the current message. Conversation history is deferred.</p>
           <p>It returns query strings for semantic search, exact lexical anchors for BM25, and optional paper or author filters.</p>
         </div>
 
