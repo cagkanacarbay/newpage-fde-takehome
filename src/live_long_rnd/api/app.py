@@ -198,8 +198,8 @@ async def _stream_chat(
         yield encode_sse({"type": "done"})
     except Exception as error:
         logger.exception(
-            "Chat turn failed.",
-            extra={"conversation_id": conversation.id},
+            "Chat turn failed for conversation %s.",
+            conversation.id,
         )
         message = str(error) or "The chat request failed."
         yield encode_sse({"type": "error", "message": message})

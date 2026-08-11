@@ -27,6 +27,17 @@ describe("ConversationSelection", () => {
     assert.equal(selection.isCurrent(pendingLoad), false);
   });
 
+  it("invalidates an active deletion after the user switches conversations", () => {
+    const selection = new ConversationSelection();
+
+    selection.select("conversation-a");
+    const pendingDeletion = selection.current();
+    selection.select("conversation-b");
+
+    assert.equal(pendingDeletion.id, "conversation-a");
+    assert.equal(selection.isCurrent(pendingDeletion), false);
+  });
+
   it("rejects an earlier conversation-list refresh", () => {
     const refresh = new ConversationListRefresh();
 

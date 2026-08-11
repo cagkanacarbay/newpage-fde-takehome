@@ -13,6 +13,10 @@ export class ConversationSelection {
     return { id, generation: this.generation };
   }
 
+  current(): ConversationLoad {
+    return { id: this.activeId, generation: this.generation };
+  }
+
   isCurrent(load: ConversationLoad): boolean {
     return this.activeId === load.id && this.generation === load.generation;
   }
