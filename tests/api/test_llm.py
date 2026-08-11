@@ -4,6 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from live_long_rnd.api.conversations import StoredMessage
 from live_long_rnd.api.llm import (
     LLMConfigurationError,
     OpenAILLM,
@@ -24,6 +25,7 @@ def test_stub_llm_streams_a_deterministic_evidence_based_answer() -> None:
             StubLLM().stream_answer(
                 "What do senolytics target?",
                 chunks,
+                [],
             )
         )
 
@@ -45,6 +47,7 @@ def test_openai_llm_requires_an_api_key_when_streaming() -> None:
             OpenAILLM(api_key=None, model="gpt-5.6-luna").stream_answer(
                 "What do senolytics target?",
                 chunks,
+                [],
             )
         )
 
@@ -83,16 +86,39 @@ def test_openai_llm_lazily_streams_with_high_reasoning(
     monkeypatch.setattr("live_long_rnd.api.llm.AsyncOpenAI", FakeAsyncOpenAI)
     llm = OpenAILLM(api_key="test-key", model="gpt-test")
     assert captured == {}
+    history = [
+        StoredMessage(
+            role="user",
+            text="What did the trial find?",
+            citations=[],
+            created_at="2026-08-11T10:00:00Z",
+        ),
+        StoredMessage(
+            role="assistant",
+            text="It reported improved physical function.",
+            citations=[],
+            created_at="2026-08-11T10:00:01Z",
+        ),
+    ]
 
     async def exercise() -> list[str]:
         chunks = await StubRetriever().retrieve("What do senolytics target?")
-        return await _collect(llm.stream_answer("What do senolytics target?", chunks))
+        return await _collect(llm.stream_answer("What do senolytics target?", chunks, history))
 
     assert asyncio.run(exercise()) == ["Evidence-based answer."]
     assert captured["api_key"] == "test-key"
     assert captured["model"] == "gpt-test"
     assert captured["reasoning"] == {"effort": "high"}
     assert captured["stream"] is True
+    input_messages = captured["input"]
+    assert isinstance(input_messages, list)
+    assert input_messages[:2] == [
+        {"role": "user", "content": "What did the trial find?"},
+        {
+            "role": "assistant",
+            "content": "It reported improved physical function.",
+        },
+    ]
 
 
 def test_environment_selects_the_llm_adapter_and_model() -> None:

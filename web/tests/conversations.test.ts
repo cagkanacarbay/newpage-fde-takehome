@@ -1,116 +1,34 @@
 import { strict as assert } from "node:assert";
 import { describe, it } from "node:test";
 
-import {
-  createConversationClient,
-  titleFromMessage,
-} from "../lib/conversations";
+import { createConversationClient } from "../lib/conversations";
 import type { ChatEvent } from "../lib/sse";
 
-describe("titleFromMessage", () => {
-  it("uses the message as-is when short enough", () => {
-    assert.equal(titleFromMessage("What are senolytics?"), "What are senolytics?");
-  });
-
-  it("caps long titles at ~60 chars on a word boundary", () => {
-    const long =
-      "How do epigenetic clocks compare with proteostasis markers when predicting all-cause mortality in older adults?";
-    const title = titleFromMessage(long);
-    assert.ok(title.length <= 61, `title too long: ${title.length}`);
-    assert.ok(title.endsWith("…"));
-    assert.ok(!title.slice(0, -1).endsWith(" "), "trailing space before ellipsis");
-  });
-
-  it("collapses whitespace and newlines", () => {
-    assert.equal(titleFromMessage("  hello\n   world  "), "hello world");
-  });
-});
-
-describe("MockConversationClient", () => {
-  const createMock = () => createConversationClient();
-
-  it("keeps conversations mock-backed when an API base URL is configured", async () => {
-    const originalBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
-    process.env.NEXT_PUBLIC_API_BASE_URL = ".";
-    try {
-      const client = createConversationClient();
-      const list = await client.listConversations();
-      assert.ok(list.length >= 3, "configured builds keep the seeded conversations");
-    } finally {
-      if (originalBaseUrl === undefined) {
-        delete process.env.NEXT_PUBLIC_API_BASE_URL;
-      } else {
-        process.env.NEXT_PUBLIC_API_BASE_URL = originalBaseUrl;
-      }
-    }
-  });
-
-  it("lists seeded conversations sorted by last activity, newest first", async () => {
-    const client = createMock();
-    const list = await client.listConversations();
-    assert.ok(list.length >= 3, "sidebar needs several mock conversations");
-    const stamps = list.map((item) => item.updated_at);
-    assert.deepEqual(stamps, [...stamps].sort((a, b) => b.localeCompare(a)));
-  });
-
-  it("creates an empty conversation", async () => {
-    const client = createMock();
-    const created = await client.createConversation();
-    const conversation = await client.getConversation(created.id);
-    assert.equal(conversation.messages.length, 0);
-    assert.equal(conversation.title, "New conversation");
-  });
-
-  it("deletes a conversation", async () => {
-    const client = createMock();
-    const created = await client.createConversation();
-    await client.deleteConversation(created.id);
-    const list = await client.listConversations();
-    assert.ok(!list.some((item) => item.id === created.id));
-  });
-
-  it("sendMessage on a new conversation emits the conversation event first, then tokens, then done", async () => {
-    const client = createMock();
-    const events: ChatEvent[] = [];
-    await client.sendMessage(
-      { conversationId: null, message: "What did the D+Q trial measure?" },
-      (event) => events.push(event),
-    );
-
-    const first = events[0];
-    assert.equal(first.type, "conversation");
-    if (first.type === "conversation") {
-      assert.equal(first.title, "What did the D+Q trial measure?");
-    }
-    assert.ok(events.some((event) => event.type === "token"));
-    assert.ok(events.some((event) => event.type === "citations"));
-    assert.equal(events.at(-1)?.type, "done");
-  });
-
-  it("surfaces configured chat failures without persisting the failed turn", async () => {
+describe("ConversationClient", () => {
+  it("loads conversations from the backend", async () => {
     const originalBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
     const originalFetch = globalThis.fetch;
     process.env.NEXT_PUBLIC_API_BASE_URL = ".";
-    globalThis.fetch = () => Promise.reject(new Error("network unavailable"));
-
+    globalThis.fetch = async (input) => {
+      assert.equal(input, "./api/conversations");
+      return Response.json([
+        {
+          id: "conversation-1",
+          title: "Senolytics evidence",
+          updated_at: "2026-08-11T10:00:00Z",
+        },
+      ]);
+    };
     try {
-      const client = createMock();
-      const events: ChatEvent[] = [];
-      await client.sendMessage(
-        { conversationId: null, message: "Will this request recover?" },
-        (event) => events.push(event),
-      );
-
-      const conversationEvent = events[0];
-      assert.equal(conversationEvent.type, "conversation");
-      assert.deepEqual(events.at(-1), {
-        type: "error",
-        message: "network unavailable",
-      });
-      if (conversationEvent.type === "conversation") {
-        const conversation = await client.getConversation(conversationEvent.id);
-        assert.deepEqual(conversation.messages, []);
-      }
+      const client = createConversationClient();
+      const list = await client.listConversations();
+      assert.deepEqual(list, [
+        {
+          id: "conversation-1",
+          title: "Senolytics evidence",
+          updated_at: "2026-08-11T10:00:00Z",
+        },
+      ]);
     } finally {
       globalThis.fetch = originalFetch;
       if (originalBaseUrl === undefined) {
@@ -121,75 +39,107 @@ describe("MockConversationClient", () => {
     }
   });
 
-  it("persists the exchange so getConversation returns it", async () => {
-    const client = createMock();
-    const events: ChatEvent[] = [];
-    await client.sendMessage(
-      { conversationId: null, message: "Does rapamycin extend lifespan?" },
-      (event) => events.push(event),
-    );
-
-    const conversationEvent = events[0];
-    assert.equal(conversationEvent.type, "conversation");
-    if (conversationEvent.type !== "conversation") {
-      return;
+  it("creates an empty conversation through the backend", async () => {
+    const originalBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
+    const originalFetch = globalThis.fetch;
+    process.env.NEXT_PUBLIC_API_BASE_URL = ".";
+    globalThis.fetch = async (input, init) => {
+      assert.equal(input, "./api/conversations");
+      assert.equal(init?.method, "POST");
+      return Response.json({ id: "conversation-2", title: "New conversation" });
+    };
+    try {
+      const client = createConversationClient();
+      assert.deepEqual(await client.createConversation(), {
+        id: "conversation-2",
+        title: "New conversation",
+      });
+    } finally {
+      globalThis.fetch = originalFetch;
+      if (originalBaseUrl === undefined) {
+        delete process.env.NEXT_PUBLIC_API_BASE_URL;
+      } else {
+        process.env.NEXT_PUBLIC_API_BASE_URL = originalBaseUrl;
+      }
     }
-
-    const conversation = await client.getConversation(conversationEvent.id);
-    assert.deepEqual(
-      conversation.messages.map((message) => message.role),
-      ["user", "assistant"],
-    );
-    assert.ok(conversation.messages[1].text.length > 0);
-    assert.ok(conversation.messages[1].citations.length > 0);
   });
 
-  it("appends to an existing conversation without changing its title", async () => {
-    const client = createMock();
-    const created = await client.createConversation();
-    await client.sendMessage(
-      { conversationId: created.id, message: "First question here" },
-      () => {},
-    );
-    const conversation = await client.getConversation(created.id);
-    assert.equal(conversation.title, "New conversation");
-    assert.equal(conversation.messages.length, 2);
-  });
-
-  it("replaces dropped history with a system notice", async () => {
-    const client = createMock();
-    const firstEvents: ChatEvent[] = [];
-    await client.sendMessage(
-      { conversationId: null, message: "word ".repeat(100_001) },
-      (event) => firstEvents.push(event),
-    );
-    const firstConversation = firstEvents[0];
-    assert.equal(firstConversation.type, "conversation");
-    if (firstConversation.type !== "conversation") {
-      return;
+  it("loads one conversation and its stored messages", async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async (input) => {
+      assert.equal(input, "/api/conversations/conversation-3");
+      return Response.json({
+        id: "conversation-3",
+        title: "Rapamycin evidence",
+        messages: [
+          {
+            role: "user",
+            text: "What did the study find?",
+            citations: [],
+            created_at: "2026-08-11T10:00:00Z",
+          },
+        ],
+      });
+    };
+    try {
+      const conversation = await createConversationClient().getConversation(
+        "conversation-3",
+      );
+      assert.equal(conversation.messages[0].text, "What did the study find?");
+    } finally {
+      globalThis.fetch = originalFetch;
     }
-
-    const secondEvents: ChatEvent[] = [];
-    await client.sendMessage(
-      { conversationId: firstConversation.id, message: "Follow up question" },
-      (event) => secondEvents.push(event),
-    );
-
-    assert.ok(secondEvents.some((event) => event.type === "dropped"));
-    const conversation = await client.getConversation(firstConversation.id);
-    assert.equal(conversation.messages[0]?.role, "system");
-    assert.match(conversation.messages[0]?.text ?? "", /1 earlier turn is not included/);
-    assert.deepEqual(
-      conversation.messages.slice(1).map((message) => message.role),
-      ["user", "assistant"],
-    );
   });
 
-  it("rejects sending to an unknown conversation id", async () => {
-    const client = createMock();
-    await assert.rejects(
-      client.sendMessage({ conversationId: "nope", message: "hi" }, () => {}),
-      /Unknown conversation/,
-    );
+  it("deletes a conversation through the backend", async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async (input, init) => {
+      assert.equal(input, "/api/conversations/conversation-4");
+      assert.equal(init?.method, "DELETE");
+      return new Response(null, { status: 204 });
+    };
+    try {
+      await createConversationClient().deleteConversation("conversation-4");
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
   });
+
+  it("streams a message through the backend", async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async (input, init) => {
+      assert.equal(input, "/api/chat");
+      assert.equal(init?.method, "POST");
+      assert.deepEqual(JSON.parse(String(init?.body)), {
+        conversation_id: "conversation-5",
+        message: "What did the D+Q trial measure?",
+      });
+      return new Response(
+        [
+          'data: {"type":"conversation","id":"conversation-5","title":"D+Q trial"}',
+          'data: {"type":"token","text":"Evidence"}',
+          'data: {"type":"done"}',
+          "",
+        ].join("\n\n"),
+      );
+    };
+    try {
+      const events: ChatEvent[] = [];
+      await createConversationClient().sendMessage(
+        {
+          conversationId: "conversation-5",
+          message: "What did the D+Q trial measure?",
+        },
+        (event) => events.push(event),
+      );
+      assert.deepEqual(events.map((event) => event.type), [
+        "conversation",
+        "token",
+        "done",
+      ]);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
 });

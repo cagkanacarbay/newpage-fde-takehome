@@ -14,7 +14,7 @@ import {
 import { DraftStore } from "@/lib/drafts";
 import type { Citation } from "@/lib/sse";
 
-import { retryFailedTurn, withDroppedTurnsNotice } from "./chat-turns";
+import { retryFailedTurn, withHistoryNotice } from "./chat-turns";
 import { Composer } from "./composer";
 import { EmptyState } from "./empty-state";
 import { MessageList } from "./message-list";
@@ -150,9 +150,9 @@ export function ChatApp() {
         }),
       );
 
-      if (event.type === "dropped") {
+      if (event.type === "history_notice") {
         setMessages((current) =>
-          withDroppedTurnsNotice(current, event.turns, crypto.randomUUID()),
+          withHistoryNotice(current, event.text, crypto.randomUUID()),
         );
       }
     });

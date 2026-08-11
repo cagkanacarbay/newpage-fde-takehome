@@ -4,7 +4,7 @@ from pathlib import Path
 import httpx
 import pytest
 
-from live_long_rnd.api.app import create_app
+from live_long_rnd.api.app import ApplicationConfig, create_app
 from live_long_rnd.api.llm import StubLLM
 from live_long_rnd.api.retrieval import StubRetriever
 
@@ -31,7 +31,7 @@ def get(app_corpus_dir: Path, path: str) -> httpx.Response:
             app=create_app(
                 retriever=StubRetriever(),
                 llm_client=StubLLM(),
-                corpus_dir=app_corpus_dir,
+                config=ApplicationConfig(corpus_dir=app_corpus_dir),
             )
         )
         async with httpx.AsyncClient(

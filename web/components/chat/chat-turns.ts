@@ -24,43 +24,20 @@ export function retryFailedTurn(messages: UiMessage[], assistantId: string): Ret
   };
 }
 
-export function withDroppedTurnsNotice(
+export function withHistoryNotice(
   messages: UiMessage[],
-  turns: number,
+  text: string,
   id: string,
 ): UiMessage[] {
-  if (turns < 1) {
-    return messages;
-  }
-
-  const earlierNotice = messages.find((message) => message.role === "system");
-  const earlierTurns = Number.parseInt(earlierNotice?.text ?? "", 10) || 0;
-  const totalTurns = earlierTurns + turns;
   const visibleMessages = messages.filter((message) => message.role !== "system");
-  const droppedMessageIds = new Set<string>();
-  let droppedTurns = 0;
-
-  for (let index = 0; index < visibleMessages.length - 1 && droppedTurns < turns; index += 1) {
-    const user = visibleMessages[index];
-    const assistant = visibleMessages[index + 1];
-    if (user.role !== "user" || assistant.role !== "assistant" || assistant.error) {
-      continue;
-    }
-    droppedMessageIds.add(user.id);
-    droppedMessageIds.add(assistant.id);
-    droppedTurns += 1;
-    index += 1;
-  }
-
-  const retained = visibleMessages.filter((message) => !droppedMessageIds.has(message.id));
 
   return [
     {
       id,
       role: "system",
-      text: `${totalTurns} earlier ${totalTurns === 1 ? "turn is" : "turns are"} not included in the assistant context.`,
+      text,
       citations: [],
     },
-    ...retained,
+    ...visibleMessages,
   ];
 }
