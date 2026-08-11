@@ -43,7 +43,9 @@ class SearchIntent(BaseModel):
     @model_validator(mode="after")
     def validate_query_forms(self) -> SearchIntent:
         """Reserve identical query forms for the controlled raw-only variant."""
-        if self.variant == "dual-query" and self.dense_query == self.sparse_query:
+        dense_form = " ".join(self.dense_query.casefold().split())
+        sparse_form = " ".join(self.sparse_query.casefold().split())
+        if self.variant == "dual-query" and dense_form == sparse_form:
             raise ValueError("dual-query search intents require distinct query forms")
         return self
 

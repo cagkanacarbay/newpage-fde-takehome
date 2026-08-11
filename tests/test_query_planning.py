@@ -85,6 +85,16 @@ def test_dual_query_plan_rejects_identical_query_forms() -> None:
         SearchIntent(dense_query="What dose was used?", sparse_query="What dose was used?")
 
 
+def test_dual_query_plan_rejects_case_and_whitespace_only_differences() -> None:
+    with pytest.raises(
+        ValidationError, match="dual-query search intents require distinct query forms"
+    ):
+        SearchIntent(
+            dense_query="  Rapamycin dietary   restriction ",
+            sparse_query="rapamycin dietary restriction",
+        )
+
+
 def test_single_intent_planner_rejects_model_decomposition() -> None:
     decomposed = QueryPlan(
         action="retrieve",

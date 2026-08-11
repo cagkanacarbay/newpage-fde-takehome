@@ -67,7 +67,10 @@ class _PlannerResponses:
             ],
             "Does rapamycin, rather than metformin, mirror dietary restriction?": [
                 SearchIntent(
-                    dense_query="Rapamycin dietary restriction",
+                    dense_query=(
+                        "How rapamycin, compared with metformin, reproduces dietary "
+                        "restriction effects"
+                    ),
                     sparse_query="rapamycin dietary restriction",
                 )
             ],
