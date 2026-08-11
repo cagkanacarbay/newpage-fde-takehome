@@ -35,7 +35,7 @@
           <div><span class="v">12</span><span class="k">single-source questions</span></div>
         </div>
         <p>Score at the document-ID level. This keeps the set stable when chunking changes.</p>
-        <div class="callout note"><span class="lbl">Calibration complete</span><p>The 2026-08-11 run used all 27 papers and kept the 24 questions and target passages unchanged. Candidate depth 40 reached 6/6 contradiction pairs, 6/6 entity traps, and 12/12 gold documents, including C1.</p></div>
+        <div class="callout note"><span class="lbl">Calibration complete</span><p>The 2026-08-11 run used all 27 papers and kept the 24 questions and target passages unchanged. Candidate depth 20 reached 6/6 contradiction pairs, 6/6 entity traps, and 12/12 gold documents, including C1.</p></div>
         <p>Click any row to see the paper, the PDF page, and the exact passage the retriever must surface for that item to count as a hit. All quotes were extracted verbatim from the corpus PDFs.</p>
         <div class="callout note"><span class="lbl">Confirmed thresholds</span><p>The blocking v1 thresholds remain 6/6, 6/6, and 11/12 with C1 mandatory. The measured run exceeded Gate C by one item.</p></div>
       </section>
@@ -270,7 +270,7 @@
         </table></div>
         <p><a href="https://docs.llamaindex.ai/en/stable/module_guides/evaluating/">LlamaIndex evaluation guide</a> · <a href="https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/">RAGAS metrics</a></p>
         <p>Deterministic CI uses fixed embedding doubles and isolated indexes. Live evaluation records the OpenAI model, 3,072 dimensions, index build, and retrieval depth.</p>
-        <p>Quality scoring uses the top 10 unique document IDs. Runtime candidate depth is 40 before evidence packing.</p>
+        <p>Quality scoring uses the top 10 unique document IDs. Runtime candidate depth is 20 before evidence packing.</p>
       </section>
 
       <section id="open">

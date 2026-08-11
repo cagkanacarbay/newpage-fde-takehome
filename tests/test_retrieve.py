@@ -16,6 +16,7 @@ from live_long_rnd.embeddings import OpenAIEmbedder
 from live_long_rnd.ingest import IngestDependencies, LanceDBNodeStore, ingest_pdf
 from live_long_rnd.query_planning import MetadataFilters, QueryPlan, SearchIntent
 from live_long_rnd.retrieve import (
+    DEFAULT_RETRIEVAL_CONFIG,
     FlashRankCrossEncoder,
     IdentityReranker,
     LanceDBHybridStore,
@@ -26,6 +27,17 @@ from live_long_rnd.retrieve import (
     retrieve_baseline,
     to_citation_payload,
 )
+
+
+def test_runtime_defaults_match_the_calibrated_configuration() -> None:
+    assert (
+        RetrievalConfig(
+            candidate_depth=20,
+            source_budget_tokens=12_000,
+            document_diversity_penalty=0.15,
+        )
+        == DEFAULT_RETRIEVAL_CONFIG
+    )
 
 
 class StubEmbedder:

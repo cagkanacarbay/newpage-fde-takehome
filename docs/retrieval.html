@@ -22,7 +22,7 @@
       <span><b>Date</b> 2026-08-11</span>
       <span><b>Status</b> implemented and calibrated</span>
       <span><b>Evidence</b> 2026 research</span>
-      <span><b>Exact values</b> depth 40, MiniLM, 0.15, 12,000 tokens</span>
+      <span><b>Exact values</b> depth 20, MiniLM, 0.15, 12,000 tokens</span>
     </div>
   </header>
 
@@ -52,7 +52,7 @@
             <p><strong>What:</strong> Retrieve a broad hybrid candidate pool, rerank it, then pack the strongest complete evidence into the source budget.</p>
             <p><strong>Why:</strong> A fact lookup and a multi-paper comparison need different amounts of evidence.</p>
             <p><strong>Context:</strong> Keep document, section, element, caption, and page labels through indexing and citation output.</p>
-            <p><strong>Status:</strong> Implemented. The 24-item run selected depth 40, MiniLM, penalty 0.15, and 12,000 source tokens.</p>
+            <p><strong>Status:</strong> Implemented. The 24-item run selected depth 20, MiniLM, penalty 0.15, and 12,000 source tokens.</p>
           </div>
         </div>
 
@@ -111,7 +111,7 @@
         <div class="callout warn">
           <span class="lbl">Measured requirement</span>
           <p>The calibration compared the PR 31 baseline, raw-only, dual-query, and aspect-decomposed variants.</p>
-          <p>The final depth-40 pipeline passes all three blocking document-level gates.</p>
+          <p>The final depth-20 pipeline passes all three blocking document-level gates.</p>
         </div>
       </section>
 
@@ -166,7 +166,7 @@
           <table class="matrix">
             <thead><tr><th>Control</th><th>Rule</th><th>Reason</th></tr></thead>
             <tbody>
-              <tr><td class="opt">Candidate depth</td><td>40 fused candidates</td><td>Depth 10 and 20 each missed one contradiction pair.</td></tr>
+              <tr><td class="opt">Candidate depth</td><td>20 fused candidates</td><td>Depth 10 missed one contradiction pair. Depth 20 cleared every gate.</td></tr>
               <tr><td class="opt">Document diversity</td><td>0.15 repeated-document penalty</td><td>Penalty 0 failed one contradiction pair. Penalty 0.15 passed.</td></tr>
               <tr><td class="opt">Final evidence</td><td>12,000 source tokens</td><td>The 6,000-token control missed one contradiction pair.</td></tr>
               <tr><td class="opt">Adjacent chunks</td><td>Keep when needed</td><td>Methods, results, and limits can span chunks.</td></tr>
@@ -179,43 +179,45 @@
       </section>
 
       <section id="calibration">
-        <h2><span class="idx">06</span> The depth-40 pipeline clears every gate</h2>
+        <h2><span class="idx">06</span> The depth-20 pipeline clears every gate</h2>
         <p class="lead">The final run reaches 6 of 6 contradiction pairs, 6 of 6 entity traps, and 12 of 12 gold documents.</p>
 
         <div class="table-scroll">
           <table class="matrix wide">
             <thead><tr><th>Variant</th><th>Contradictions</th><th>Entities</th><th>Gold</th><th>Exact-page support</th><th>Median / p95</th><th>24-query API cost</th></tr></thead>
             <tbody>
-              <tr><td class="opt">PR 31 baseline, k = 10</td><td>6/6</td><td>6/6</td><td>12/12</td><td>15/24</td><td>77.8 / 201.8 ms</td><td>$0.000046</td></tr>
-              <tr><td class="opt">Raw-only, depth 10</td><td>5/6</td><td>5/6</td><td>12/12</td><td>21/24</td><td>2,045.3 / 4,923.2 ms</td><td>$0.000046</td></tr>
-              <tr><td class="opt">Dual-query, depth 10</td><td>5/6</td><td>6/6</td><td>12/12</td><td>20/24</td><td>1,733.6 / 3,021.1 ms</td><td>$0.005290</td></tr>
-              <tr><td class="opt">Aspect-decomposed, depth 10</td><td>5/6</td><td>6/6</td><td>12/12</td><td>21/24</td><td>1,745.1 / 2,818.3 ms</td><td>$0.004903</td></tr>
+              <tr><td class="opt">PR 31 baseline, k = 10</td><td>6/6</td><td>6/6</td><td>12/12</td><td>15/24</td><td>23.9 / 43.0 ms</td><td>$0.000046</td></tr>
+              <tr><td class="opt">Raw-only, depth 10</td><td>5/6</td><td>5/6</td><td>12/12</td><td>21/24</td><td>1,078.8 / 1,461.7 ms</td><td>$0.000046</td></tr>
+              <tr><td class="opt">Dual-query, depth 10</td><td>5/6</td><td>5/6</td><td>12/12</td><td>21/24</td><td>1,093.5 / 1,429.3 ms</td><td>$0.005212</td></tr>
+              <tr><td class="opt">Aspect-decomposed, depth 10</td><td>5/6</td><td>6/6</td><td>12/12</td><td>22/24</td><td>1,592.5 / 1,929.4 ms</td><td>$0.004670</td></tr>
             </tbody>
           </table>
         </div>
 
         <div class="callout note">
           <span class="lbl">Final runtime</span>
-          <p>Use aspect-aware planning, candidate depth 40, <code>ms-marco-MiniLM-L-12-v2</code>, diversity penalty 0.15, and 12,000 source tokens.</p>
-          <p>At depth 40, both RRF-only and MiniLM reached 6/6, 6/6, and 12/12 with 20/24 exact-page support.</p>
-          <p>MiniLM is retained because the runtime contract requires cross-encoder reranking.</p>
+          <p>Use aspect-aware planning, candidate depth 20, <code>ms-marco-MiniLM-L-12-v2</code>, diversity penalty 0.15, and 12,000 source tokens.</p>
+          <p>At depth 20, RRF-only reached 22/24 exact-page support. MiniLM reached 24/24.</p>
+          <p>Both rerankers cleared 6/6, 6/6, and 12/12. MiniLM supplies the required cross-encoder stage and stronger page support.</p>
         </div>
 
         <div class="table-scroll">
           <table class="matrix">
             <thead><tr><th>Control</th><th>Gate result</th><th>Exact-page support</th><th>Measured effect</th></tr></thead>
             <tbody>
-              <tr><td class="opt">Depth 10</td><td>5/6, 6/6, 12/12</td><td>21/24</td><td>Missed one contradiction pair.</td></tr>
-              <tr><td class="opt">Depth 20</td><td>5/6, 6/6, 12/12</td><td>20/24</td><td>Still missed one contradiction pair.</td></tr>
-              <tr><td class="opt">Depth 40</td><td>6/6, 6/6, 12/12</td><td>20/24</td><td>First depth to clear every gate.</td></tr>
-              <tr><td class="opt">Penalty 0</td><td>5/6, 6/6, 12/12</td><td>21/24</td><td>Concentrated evidence missed one side.</td></tr>
-              <tr><td class="opt">Budget 6,000</td><td>5/6, 6/6, 12/12</td><td>18/24</td><td>Removed needed comparison evidence.</td></tr>
+              <tr><td class="opt">Depth 10</td><td>5/6, 6/6, 12/12</td><td>22/24</td><td>Missed one contradiction pair.</td></tr>
+              <tr><td class="opt">Depth 20</td><td>6/6, 6/6, 12/12</td><td>22/24</td><td>First depth to clear every gate.</td></tr>
+              <tr><td class="opt">Depth 40</td><td>6/6, 6/6, 12/12</td><td>20/24</td><td>Added candidates without a quality gain.</td></tr>
+              <tr><td class="opt">Penalty 0</td><td>6/6, 6/6, 12/12</td><td>24/24</td><td>Passed, with a 48.7 ms cached p95.</td></tr>
+              <tr><td class="opt">Penalty 0.15</td><td>6/6, 6/6, 12/12</td><td>24/24</td><td>Passed, with a 42.0 ms cached p95.</td></tr>
+              <tr><td class="opt">Budget 6,000</td><td>5/6, 5/6, 12/12</td><td>18/24</td><td>Removed needed comparison and entity evidence.</td></tr>
             </tbody>
           </table>
         </div>
 
         <p>Variant latency uses prewarmed planner and embedding caches, so it isolates retrieval, reranking, and evidence packing.</p>
-        <p>MiniLM at depth 40 measured 19.6 seconds median and 36.1 seconds p95 on this Apple Silicon run.</p>
+        <p>The final MiniLM depth-20 control measured 2.88 seconds median and 4.50 seconds p95 on this Apple Silicon run.</p>
+        <p>The run used all 696 indexed chunks and an FTS index rebuilt with phrase positions.</p>
         <p>API cost uses the published <a href="https://developers.openai.com/api/docs/models/gpt-5.6-luna">GPT-5.6 Luna</a> and <a href="https://developers.openai.com/api/docs/models/text-embedding-3-large">text-embedding-3-large</a> prices.</p>
       </section>
 
@@ -260,7 +262,7 @@
 
         <h3>Revisit triggers</h3>
         <ul>
-          <li>Replace MiniLM when another cross-encoder keeps the gates and cuts the 19.6-second median.</li>
+          <li>Replace MiniLM when another cross-encoder keeps 24/24 page support and cuts the 2.88-second median.</li>
           <li>Add query transformation only when follow-up questions fail a dedicated conversational evaluation.</li>
           <li>Change the cap when Gate A and Gate C show a better shared value.</li>
         </ul>

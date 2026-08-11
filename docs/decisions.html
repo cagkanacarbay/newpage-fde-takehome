@@ -246,7 +246,7 @@
           <div class="rec-body">
             <p><strong>What:</strong> Plan zero, one, or several semantic and lexical queries. Retrieve broadly, rerank, and pack complete evidence units by tokens.</p>
             <p><strong>Why:</strong> Exact entity search and semantic similarity need different query forms. Simple and multi-paper questions need different amounts of evidence.</p>
-            <p><strong>Configuration:</strong> Use candidate depth 40, <code>ms-marco-MiniLM-L-12-v2</code>, diversity penalty 0.15, and 12,000 source tokens.</p>
+            <p><strong>Configuration:</strong> Use candidate depth 20, <code>ms-marco-MiniLM-L-12-v2</code>, diversity penalty 0.15, and 12,000 source tokens.</p>
             <p><strong>Evidence:</strong> The 2026-08-11 corpus run reached 6/6 contradiction pairs, 6/6 entity traps, and 12/12 gold documents.</p>
             <p><strong>Status:</strong> Implemented and calibrated. <a href="retrieval.html">Retrieval contract and measured results</a>.</p>
           </div>
@@ -451,7 +451,7 @@
             <summary>Calibration confirmed the thresholds</summary>
             <div class="body">
               <p>The 2026-08-11 run kept all 24 questions and exact-page targets unchanged.</p>
-              <p>Candidate depth 40 reached 6/6, 6/6, and 12/12 with C1 present.</p>
+              <p>Candidate depth 20 reached 6/6, 6/6, and 12/12 with C1 present.</p>
             </div>
           </details>
           <details>
