@@ -27,7 +27,23 @@ describe("titleFromMessage", () => {
 });
 
 describe("MockConversationClient", () => {
-  const createMock = () => createConversationClient(undefined);
+  const createMock = () => createConversationClient();
+
+  it("keeps conversations mock-backed when an API base URL is configured", async () => {
+    const originalBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
+    process.env.NEXT_PUBLIC_API_BASE_URL = ".";
+    try {
+      const client = createConversationClient();
+      const list = await client.listConversations();
+      assert.ok(list.length >= 3, "configured builds keep the seeded conversations");
+    } finally {
+      if (originalBaseUrl === undefined) {
+        delete process.env.NEXT_PUBLIC_API_BASE_URL;
+      } else {
+        process.env.NEXT_PUBLIC_API_BASE_URL = originalBaseUrl;
+      }
+    }
+  });
 
   it("lists seeded conversations sorted by last activity, newest first", async () => {
     const client = createMock();
@@ -104,6 +120,35 @@ describe("MockConversationClient", () => {
     const conversation = await client.getConversation(created.id);
     assert.equal(conversation.title, "New conversation");
     assert.equal(conversation.messages.length, 2);
+  });
+
+  it("replaces dropped history with a system notice", async () => {
+    const client = createMock();
+    const firstEvents: ChatEvent[] = [];
+    await client.sendMessage(
+      { conversationId: null, message: "word ".repeat(100_001) },
+      (event) => firstEvents.push(event),
+    );
+    const firstConversation = firstEvents[0];
+    assert.equal(firstConversation.type, "conversation");
+    if (firstConversation.type !== "conversation") {
+      return;
+    }
+
+    const secondEvents: ChatEvent[] = [];
+    await client.sendMessage(
+      { conversationId: firstConversation.id, message: "Follow up question" },
+      (event) => secondEvents.push(event),
+    );
+
+    assert.ok(secondEvents.some((event) => event.type === "dropped"));
+    const conversation = await client.getConversation(firstConversation.id);
+    assert.equal(conversation.messages[0]?.role, "system");
+    assert.match(conversation.messages[0]?.text ?? "", /1 earlier turn is not included/);
+    assert.deepEqual(
+      conversation.messages.slice(1).map((message) => message.role),
+      ["user", "assistant"],
+    );
   });
 
   it("rejects sending to an unknown conversation id", async () => {

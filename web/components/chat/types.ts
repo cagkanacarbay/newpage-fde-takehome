@@ -6,6 +6,8 @@ export type UiMessage = {
   text: string;
   citations: Citation[];
   error?: string;
+  replyTo?: string;
+  retryMessage?: string;
 };
 
 /** The PDF panel target: which citation of which turn is open. */

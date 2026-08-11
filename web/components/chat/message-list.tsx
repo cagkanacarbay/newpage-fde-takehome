@@ -61,7 +61,7 @@ type MessageListProps = {
   streaming: boolean;
   pdf: PdfTarget | null;
   onOpenCitation: (messageId: string, citation: Citation, chipIndex: number) => void;
-  onRetry: () => void;
+  onRetry: (assistantId: string) => void;
 };
 
 export function MessageList({ messages, streaming, pdf, onOpenCitation, onRetry }: MessageListProps) {
@@ -129,7 +129,7 @@ export function MessageList({ messages, streaming, pdf, onOpenCitation, onRetry 
                   className="mt-2 flex items-center justify-between gap-3 rounded-2xl bg-orange-bg px-4 py-3"
                 >
                   <p className="text-sm text-orange-ink">{message.error}</p>
-                  <Button type="button" size="sm" variant="ghost" onClick={onRetry}>
+                  <Button type="button" size="sm" variant="ghost" onClick={() => onRetry(message.id)}>
                     <RotateCcw className="size-3.5" />
                     Retry
                   </Button>

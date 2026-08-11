@@ -1,4 +1,4 @@
-import { streamChat, streamMockReply } from "./chat";
+import { streamMockReply } from "./chat";
 import type { ChatEvent, Citation } from "./sse";
 
 export type ConversationSummary = {
@@ -50,56 +50,16 @@ export function titleFromMessage(message: string): string {
   return `${collapsed.slice(0, cut > 0 ? cut : TITLE_MAX_LENGTH)}…`;
 }
 
-export function createConversationClient(
-  baseUrl: string | undefined = process.env.NEXT_PUBLIC_API_BASE_URL,
-): ConversationClient {
-  const normalized = baseUrl?.replace(/\/$/, "");
-  return normalized ? new HttpConversationClient(normalized) : new MockConversationClient();
+export function createConversationClient(): ConversationClient {
+  return new MockConversationClient();
 }
 
-class HttpConversationClient implements ConversationClient {
-  constructor(private readonly baseUrl: string) {}
+const MAX_HISTORY_WORDS = 100_000;
 
-  async listConversations(): Promise<ConversationSummary[]> {
-    return this.request("/api/conversations");
-  }
-
-  async createConversation(): Promise<ConversationSummary> {
-    return this.request("/api/conversations", { method: "POST" });
-  }
-
-  async getConversation(id: string): Promise<Conversation> {
-    return this.request(`/api/conversations/${encodeURIComponent(id)}`);
-  }
-
-  async deleteConversation(id: string): Promise<void> {
-    await this.request(`/api/conversations/${encodeURIComponent(id)}`, { method: "DELETE" });
-  }
-
-  async sendMessage(
-    input: SendMessageInput,
-    onEvent: (event: ChatEvent) => void,
-  ): Promise<void> {
-    await streamChat(
-      input.message,
-      onEvent,
-      input.conversationId ? { conversationId: input.conversationId } : {},
-    );
-  }
-
-  private async request(path: string, init?: RequestInit) {
-    const response = await fetch(`${this.baseUrl}${path}`, init);
-    if (!response.ok) {
-      throw new Error(`Request to ${path} failed with status ${response.status}.`);
-    }
-    if (response.status === 204) {
-      return undefined;
-    }
-    return response.json();
-  }
-}
-
-type MockRecord = Conversation & { updated_at: string };
+type MockRecord = Conversation & {
+  updated_at: string;
+  droppedTurns: number;
+};
 
 function seedConversations(): MockRecord[] {
   const now = Date.now();
@@ -113,6 +73,7 @@ function seedConversations(): MockRecord[] {
       id: crypto.randomUUID(),
       title,
       updated_at: stamp,
+      droppedTurns: 0,
       messages: [
         { role: "user", text: exchange[0], citations: [], created_at: stamp },
         { role: "assistant", text: exchange[1], citations: [], created_at: stamp },
@@ -236,6 +197,10 @@ class MockConversationClient implements ConversationClient {
       citations,
       created_at: new Date().toISOString(),
     });
+    const droppedTurns = this.dropOldestTurns(target);
+    if (droppedTurns > 0) {
+      onEvent({ type: "dropped", turns: droppedTurns });
+    }
     target.updated_at = new Date().toISOString();
   }
 
@@ -244,6 +209,7 @@ class MockConversationClient implements ConversationClient {
       id: crypto.randomUUID(),
       title,
       updated_at: new Date().toISOString(),
+      droppedTurns: 0,
       messages: [],
     };
     this.records.set(record.id, record);
@@ -252,5 +218,43 @@ class MockConversationClient implements ConversationClient {
 
   private summaryOf(record: MockRecord): ConversationSummary {
     return { id: record.id, title: record.title, updated_at: record.updated_at };
+  }
+
+  private dropOldestTurns(record: MockRecord): number {
+    let dropped = 0;
+    while (this.historyWordCount(record.messages) > MAX_HISTORY_WORDS) {
+      const firstUser = record.messages.findIndex((message) => message.role === "user");
+      const nextUser = record.messages.findIndex(
+        (message, index) => index > firstUser && message.role === "user",
+      );
+      if (firstUser < 0 || nextUser < 0) {
+        break;
+      }
+      record.messages.splice(firstUser, nextUser - firstUser);
+      dropped += 1;
+    }
+
+    if (dropped > 0) {
+      record.droppedTurns += dropped;
+      const notice = `${record.droppedTurns} earlier ${record.droppedTurns === 1 ? "turn is" : "turns are"} not included in the assistant context.`;
+      const existingNotice = record.messages.find((message) => message.role === "system");
+      if (existingNotice) {
+        existingNotice.text = notice;
+      } else {
+        record.messages.unshift({
+          role: "system",
+          text: notice,
+          citations: [],
+          created_at: new Date().toISOString(),
+        });
+      }
+    }
+    return dropped;
+  }
+
+  private historyWordCount(messages: StoredMessage[]): number {
+    return messages
+      .filter((message) => message.role !== "system")
+      .reduce((total, message) => total + (message.text.match(/\S+/g)?.length ?? 0), 0);
   }
 }

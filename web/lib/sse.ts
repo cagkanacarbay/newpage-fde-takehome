@@ -15,6 +15,7 @@ export type ChatEvent =
   | { type: "conversation"; id: string; title: string }
   | { type: "token"; text: string }
   | { type: "citations"; citations: Citation[] }
+  | { type: "dropped"; turns: number }
   | { type: "done" }
   | { type: "error"; message: string };
 
@@ -23,7 +24,7 @@ function isChatEvent(value: unknown): value is ChatEvent {
     return false;
   }
 
-  return ["conversation", "token", "citations", "done", "error"].includes(
+  return ["conversation", "token", "citations", "dropped", "done", "error"].includes(
     (value as { type: unknown }).type as string,
   );
 }

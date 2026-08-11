@@ -14,6 +14,7 @@ import {
 import { DraftStore } from "@/lib/drafts";
 import type { Citation } from "@/lib/sse";
 
+import { retryFailedTurn, withDroppedTurnsNotice } from "./chat-turns";
 import { Composer } from "./composer";
 import { EmptyState } from "./empty-state";
 import { MessageList } from "./message-list";
@@ -40,7 +41,6 @@ export function ChatApp() {
   const [pdf, setPdf] = useState<PdfTarget | null>(null);
 
   const draftsRef = useRef(new DraftStore());
-  const lastUserMessageRef = useRef<string | null>(null);
 
   const refreshConversations = useCallback(async () => {
     setConversations(await client.listConversations());
@@ -89,12 +89,19 @@ export function ChatApp() {
       return;
     }
 
-    lastUserMessageRef.current = message;
     const assistantId = crypto.randomUUID();
+    const userId = crypto.randomUUID();
     setMessages((current) => [
       ...current,
-      { id: `${assistantId}-user`, role: "user", text: message, citations: [] },
-      { id: assistantId, role: "assistant", text: "", citations: [] },
+      { id: userId, role: "user", text: message, citations: [] },
+      {
+        id: assistantId,
+        role: "assistant",
+        text: "",
+        citations: [],
+        replyTo: userId,
+        retryMessage: message,
+      },
     ]);
     setComposer("");
     draftsRef.current.set(draftKeyFor(activeId), "");
@@ -132,19 +139,28 @@ export function ChatApp() {
           return item;
         }),
       );
+
+      if (event.type === "dropped") {
+        setMessages((current) =>
+          withDroppedTurnsNotice(current, event.turns, crypto.randomUUID()),
+        );
+      }
     });
 
     setStreaming(false);
     void refreshConversations();
   }
 
-  function retry() {
-    const last = lastUserMessageRef.current;
-    if (!last || streaming) {
+  function retry(assistantId: string) {
+    if (streaming) {
       return;
     }
-    setMessages((current) => current.filter((item) => item.error === undefined));
-    void send(last);
+    const retry = retryFailedTurn(messages, assistantId);
+    if (!retry) {
+      return;
+    }
+    setMessages(retry.messages);
+    void send(retry.message);
   }
 
   function openCitation(messageId: string, citation: Citation, chipIndex: number) {
