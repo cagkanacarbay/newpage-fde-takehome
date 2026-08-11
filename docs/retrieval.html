@@ -121,7 +121,7 @@
 
         <div class="callout note">
           <span class="lbl">Query plan</span>
-          <p>A short model call reads the current message. Conversation history is deferred.</p>
+          <p>A short model call reads the current message and saved conversation history.</p>
           <p>It returns query strings for semantic search, exact lexical anchors for BM25, and optional paper or author filters.</p>
         </div>
 
@@ -168,7 +168,7 @@
             <tbody>
               <tr><td class="opt">Candidate depth</td><td>20 fused candidates</td><td>Depth 10 missed one contradiction pair. Depth 20 cleared every gate.</td></tr>
               <tr><td class="opt">Document diversity</td><td>0.15 repeated-document penalty</td><td>Penalty 0 failed one contradiction pair. Penalty 0.15 passed.</td></tr>
-              <tr><td class="opt">Final evidence</td><td>12,000 source tokens</td><td>The 6,000-token control missed one contradiction pair.</td></tr>
+              <tr><td class="opt">Final evidence</td><td>12,000 source tokens</td><td>The 6,000-token control missed five exact-page targets.</td></tr>
               <tr><td class="opt">Retrieved chunks</td><td>Keep each chunk complete</td><td>Methods, results, and limits can span chunk boundaries.</td></tr>
             </tbody>
           </table>

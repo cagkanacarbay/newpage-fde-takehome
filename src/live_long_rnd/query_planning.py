@@ -67,7 +67,8 @@ class _SingleIntentQueryPlan(QueryPlan):
 class ParsedQueryPlan(Protocol):
     """Subset of an OpenAI parsed response used by the planner."""
 
-    output_parsed: QueryPlan | None
+    @property
+    def output_parsed(self) -> QueryPlan | None: ...
 
 
 class ResponsesResource(Protocol):
@@ -79,7 +80,8 @@ class ResponsesResource(Protocol):
 class OpenAIClient(Protocol):
     """OpenAI client subset used by query planning."""
 
-    responses: ResponsesResource
+    @property
+    def responses(self) -> ResponsesResource: ...
 
 
 class QueryPlanner(Protocol):

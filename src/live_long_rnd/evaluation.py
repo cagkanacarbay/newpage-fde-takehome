@@ -43,7 +43,9 @@ class EvidenceResult(Protocol):
     """Retrieval result fields needed for citation-support scoring."""
 
     document_id: str
-    bboxes: list[Mapping[str, int | float]]
+
+    @property
+    def bboxes(self) -> Sequence[Mapping[str, int | float]]: ...
 
 
 EVALUATION_ITEMS: tuple[EvaluationItem, ...] = (

@@ -459,6 +459,42 @@ def test_evidence_packing_has_no_fixed_per_document_cap() -> None:
     assert [result.document_id for result in results] == ["paper-a"] * 4
 
 
+def test_evidence_packing_keeps_more_than_five_chunks_from_one_paper() -> None:
+    class Planner:
+        def plan(self, message: str, history: object = ()) -> QueryPlan:
+            del message, history
+            return QueryPlan(
+                action="retrieve",
+                search_intents=[SearchIntent(dense_query="question", sparse_query="terms")],
+            )
+
+    class Store:
+        def dense_search(
+            self, query_vector: Sequence[float], *, filters: object, limit: int
+        ) -> Sequence[Mapping[str, Any]]:
+            del query_vector, filters, limit
+            return [_row("paper-a", 0.9 - index / 100, f"fact {index}") for index in range(6)]
+
+        def sparse_search(
+            self, query: str, *, filters: object, limit: int
+        ) -> Sequence[Mapping[str, Any]]:
+            del query, filters, limit
+            return []
+
+    results = retrieve(
+        "question",
+        config=RetrievalConfig(source_budget_tokens=30),
+        dependencies=RetrievalDependencies(
+            store=Store(),
+            embedder=StubEmbedder(),
+            planner=Planner(),
+            reranker=NoOpReranker(),
+        ),
+    )
+
+    assert [result.document_id for result in results] == ["paper-a"] * 6
+
+
 def test_retrieve_returns_ranked_chunks_with_complete_provenance() -> None:
     results = retrieve_baseline(
         "epigenetic age",

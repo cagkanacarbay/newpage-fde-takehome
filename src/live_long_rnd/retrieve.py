@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import unicodedata
 import zipfile
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
-from pathlib import Path
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 from typing import Any, Protocol, TypedDict, cast
 
 import lancedb
@@ -35,7 +35,6 @@ DEFAULT_RERANKER_CACHE_DIR = Path("data/models/flashrank")
 FLASHRANK_MODEL_ARCHIVE = DEFAULT_RERANKER_CACHE_DIR / f"{FLASHRANK_MODEL}.zip"
 FLASHRANK_MODEL_SHA256 = "bdd3772b651ffc34f70e414049285bb55ccc6d1b8e29d0640f836d44f70ec77a"
 DEFAULT_CANDIDATE_DEPTH = 20
-DEFAULT_CANDIDATE_DOCUMENT_CAP = 5
 DEFAULT_SOURCE_BUDGET_TOKENS = 12_000
 DEFAULT_DOCUMENT_DIVERSITY_PENALTY = 0.15
 
@@ -256,8 +255,6 @@ def prepare_flashrank_model(cache_dir: Path = DEFAULT_RERANKER_CACHE_DIR) -> Non
 
 
 def _sha256(path: Path) -> str:
-    import hashlib
-
     digest = hashlib.sha256()
     with path.open("rb") as file:
         for chunk in iter(lambda: file.read(1024 * 1024), b""):
@@ -405,18 +402,16 @@ def _retrieve_planned(
             scores_by_key[key] = scores_by_key.get(key, 0.0) + 1.0 / (RRF_RANK_CONSTANT + rank)
 
     ranked_keys = sorted(scores_by_key, key=scores_by_key.__getitem__, reverse=True)
-    results: list[RetrievalResult] = []
-    document_counts: dict[str, int] = {}
+    fused_candidates: list[RetrievalResult] = []
     for key in ranked_keys:
         row = dict(rows_by_key[key])
         row["_relevance_score"] = scores_by_key[key]
-        result = _result_from_row(row)
-        if document_counts.get(result.document_id, 0) >= DEFAULT_CANDIDATE_DOCUMENT_CAP:
-            continue
-        results.append(result)
-        document_counts[result.document_id] = document_counts.get(result.document_id, 0) + 1
-        if len(results) == config.candidate_depth:
-            break
+        fused_candidates.append(_result_from_row(row))
+    results = _select_diverse_candidates(
+        fused_candidates,
+        limit=config.candidate_depth,
+        document_diversity_penalty=config.document_diversity_penalty,
+    )
     rerank_query = "\n".join(intent.dense_query for intent in plan.search_intents)
     results = runtime.reranker.rerank(rerank_query, results)
     return _pack_evidence(
@@ -501,3 +496,27 @@ def _pack_evidence(
         used_tokens += candidate_tokens
         document_counts[candidate.document_id] = document_counts.get(candidate.document_id, 0) + 1
     return packed
+
+
+def _select_diverse_candidates(
+    candidates: Sequence[RetrievalResult],
+    *,
+    limit: int,
+    document_diversity_penalty: float,
+) -> list[RetrievalResult]:
+    """Fill the reranking pool broadly without imposing a per-document cap."""
+    selected: list[RetrievalResult] = []
+    document_counts: dict[str, int] = {}
+    remaining = list(candidates)
+    while remaining and len(selected) < limit:
+        candidate = max(
+            remaining,
+            key=lambda item: (
+                item.score
+                / (1.0 + document_diversity_penalty * document_counts.get(item.document_id, 0))
+            ),
+        )
+        remaining.remove(candidate)
+        selected.append(candidate)
+        document_counts[candidate.document_id] = document_counts.get(candidate.document_id, 0) + 1
+    return selected
