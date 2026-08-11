@@ -9,6 +9,8 @@ WORKDIR /app
 COPY pyproject.toml uv.lock README.md ./
 COPY src ./src
 RUN uv sync --locked --no-default-groups --no-editable
+RUN mkdir -p /app/data/models/flashrank \
+    && uv run --no-sync python -c "from flashrank import Ranker; Ranker(model_name='ms-marco-MiniLM-L-12-v2', cache_dir='/app/data/models/flashrank')"
 
 
 FROM node:22-bookworm-slim AS web-builder
@@ -28,6 +30,7 @@ RUN useradd --system --uid 10001 --create-home app
 WORKDIR /app
 
 COPY --from=builder --chown=app:app /app/.venv /app/.venv
+COPY --from=builder --chown=app:app /app/data/models/flashrank /app/data/models/flashrank
 COPY --from=index --chown=app:app / /app/data/index/
 COPY --from=corpus --chown=app:app / /app/data/corpus/longevity/
 COPY --from=web-builder --chown=app:app /web/out /app/web

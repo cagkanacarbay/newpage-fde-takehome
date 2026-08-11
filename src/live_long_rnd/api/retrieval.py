@@ -4,8 +4,13 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Protocol, TypedDict, cast
 
-from live_long_rnd.embeddings import Embedder, OpenAIEmbedder
-from live_long_rnd.retrieve import HybridStore, to_citation_payload
+from live_long_rnd.query_planning import ConversationMessage
+from live_long_rnd.retrieve import (
+    DEFAULT_RETRIEVAL_CONFIG,
+    RetrievalConfig,
+    RetrievalDependencies,
+    to_citation_payload,
+)
 from live_long_rnd.retrieve import retrieve as hybrid_retrieve
 
 
@@ -31,33 +36,36 @@ class RetrievedChunk:
 
 
 class Retriever(Protocol):
-    async def retrieve(self, message: str) -> Sequence[RetrievedChunk]: ...
+    async def retrieve(
+        self,
+        message: str,
+        history: Sequence[ConversationMessage] = (),
+    ) -> Sequence[RetrievedChunk]: ...
 
 
 class LanceDbRetriever:
-    """The real hybrid retriever: LanceDB dense + BM25 with RRF and a per-document cap."""
+    """Plan, search, rerank, and token-pack evidence from LanceDB."""
 
     def __init__(
         self,
         *,
-        k: int = 10,
-        per_document_cap: int | None = 3,
-        store: HybridStore | None = None,
-        embedder: Embedder | None = None,
+        config: RetrievalConfig = DEFAULT_RETRIEVAL_CONFIG,
+        dependencies: RetrievalDependencies | None = None,
     ) -> None:
-        self._k = k
-        self._per_document_cap = per_document_cap
-        self._store = store
-        self._embedder = embedder or OpenAIEmbedder()
+        self._config = config
+        self._dependencies = dependencies
 
-    async def retrieve(self, message: str) -> Sequence[RetrievedChunk]:
+    async def retrieve(
+        self,
+        message: str,
+        history: Sequence[ConversationMessage] = (),
+    ) -> Sequence[RetrievedChunk]:
         results = await asyncio.to_thread(
             hybrid_retrieve,
             message,
-            k=self._k,
-            per_document_cap=self._per_document_cap,
-            store=self._store,
-            embedder=self._embedder,
+            history=history,
+            config=self._config,
+            dependencies=self._dependencies,
         )
         return [
             RetrievedChunk(
@@ -80,8 +88,12 @@ def create_retriever(settings: Mapping[str, str] | None = None) -> Retriever:
 
 
 class StubRetriever:
-    async def retrieve(self, message: str) -> Sequence[RetrievedChunk]:
-        del message
+    async def retrieve(
+        self,
+        message: str,
+        history: Sequence[ConversationMessage] = (),
+    ) -> Sequence[RetrievedChunk]:
+        del message, history
         return (
             RetrievedChunk(
                 text=(
