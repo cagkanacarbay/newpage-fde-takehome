@@ -45,6 +45,8 @@ class SearchIntent(BaseModel):
         """Reserve identical query forms for the controlled raw-only variant."""
         dense_form = " ".join(self.dense_query.casefold().split())
         sparse_form = " ".join(self.sparse_query.casefold().split())
+        if not dense_form or not sparse_form:
+            raise ValueError("search intent query forms must contain non-whitespace content")
         if self.variant == "dual-query" and dense_form == sparse_form:
             raise ValueError("dual-query search intents require distinct query forms")
         return self
