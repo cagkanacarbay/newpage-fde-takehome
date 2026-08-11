@@ -66,6 +66,9 @@ jobs:
           enable-cache: true
       - if: steps.changes.outputs.retrieval == 'true'
         run: uv sync --locked
+      - name: Download and verify pinned FlashRank artifact
+        if: steps.changes.outputs.retrieval == 'true'
+        run: uv run python -c "from live_long_rnd.retrieve import prepare_flashrank_model; prepare_flashrank_model()"
       - name: Enforce 24-item retrieval quality gates
         if: steps.changes.outputs.retrieval == 'true'
         run: uv run pytest tests/test_evaluation.py::test_retrieval_quality_gates_block_regressions
