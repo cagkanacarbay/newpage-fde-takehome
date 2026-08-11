@@ -9,7 +9,7 @@ export type NumberedCitation = {
 /** Identity of a cited passage: same document, same page, same box. */
 export function citationKey(citation: Citation): string {
   const { l, t, r, b } = citation.bbox;
-  return `${citation.document_id}${citation.page}${l},${t},${r},${b}`;
+  return JSON.stringify([citation.document_id, citation.page, l, t, r, b]);
 }
 
 /**

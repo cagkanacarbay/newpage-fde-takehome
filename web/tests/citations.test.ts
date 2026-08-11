@@ -60,6 +60,15 @@ describe("numberCitations", () => {
     ]);
     assert.equal(numbered.length, 2);
   });
+
+  it("keeps locations distinct when document ID and page boundaries overlap", () => {
+    const numbered = numberCitations([
+      makeCitation({ document_id: "001-x", page: 23 }),
+      makeCitation({ document_id: "001-x2", page: 3 }),
+    ]);
+
+    assert.equal(numbered.length, 2);
+  });
 });
 
 describe("citationKey", () => {

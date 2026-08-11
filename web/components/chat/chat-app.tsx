@@ -255,7 +255,7 @@ export function ChatApp() {
         />
       </main>
 
-      {pdf ? (
+      {pdf && desktopPdfDocked ? (
         <section
           aria-label="Source document"
           className="hidden min-w-0 md:block md:w-[45%] md:shrink-0"
@@ -274,7 +274,7 @@ export function ChatApp() {
         onOpenChange={(open) => !open && setPdf(null)}
       >
         <SheetContent side="full" hideClose className="md:hidden">
-          {pdf ? (
+          {pdf && !desktopPdfDocked ? (
             <PdfPanel
               key={`${pdf.documentId}-${pdf.chipIndex}-${pdf.messageId}-mobile`}
               documentId={pdf.documentId}
