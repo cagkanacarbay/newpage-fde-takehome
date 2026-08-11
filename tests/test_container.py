@@ -90,7 +90,12 @@ def _wait_for_api(port: int) -> None:
             with urllib.request.urlopen(url, timeout=1) as response:
                 if response.status == 200:
                     return
-        except (urllib.error.URLError, RemoteDisconnected, TimeoutError):
+        except (
+            ConnectionResetError,
+            urllib.error.URLError,
+            RemoteDisconnected,
+            TimeoutError,
+        ):
             time.sleep(0.2)
     raise AssertionError("Container API did not become ready within 60 seconds")
 
