@@ -18,3 +18,12 @@ _Avoid_: exchange, round
 The 100k-token cap on how much of a conversation's most recent turns are kept verbatim for the model.
 When the budget is exceeded, the oldest turns drop first and the user is told inline.
 _Avoid_: context window (that is the model's limit, not ours), sliding window
+
+**Claim**:
+One atomic factual statement in an answer.
+The unit that citations and verification attach to: every claim carries at least one citation marker, and every claim is checked against its cited source.
+_Avoid_: statement, assertion
+
+**Citation marker**:
+The inline `[n]` at the end of a claim, linking it to one retrieved source's exact document, page, and bounding box.
+_Avoid_: footnote, reference

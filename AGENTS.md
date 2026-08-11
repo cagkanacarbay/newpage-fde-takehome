@@ -14,16 +14,16 @@ table tracks status; the reasoning is written up in the README, not here.
 |---|---|
 | Orchestration framework | Decided — LlamaIndex |
 | Parsing | Decided — Docling |
-| Chunking | Open |
+| Chunking | Provisional — Docling HybridChunker |
 | Embedding model | Decided - OpenAI text-embedding-3-large |
-| LLM selection | Open |
-| Vector database | Open |
+| LLM selection | Decided — OpenAI, GPT 5.6 Luna default |
+| Vector database | Decided — LanceDB |
 | Retrieval approach | Open |
-| Prompt engineering | Open |
+| Prompt engineering | Decided — per-claim citation markers + verifier (`docs/generation.html`) |
 | Context management | Decided |
 | Guardrails | Decided |
 | Quality controls | Decided — deterministic retrieval gates |
-| Observability | Open |
+| Observability | Decided — Arize Phoenix |
 
 
 | Deferred | Created when |
