@@ -109,7 +109,12 @@ class ConversationStore:
         message: str,
     ) -> ConversationSummary | None:
         if conversation_id is None:
-            return self.create_from_message(message)
+            conversation = self.create_empty()
+            return ConversationSummary(
+                id=conversation.id,
+                title=_title_from_message(message),
+                updated_at=conversation.updated_at,
+            )
         with self._connect() as connection:
             row = connection.execute(
                 """
