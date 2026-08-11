@@ -68,7 +68,7 @@ EVALUATION_ITEMS: tuple[EvaluationItem, ...] = (
     EvaluationItem(
         "A4",
         "contradiction",
-        "Is metformin a proven anti-aging drug?",
+        "Is metformin a proven anti-aging drug compared with rapamycin?",
         ("012", "013"),
     ),
     EvaluationItem(

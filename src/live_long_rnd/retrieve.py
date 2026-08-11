@@ -31,6 +31,7 @@ FLASHRANK_MODEL = "ms-marco-MiniLM-L-12-v2"
 FLASHRANK_MAX_LENGTH = 512
 DEFAULT_RERANKER_CACHE_DIR = Path("data/models/flashrank")
 DEFAULT_CANDIDATE_DEPTH = 20
+DEFAULT_CANDIDATE_DOCUMENT_CAP = 5
 DEFAULT_SOURCE_BUDGET_TOKENS = 12_000
 DEFAULT_DOCUMENT_DIVERSITY_PENALTY = 0.15
 
@@ -342,7 +343,7 @@ def _retrieve_planned(
     dense_queries = [intent.dense_query for intent in plan.search_intents]
     query_vectors = runtime.embedder.embed(dense_queries)
     ranked_lists: list[Sequence[Mapping[str, Any]]] = []
-    candidate_limit = config.candidate_depth
+    candidate_limit = config.candidate_depth * FUSION_CANDIDATE_MULTIPLIER
     for intent, query_vector in zip(plan.search_intents, query_vectors, strict=True):
         ranked_lists.append(
             runtime.store.dense_search(query_vector, filters=intent.filters, limit=candidate_limit)
@@ -365,10 +366,17 @@ def _retrieve_planned(
 
     ranked_keys = sorted(scores_by_key, key=scores_by_key.__getitem__, reverse=True)
     results: list[RetrievalResult] = []
-    for key in ranked_keys[: config.candidate_depth]:
+    document_counts: dict[str, int] = {}
+    for key in ranked_keys:
         row = dict(rows_by_key[key])
         row["_relevance_score"] = scores_by_key[key]
-        results.append(_result_from_row(row))
+        result = _result_from_row(row)
+        if document_counts.get(result.document_id, 0) >= DEFAULT_CANDIDATE_DOCUMENT_CAP:
+            continue
+        results.append(result)
+        document_counts[result.document_id] = document_counts.get(result.document_id, 0) + 1
+        if len(results) == config.candidate_depth:
+            break
     rerank_query = "\n".join(intent.dense_query for intent in plan.search_intents)
     results = runtime.reranker.rerank(rerank_query, results)
     return _pack_evidence(
