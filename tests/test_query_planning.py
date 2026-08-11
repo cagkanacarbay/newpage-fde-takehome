@@ -78,6 +78,11 @@ def test_retrieve_plan_requires_at_least_one_search_intent() -> None:
         QueryPlan(action="retrieve", search_intents=[])
 
 
+def test_dual_query_plan_rejects_identical_query_forms() -> None:
+    with pytest.raises(ValidationError, match="dual-query search intents require distinct query forms"):
+        SearchIntent(dense_query="What dose was used?", sparse_query="What dose was used?")
+
+
 def test_single_intent_planner_rejects_model_decomposition() -> None:
     decomposed = QueryPlan(
         action="retrieve",
@@ -112,9 +117,33 @@ def test_raw_planner_preserves_the_message_for_both_query_forms() -> None:
             SearchIntent(
                 dense_query="What dose was 100 mg/day?",
                 sparse_query="What dose was 100 mg/day?",
+                variant="raw-only",
             )
         ],
     )
+
+
+def test_openai_planner_rejects_raw_only_search_intents() -> None:
+    raw_only = QueryPlan(
+        action="retrieve",
+        search_intents=[
+            SearchIntent(
+                dense_query="What dose was used?",
+                sparse_query="What dose was used?",
+                variant="raw-only",
+            )
+        ],
+    )
+
+    class FakeResponses:
+        def parse(self, **kwargs: Any) -> SimpleNamespace:
+            del kwargs
+            return SimpleNamespace(output_parsed=raw_only)
+
+    planner = OpenAIQueryPlanner(client=SimpleNamespace(responses=FakeResponses()))
+
+    with pytest.raises(QueryPlanningError, match="returned a raw-only search intent"):
+        planner.plan("What dose was used?")
 
 
 def test_openai_planner_accumulates_reported_token_usage() -> None:

@@ -74,7 +74,7 @@ def _query_plan_response(payload: dict[str, Any]) -> dict[str, Any]:
             "action": "retrieve",
             "search_intents": [
                 {
-                    "dense_query": message,
+                    "dense_query": f"Evidence needed to answer: {message}",
                     "sparse_query": message,
                     "filters": {"document_id": None, "author": None},
                 }

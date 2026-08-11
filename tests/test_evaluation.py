@@ -19,9 +19,6 @@ from live_long_rnd.evaluation import (
 from live_long_rnd.golden_embeddings import GoldenFixtureEmbedder
 from live_long_rnd.query_planning import OpenAIQueryPlanner, QueryPlan, SearchIntent
 from live_long_rnd.retrieve import (
-    FLASHRANK_MODEL_REVISION,
-    FLASHRANK_MODEL_SHA256,
-    FLASHRANK_MODEL_URL,
     FlashRankCrossEncoder,
     LanceDBHybridStore,
     RetrievalConfig,
@@ -43,14 +40,20 @@ class _PlannerResponses:
         message = kwargs["input"][-1]["content"]
         plans = {
             "Does senolytic treatment reverse cellular senescence in humans?": [
-                SearchIntent(dense_query=message, sparse_query=message),
+                SearchIntent(
+                    dense_query="Senolytic treatment effects on cellular senescence in humans",
+                    sparse_query="senolytic cellular senescence humans",
+                ),
                 SearchIntent(
                     dense_query="Senolytic treatment cellular senescence in humans",
                     sparse_query="senolytic treatment cellular senescence humans",
                 ),
             ],
             "Is metformin a proven anti-aging drug compared with rapamycin?": [
-                SearchIntent(dense_query=message, sparse_query=message),
+                SearchIntent(
+                    dense_query="Evidence comparing metformin and rapamycin as anti-aging drugs",
+                    sparse_query="metformin rapamycin anti-aging",
+                ),
                 SearchIntent(
                     dense_query="Metformin compared with rapamycin for anti-aging",
                     sparse_query="metformin rapamycin anti-aging",
@@ -74,7 +77,12 @@ class _PlannerResponses:
                 action="retrieve",
                 search_intents=plans.get(
                     message,
-                    [SearchIntent(dense_query=message, sparse_query=message)],
+                    [
+                        SearchIntent(
+                            dense_query=f"Evidence needed to answer: {message}",
+                            sparse_query=message,
+                        )
+                    ],
                 ),
             )
         )
@@ -145,15 +153,6 @@ def test_citation_support_requires_every_target_page_for_each_item() -> None:
     scores = score_citation_support(results)
 
     assert scores == CitationScores(supported_items=23, total_items=24)
-
-
-def test_flashrank_artifact_uses_an_immutable_revision_and_checksum() -> None:
-    assert FLASHRANK_MODEL_REVISION == "858a1ac046a05663a35367eac852d7f76feeefdd"
-    assert f"/resolve/{FLASHRANK_MODEL_REVISION}/" in FLASHRANK_MODEL_URL
-    assert "/resolve/main/" not in FLASHRANK_MODEL_URL
-    assert FLASHRANK_MODEL_SHA256 == (
-        "bdd3772b651ffc34f70e414049285bb55ccc6d1b8e29d0640f836d44f70ec77a"
-    )
 
 
 @pytest.mark.e2e

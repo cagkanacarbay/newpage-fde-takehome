@@ -20,6 +20,7 @@ from live_long_rnd.retrieve import (
     FlashRankCrossEncoder,
     IdentityReranker,
     LanceDBHybridStore,
+    prepare_flashrank_model,
     RetrievalConfig,
     RetrievalDependencies,
     RetrievalResult,
@@ -338,6 +339,33 @@ def test_flashrank_adapter_preserves_provenance_while_replacing_scores() -> None
     assert reranked[0].page_numbers == candidates[1].page_numbers
     assert reranked[0].bboxes == candidates[1].bboxes
     assert reranked[0].original_text == candidates[1].original_text
+
+
+def test_flashrank_checksum_mismatch_does_not_install_an_artifact(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    class CorruptDownload:
+        def __enter__(self) -> "CorruptDownload":
+            return self
+
+        def __exit__(self, *args: object) -> None:
+            return None
+
+        def raise_for_status(self) -> None:
+            return None
+
+        def iter_bytes(self) -> Sequence[bytes]:
+            return [b"corrupt artifact"]
+
+    monkeypatch.setattr(
+        "live_long_rnd.retrieve.httpx.stream",
+        lambda *args, **kwargs: CorruptDownload(),
+    )
+
+    with pytest.raises(ValueError, match="checksum does not match"):
+        prepare_flashrank_model(tmp_path)
+
+    assert list(tmp_path.iterdir()) == []
 
 
 def test_evidence_packing_keeps_only_complete_chunks_within_the_token_budget() -> None:

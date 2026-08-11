@@ -37,7 +37,15 @@ class SearchIntent(BaseModel):
 
     dense_query: str = Field(min_length=1)
     sparse_query: str = Field(min_length=1)
+    variant: Literal["dual-query", "raw-only"] = "dual-query"
     filters: MetadataFilters = Field(default_factory=MetadataFilters)
+
+    @model_validator(mode="after")
+    def validate_query_forms(self) -> SearchIntent:
+        """Reserve identical query forms for the controlled raw-only variant."""
+        if self.variant == "dual-query" and self.dense_query == self.sparse_query:
+            raise ValueError("dual-query search intents require distinct query forms")
+        return self
 
 
 class QueryPlan(BaseModel):
@@ -118,7 +126,13 @@ class RawQueryPlanner:
         del history
         return QueryPlan(
             action="retrieve",
-            search_intents=[SearchIntent(dense_query=message, sparse_query=message)],
+            search_intents=[
+                SearchIntent(
+                    dense_query=message,
+                    sparse_query=message,
+                    variant="raw-only",
+                )
+            ],
         )
 
 
@@ -172,6 +186,8 @@ class OpenAIQueryPlanner:
         )
         if response.output_parsed is None:
             raise QueryPlanningError("The query planner returned no structured output.")
+        if any(intent.variant == "raw-only" for intent in response.output_parsed.search_intents):
+            raise QueryPlanningError("The query planner returned a raw-only search intent.")
         if len(response.output_parsed.search_intents) > self._max_intents:
             raise QueryPlanningError(
                 f"The query planner returned {len(response.output_parsed.search_intents)} "
