@@ -150,6 +150,7 @@ export function ChatApp() {
       if (event.type === "conversation") {
         conversationId = event.id;
         selectionRef.current.select(event.id);
+        listRefreshRef.current.start();
         setActiveId(event.id);
         setConversations((current) => {
           const rest = current.filter((item) => item.id !== event.id);
