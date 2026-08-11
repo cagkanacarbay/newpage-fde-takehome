@@ -8,7 +8,7 @@ and accurately and surface it with traceable sources.
 ## The pieces of the puzzle
 
 The assignment requires an explicit choice, with reasoning, for each of these. This
-table tracks status; current technical choices are in `docs/decisions.html`.
+table tracks status; the reasoning is written up in the README, not here.
 
 | Piece | Status |
 |---|---|
@@ -19,8 +19,8 @@ table tracks status; current technical choices are in `docs/decisions.html`.
 | LLM selection | Decided — OpenAI, GPT 5.6 Luna default |
 | Vector database | Decided — LanceDB |
 | Retrieval approach | Open |
-| Prompt engineering | Deferred — per-claim citation markers + verifier (`docs/generation.html`) |
-| Context management | In progress — mock-backed until issue #32 adds SQLite persistence |
+| Prompt engineering | Decided — per-claim citation markers + verifier (`docs/generation.html`) |
+| Context management | Decided |
 | Guardrails | Decided |
 | Quality controls | Decided — deterministic retrieval gates |
 | Observability | Decided — Arize Phoenix |

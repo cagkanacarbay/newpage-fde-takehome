@@ -377,53 +377,55 @@
       </section>
 
       <section id="context-management">
-        <h2><span class="idx">07</span> Context management: mock-backed conversations, SQLite deferred</h2>
-        <p class="lead">The UI keeps conversations in memory for the demo. SQLite persistence is deferred to issue #32.</p>
+        <h2><span class="idx">07</span> Context management: 100k-token history window, SQLite storage</h2>
+        <p class="lead">Keep the recent conversation verbatim within a generous token budget, tell the user when anything drops, and let the query planner decide what each turn needs.</p>
 
         <div class="rec">
           <div class="rec-head">TL;DR</div>
           <div class="rec-body">
-            <p><strong>What:</strong> Keep demo conversations in an in-memory client. The client retains recent turns within a 100,000-word cap and shows a notice when it drops earlier turns.</p>
-            <p><strong>Why:</strong> This keeps the UI demonstrable without adding a persistence service before the conversation API is ready.</p>
-            <p><strong>Status:</strong> SQLite persistence is deferred to <a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/32">issue 32</a>. <a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/22">Issue 22 - context management strategy</a> records the wider direction.</p>
+            <p><strong>What:</strong> Keep the most recent turns verbatim within a 100k-token history budget. Drop oldest turns beyond the budget, with an inline notice to the user. Persist conversations in SQLite, bind-mounted outside the Docker container.</p>
+            <p><strong>Why:</strong> The model context window is large, so capacity is not the constraint. Demo-length conversations do not need summarization or retrieval over history, and a plain token window keeps every referenced entity verbatim.</p>
+            <p><strong>Status:</strong> Strategy decided. <a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/22">Issue 22 - context management strategy</a> records the grilling.</p>
           </div>
         </div>
 
-        <h3>Current demo behavior</h3>
+        <h3>How context is managed</h3>
         <div class="accordion">
           <details>
-            <summary>Limit in-memory history by words, not turns</summary>
+            <summary>Window by tokens, not by turn count</summary>
             <div class="body">
-              <p>Keep the newest turns until the in-memory history exceeds 100,000 words.</p>
-              <p>There is no fixed turn limit. The mock client drops the oldest complete turns first.</p>
+              <p>Keep the newest turns verbatim until adding the next older turn would exceed 100k tokens.</p>
+              <p>There is no fixed turn limit. Short turns give a long memory; long turns give a short one.</p>
+              <p>Summarization and retrieval over history are rejected for v1. Both can mangle the exact entities, doses, and paper IDs that follow-up questions reference.</p>
             </div>
           </details>
           <details>
             <summary>Never truncate silently</summary>
             <div class="body">
               <p>When turns are dropped to fit the budget, place an inline notice in the conversation.</p>
-              <p>No permanent meter or near-cap banner is shown.</p>
+              <p>No permanent token meter and no near-cap banner. With a 100k budget, hitting it is rare.</p>
             </div>
           </details>
           <details>
-            <summary>Defer history-aware retrieval</summary>
+            <summary>Let the query planner decide what a turn needs</summary>
             <div class="body">
-              <p>The current chat request sends the new message only.</p>
-              <p>Issue 32 will add persisted conversation history and define how retrieval and generation use it.</p>
+              <p>The QueryPlan step from the retrieval contract reads the message and the history and decides the evidence need per turn.</p>
+              <p>A meta-question about the conversation itself, such as "what did it say earlier?", retrieves nothing and is answered from history alone.</p>
+              <p>The default posture is to give the model everything within budget. Evidence packing must account for the actual history size of the turn.</p>
             </div>
           </details>
           <details>
-            <summary>Defer follow-up resolution</summary>
+            <summary>Resolve follow-ups for retrieval, not for the answer</summary>
             <div class="body">
-              <p>The mock conversation list does not yet resolve references such as "the second paper" or "it" for retrieval.</p>
-              <p>Issue 32 owns the persisted conversation API needed for this behavior.</p>
+              <p>The planner resolves references such as "the second paper" or "it" into explicit retrieval queries.</p>
+              <p>The answer generator sees the windowed history and the retrieved evidence only. The resolved standalone question stays internal to retrieval, so the answer addresses the message as asked.</p>
             </div>
           </details>
           <details>
-            <summary>Defer SQLite persistence to issue 32</summary>
+            <summary>Persist conversations in SQLite outside the container</summary>
             <div class="body">
-              <p>The current UI uses a mock in-memory client and loses conversations when the page reloads.</p>
-              <p>Issue 32 will add the SQLite-backed conversation API and its Docker persistence contract.</p>
+              <p>Store every conversation in a SQLite database.</p>
+              <p>Bind-mount the database file from the host, so it survives the container. This is a one-line volume for the reviewer.</p>
             </div>
           </details>
         </div>
@@ -477,14 +479,14 @@
 
       <section id="packaging">
         <h2><span class="idx">09</span> Packaging: one indexed application image</h2>
-        <p class="lead">Ship the static chat UI, API, completed LanceDB index, and citation PDF corpus in one image.</p>
+        <p class="lead">Ship the static chat UI, API, and completed LanceDB index in one image.</p>
 
         <div class="rec">
           <div class="rec-head">TL;DR</div>
           <div class="rec-body">
-            <p><strong>What:</strong> Build the image with named <code>index=data/index</code> and <code>corpus=data/corpus/longevity</code> contexts. Serve the exported Next.js UI and FastAPI from port 8000.</p>
-            <p><strong>Why:</strong> A reviewer starts one container and receives the exact 696-chunk index plus the source PDFs used by the citation viewer. LanceDB needs no separate database service.</p>
-            <p><strong>Security:</strong> Pass <code>OPENAI_API_KEY</code> only at runtime. The build context excludes <code>.env</code>, local caches, and model weights.</p>
+            <p><strong>What:</strong> Build the image with <code>data/index</code> as a named Docker context. Serve the exported Next.js UI and FastAPI from port 8000.</p>
+            <p><strong>Why:</strong> A reviewer starts one container and receives the exact 696-chunk index. LanceDB needs no separate database service.</p>
+            <p><strong>Security:</strong> Pass <code>OPENAI_API_KEY</code> only at runtime. The build context excludes <code>.env</code>, the corpus, local caches, and model weights.</p>
             <p><strong>Size control:</strong> Keep Docling, Torch, and parser integrations in the <code>ingest</code> dependency group. Exclude that group from the runtime image.</p>
             <p><strong>Status:</strong> The verified 197 MB image contains 696 chunks. It loaded the UI and returned live citations from papers 017, 015, and 016.</p>
           </div>

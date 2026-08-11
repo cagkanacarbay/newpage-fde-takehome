@@ -59,7 +59,7 @@
         <p>The instructions block states the answer contract:</p>
         <ol class="numbered">
           <li><span><b>Corpus-only</b><span class="d">Answer using only the supplied evidence. Preserve exact values, units, cohorts, and conditions. Never fill gaps with model knowledge.</span></span></li>
-          <li><span><b>Deferred: cite every claim</b><span class="d">Per-claim inline markers will connect each factual claim to its source. The current UI shows numbered source chips after the answer.</span></span></li>
+          <li><span><b>Cite every claim</b><span class="d">End each factual claim with the marker of its source. Claims without support are not written.</span></span></li>
           <li><span><b>Direct answer first</b><span class="d">Open with 2-4 sentences that answer the question. Detail follows only where it helps.</span></span></li>
           <li><span><b>Disclose conflicts</b><span class="d">When sources disagree, report what each side says with its conditions and uncertainty. Do not resolve the disagreement with a verdict.</span></span></li>
           <li><span><b>Medical boundary</b><span class="d">Personal diagnosis, treatment, or dosing questions are declined; study evidence may be reported in study context without personalizing it.</span></span></li>
@@ -69,14 +69,14 @@
 
       <section id="verification">
         <h2><span class="idx">04</span> Verification</h2>
-        <p class="lead">Claim verification is the planned guardrail. It is not part of the current streaming path.</p>
+        <p class="lead">Every claim is checked against its cited chunk before the answer is final. The pipeline is the one the guardrails policy defines.</p>
         <ol class="numbered">
           <li><span><b>Parse</b><span class="d">Deterministic code extracts claims and their citation markers from the streamed answer. Unknown markers are rejected outright.</span></span></li>
           <li><span><b>Verify</b><span class="d">A Luna-class small model at low reasoning effort reads each claim with only its cited chunks and returns a status plus the exact supporting text.</span></span></li>
           <li><span><b>Validate</b><span class="d">Code rejects unknown citation IDs, missing provenance, and supporting text that is not an exact substring of the cited chunk.</span></span></li>
           <li><span><b>Clean</b><span class="d">The reviewer removes rejected claims and adjusts connective text only. It never adds facts, changes values, or changes citations. No further model review runs after cleanup.</span></span></li>
         </ol>
-        <p>When implemented, the substring check will prove the evidence text exists; the verifier will judge whether it supports the claim. Uncertainty stated by a source must remain visible.</p>
+        <p>The substring check proves the evidence text exists; the verifier judges whether it supports the claim. Uncertainty stated by a source is kept, not smoothed over.</p>
         <div class="accordion">
           <details>
             <summary>Open implementation values</summary>
@@ -91,7 +91,7 @@
       <section id="conflicts">
         <h2><span class="idx">05</span> Conflicts and refusals</h2>
         <p class="lead">Disagreement is reported, not resolved. Refusal is fail-closed and specific.</p>
-        <p><strong>Conflicts:</strong> when the packed evidence disagrees - the corpus plants six such pairs - the answer covers both sides in natural prose. The source chips preserve the available source locations. Per-claim citations remain deferred.</p>
+        <p><strong>Conflicts:</strong> when the packed evidence disagrees - the corpus plants six such pairs - the answer covers both sides in natural prose. Each side's claims carry their own citations, with conditions and uncertainty preserved. The assistant never synthesizes a verdict on contested evidence.</p>
         <p><strong>Refusals</strong> follow the guardrails policy verbatim:</p>
         <ol class="numbered">
           <li><span><b>Partial support</b><span class="d">Return the supported part and name the specific gaps in the retrieved evidence.</span></span></li>
@@ -103,13 +103,13 @@
 
       <section id="citation-to-page">
         <h2><span class="idx">06</span> Citation-to-page, end to end</h2>
-        <p class="lead">A numbered source chip after the answer resolves to an exact spot in a source PDF. Inline markers within answer prose remain deferred.</p>
+        <p class="lead">A marker in the answer text resolves to an exact spot in a source PDF. The data for this already flows through the whole pipeline.</p>
         <ol class="numbered">
-          <li><span><b>Source chip</b><span class="d">Each deduplicated citation payload renders as a numbered <code>[n]</code> chip after the streamed answer.</span></span></li>
-          <li><span><b>Payload</b><span class="d"><code>n</code> indexes one retrieved chunk: document ID, page, heading path, bounding box, and snippet.</span></span></li>
-          <li><span><b>UI</b><span class="d">Activating a chip opens the source PDF at that page with the bounding box highlighted.</span></span></li>
+          <li><span><b>Marker</b><span class="d">A claim in the streamed answer ends with <code>[n]</code>.</span></span></li>
+          <li><span><b>Payload</b><span class="d"><code>n</code> indexes the citation payload of one retrieved chunk: document ID, page, heading path, bounding box, snippet.</span></span></li>
+          <li><span><b>UI</b><span class="d">The marker renders clickable. Activating it opens the source PDF at that page with the bounding box highlighted.</span></span></li>
         </ol>
-        <p><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/24">Issue 24</a> implements the PDF viewer, page jump, and highlight interaction. Each chip maps to one chunk and one exact location.</p>
+        <p>The PDF viewer, page jump, and highlight interaction are designed and prototyped under <a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/24">issue 24</a>. This page fixes the contract that work builds against: one marker, one chunk, one exact location.</p>
       </section>
 
       <section id="reopen">
@@ -118,7 +118,7 @@
           <details>
             <summary>Conditions that would change the decision</summary>
             <div class="body">
-              <p><strong>Inline markers:</strong> implement them only when the streamed claim format can associate each marker with a retrieved citation reliably.</p>
+              <p><strong>Unreliable markers:</strong> if the model drops, duplicates, or misnumbers inline markers at a rate the deterministic parser cannot absorb, switch the generation format to a strict JSON schema of claims and citation IDs and accept the streaming cost.</p>
               <p><strong>Verifier too weak:</strong> if calibration on the 24-item suite shows the Luna-class verifier cannot judge support, move the verifier up a tier before relaxing the claim-per-citation rule.</p>
               <p><strong>Conflict prose hides disagreement:</strong> if natural-prose conflict reporting lets answers quietly favor one side, move to a structured both-sides block. This was the alternative considered and set aside.</p>
             </div>

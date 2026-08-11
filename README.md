@@ -21,18 +21,16 @@ key. The same key serves embedding and live answer generation.
    This parses all 27 PDFs with Docling, embeds with OpenAI
    `text-embedding-3-large`, and writes a self-contained LanceDB index to
    `data/index/` (gitignored; fully reproducible with this command).
-4. Build one application image with the completed index and PDF corpus:
+4. Build one application image with the completed index:
 
    ```bash
    docker build \
      --build-context index=data/index \
-     --build-context corpus=data/corpus/longevity \
      --tag live-long-rnd .
    ```
 
-   The image contains the Next.js export, all 696 LanceDB chunks, and the PDF corpus
-   used by its citation viewer.
-   It does not contain `.env`, Docling, Torch, or the OpenAI key.
+   The image contains the Next.js export and all 696 LanceDB chunks.
+   It does not contain `.env`, the PDF corpus, Docling, Torch, or the OpenAI key.
 5. Start the complete application on port 8000:
 
    ```bash
