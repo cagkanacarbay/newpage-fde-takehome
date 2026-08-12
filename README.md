@@ -249,4 +249,14 @@ Given this scenario I would:
 
 ## Screenshots
 
-<!-- Screenshots of the running application go here. -->
+### Start a research conversation
+
+![Live Long R&D research assistant empty state](screenshots/empty-state.png)
+
+### Review a cited answer
+
+![Live Long R&D answer with inline citations](screenshots/cited-answer.png)
+
+### Open the exact source passage
+
+![Live Long R&D cited answer beside the highlighted PDF source](screenshots/citation-source.png)
