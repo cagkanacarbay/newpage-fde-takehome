@@ -11,10 +11,13 @@ import pytest
 from live_long_rnd.evaluation import (
     CITATION_TARGETS,
     EVALUATION_ITEMS,
+    AnswerQualityScores,
     CitationScores,
     GateScores,
+    score_answer_quality,
     score_citation_support,
     score_quality_gates,
+    selected_runtime_quality_passes,
 )
 from live_long_rnd.golden_embeddings import GoldenFixtureEmbedder
 from live_long_rnd.query_planning import OpenAIQueryPlanner, QueryPlan, SearchIntent
@@ -158,12 +161,34 @@ def test_citation_support_requires_every_target_page_for_each_item() -> None:
     assert scores == CitationScores(supported_items=23, total_items=24)
 
 
+def test_selected_runtime_quality_requires_citations_and_answer_evidence() -> None:
+    ranking_scores = GateScores(6, 6, 12, True, True)
+    answer_scores = AnswerQualityScores(49, 60, 18, 24, 49 / 60, {})
+
+    assert selected_runtime_quality_passes(
+        ranking_scores,
+        CitationScores(13, 24),
+        answer_scores,
+    )
+    assert not selected_runtime_quality_passes(
+        ranking_scores,
+        CitationScores(12, 24),
+        answer_scores,
+    )
+    assert not selected_runtime_quality_passes(
+        ranking_scores,
+        CitationScores(13, 24),
+        AnswerQualityScores(48, 60, 18, 24, 48 / 60, {}),
+    )
+
+
 @pytest.mark.e2e
 def test_retrieval_quality_gates_block_regressions(tmp_path: Path) -> None:
     assert _FIXTURE_INDEX.is_dir()
     _assert_fixture_matches_corpus()
     store = LanceDBHybridStore(_FIXTURE_INDEX)
     rankings: dict[str, list[str]] = {}
+    results_by_item: dict[str, list[RetrievalResult]] = {}
 
     for item in EVALUATION_ITEMS:
         results = retrieve(
@@ -176,9 +201,12 @@ def test_retrieval_quality_gates_block_regressions(tmp_path: Path) -> None:
                 reranker=FlashRankCrossEncoder(cache_dir=tmp_path / "flashrank"),
             ),
         )
+        results_by_item[item.item_id] = results
         rankings[item.item_id] = [result.document_id for result in results]
 
     scores = score_quality_gates(rankings)
+    citation_scores = score_citation_support(results_by_item)
+    answer_scores = score_answer_quality(results_by_item)
 
     ranking_report = json.dumps(rankings, indent=2)
     assert scores.contradiction_pairs == 6, ranking_report
@@ -186,6 +214,10 @@ def test_retrieval_quality_gates_block_regressions(tmp_path: Path) -> None:
     assert scores.gold_documents >= 11, rankings
     assert scores.c1_passed, rankings
     assert scores.passed, rankings
+    assert selected_runtime_quality_passes(scores, citation_scores, answer_scores), (
+        citation_scores,
+        answer_scores,
+    )
 
 
 def _assert_fixture_matches_corpus() -> None:
