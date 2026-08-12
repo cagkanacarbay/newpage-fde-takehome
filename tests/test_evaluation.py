@@ -16,6 +16,7 @@ from live_long_rnd.evaluation import (
     score_citation_support,
     score_quality_gates,
 )
+from live_long_rnd.fixture_lineage import validate_fixture_lineage
 from live_long_rnd.golden_embeddings import GoldenFixtureEmbedder
 from live_long_rnd.query_planning import OpenAIQueryPlanner, QueryPlan, SearchIntent
 from live_long_rnd.retrieve import (
@@ -189,6 +190,7 @@ def test_retrieval_quality_gates_block_regressions(tmp_path: Path) -> None:
 
 
 def _assert_fixture_matches_corpus() -> None:
+    validate_fixture_lineage(_FIXTURE_INDEX / "manifest.json")
     manifest = json.loads((_FIXTURE_INDEX / "manifest.json").read_text(encoding="utf-8"))
     corpus_hashes = {
         source.name: hashlib.sha256(source.read_bytes()).hexdigest()

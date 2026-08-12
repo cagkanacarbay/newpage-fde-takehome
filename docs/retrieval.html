@@ -267,7 +267,8 @@
 
         <h3>Keep the quality fixture traceable</h3>
         <p>The committed LanceDB fixture records the SHA-256 hash of every one of the 27 source PDFs in <code>tests/fixtures/golden_retrieval_index/manifest.json</code>.</p>
-        <p>The quality gate compares those hashes with the canonical corpus before it scores the 24 items.</p>
+        <p>It also records hashes for the reindex script, its complete local import closure, the Python version, the project configuration, and the dependency lockfile.</p>
+        <p>The quality gate compares all corpus and production-input hashes before it scores the 24 items.</p>
         <p>Rebuild it only after explicit corpus approval with <code>ALLOW_CORPUS_REINDEX=1 uv run python scripts/reindex_golden_retrieval_fixture.py</code>.</p>
       </section>
 

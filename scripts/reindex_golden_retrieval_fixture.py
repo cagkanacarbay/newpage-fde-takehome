@@ -9,12 +9,13 @@ import os
 import shutil
 from pathlib import Path
 
+from live_long_rnd.fixture_lineage import production_index_input_hashes
 from live_long_rnd.golden_embeddings import GOLDEN_EMBEDDING_DIMENSIONS, GoldenFixtureEmbedder
 from live_long_rnd.ingest import IngestDependencies, LanceDBNodeStore, ingest_pdf
 from live_long_rnd.parsing import create_reader
 
 TABLE_NAME = "chunks"
-FIXTURE_VERSION = 1
+FIXTURE_VERSION = 2
 DEFAULT_OUTPUT = Path("tests/fixtures/golden_retrieval_index")
 
 
@@ -54,6 +55,7 @@ def main(argv: list[str] | None = None) -> int:
         "table_name": TABLE_NAME,
         "vector_dimensions": GOLDEN_EMBEDDING_DIMENSIONS,
         "source_sha256": {source.name: _sha256(source) for source in sources},
+        "production_input_sha256": production_index_input_hashes(),
         "row_count": row_count,
     }
     (args.output / "manifest.json").write_text(

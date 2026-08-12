@@ -22,6 +22,8 @@ jobs:
         with:
           enable-cache: true
       - run: uv sync --locked
+      - name: Verify golden fixture production lineage
+        run: uv run python -m live_long_rnd.fixture_lineage
       - run: uv run ruff format --check src tests
       - run: uv run ruff check src tests
       - run: uv run mypy
@@ -48,6 +50,7 @@ jobs:
               - 'src/live_long_rnd/calibration.py'
               - 'src/live_long_rnd/embeddings.py'
               - 'src/live_long_rnd/evaluation.py'
+              - 'src/live_long_rnd/fixture_lineage.py'
               - 'src/live_long_rnd/golden_embeddings.py'
               - 'src/live_long_rnd/index_config.py'
               - 'src/live_long_rnd/ingest.py'
@@ -57,6 +60,8 @@ jobs:
               - 'tests/api/test_live_retrieval.py'
               - 'tests/test_calibration.py'
               - 'tests/test_evaluation.py'
+              - 'tests/test_fixture_lineage.py'
+              - 'tests/test_reindex_golden_retrieval_fixture.py'
               - 'tests/test_query_planning.py'
               - 'tests/test_retrieve.py'
               - 'tests/fixtures/golden_retrieval_index/**'
@@ -66,6 +71,9 @@ jobs:
           enable-cache: true
       - if: steps.changes.outputs.retrieval == 'true'
         run: uv sync --locked
+      - name: Verify golden fixture production lineage
+        if: steps.changes.outputs.retrieval == 'true'
+        run: uv run python -m live_long_rnd.fixture_lineage
       - name: Download and verify pinned FlashRank artifact
         if: steps.changes.outputs.retrieval == 'true'
         run: uv run python -c "from live_long_rnd.retrieve import prepare_flashrank_model; prepare_flashrank_model()"
