@@ -16,9 +16,21 @@ PERSONAL_MEDICAL_REFUSAL = (
 )
 
 _PERSONAL_MEDICAL_PATTERNS = (
-    re.compile(r"\b(?:should|can|could|do)\s+i\s+(?:take|use|start|stop|change)\b", re.I),
+    re.compile(
+        r"\b(?:should|can|could|do)\s+i\s+(?:take|use|start|stop|change)\b",
+        re.I,
+    ),
     re.compile(r"\b(?:diagnos\w*|treat\w*)\s+me\b", re.I),
-    re.compile(r"\bmy\s+(?:dose|dosing|diagnos\w*|treatment|medication)\b", re.I),
+    re.compile(
+        r"\b(?:my|for me|personally)\b.*\b(?:dose|dosing|diagnos\w*|treat\w*|medication)\b",
+        re.I,
+    ),
+    re.compile(
+        r"\b(?:is|would|will|can|could)\b.*\b(?:safe|harmful|dangerous)\b.*\b(?:for me|for myself|personally)\b",
+        re.I,
+    ),
+    re.compile(r"\b(?:do|could|can)\s+i\s+have\b", re.I),
+    re.compile(r"\b(?:hurt|harm)\s+me\b", re.I),
 )
 
 

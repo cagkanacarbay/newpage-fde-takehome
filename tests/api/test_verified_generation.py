@@ -350,7 +350,7 @@ def test_personal_dosing_question_is_declined_without_generation(tmp_path: Path)
             return _events(
                 await client.post(
                     "/api/chat",
-                    json={"message": "What senolytic dose should I take?"},
+                    json={"message": "Is 100 mg safe for me?"},
                 )
             )
 

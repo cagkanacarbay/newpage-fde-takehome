@@ -4,7 +4,6 @@ import { RotateCcw } from "lucide-react";
 import { useEffect, useRef } from "react";
 
 import { Button } from "@/components/ui/button";
-import { numberCitations } from "@/lib/citations";
 import type { Citation } from "@/lib/sse";
 
 import { Markdown } from "./markdown";
@@ -72,14 +71,12 @@ export function MessageList({ messages, streaming, onOpenCitation, onRetry }: Me
             );
           }
 
-          const numbered = numberCitations(message.citations);
-          const citations = numbered.map((item) => item.citation);
           return (
             <article key={message.id} className="max-w-full rounded-3xl bg-surface px-5 py-4">
               {message.text ? (
                 <Markdown
                   text={message.text}
-                  citations={citations}
+                  citations={message.citations}
                   onOpenCitation={(citation, index) =>
                     onOpenCitation(message.id, citation, index)
                   }
