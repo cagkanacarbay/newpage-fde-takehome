@@ -250,6 +250,21 @@ def _citation_event(events: list[dict[str, Any]]) -> dict[str, Any]:
     return event
 
 
+def _assert_baked_document_access(port: int) -> None:
+    metadata_url = f"http://127.0.0.1:{port}/api/documents/docker-paper"
+    with urllib.request.urlopen(metadata_url, timeout=10) as metadata_response:
+        metadata = json.loads(metadata_response.read().decode())
+    assert metadata == {
+        "document_id": "docker-paper",
+        "title": "Senolytics in a container",
+    }
+
+    pdf_url = f"http://127.0.0.1:{port}/api/documents/docker-paper/pdf"
+    with urllib.request.urlopen(pdf_url, timeout=10) as pdf_response:
+        assert pdf_response.headers["Content-Type"] == "application/pdf"
+        assert pdf_response.read().startswith(b"%PDF-")
+
+
 @pytest.mark.e2e
 def test_api_image_serves_citations_from_its_baked_index(tmp_path: Path) -> None:
     if os.environ.get("RUN_DOCKER_E2E") != "1":
@@ -314,18 +329,7 @@ def test_api_image_serves_citations_from_its_baked_index(tmp_path: Path) -> None
         restarted_events = _chat_events(port, "What do senolytics do after restart?")
         restarted_citations = _citation_event(restarted_events)
         assert restarted_citations["citations"][0]["document_id"] == "docker-paper"
-
-        metadata_url = f"http://127.0.0.1:{port}/api/documents/docker-paper"
-        with urllib.request.urlopen(metadata_url, timeout=10) as metadata_response:
-            metadata = json.loads(metadata_response.read().decode())
-        assert metadata == {
-            "document_id": "docker-paper",
-            "title": "Senolytics in a container",
-        }
-        pdf_url = f"http://127.0.0.1:{port}/api/documents/docker-paper/pdf"
-        with urllib.request.urlopen(pdf_url, timeout=10) as pdf_response:
-            assert pdf_response.headers["Content-Type"] == "application/pdf"
-            assert pdf_response.read().startswith(b"%PDF-")
+        _assert_baked_document_access(port)
         assert len(OpenAIHandler.requests) == 2
     finally:
         if container_id:
