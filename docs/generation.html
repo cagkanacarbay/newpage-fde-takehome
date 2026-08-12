@@ -96,7 +96,7 @@
         <ol class="numbered">
           <li><span><b>Partial support</b><span class="d">Return only the claims that verification accepts.</span></span></li>
           <li><span><b>No supported answer</b><span class="d">If verification rejects every claim, say the retrieved evidence gave no supported answer.</span></span></li>
-          <li><span><b>Verifier failure</b><span class="d">If the verifier times out or returns invalid output, return a verification error. Never return the unverified draft.</span></span></li>
+          <li><span><b>Verifier failure</b><span class="d">If verifier configuration, a provider call, or its structured output fails, return a verification error. Never return the unverified draft.</span></span></li>
           <li><span><b>No relevant evidence</b><span class="d">If no chunks pass the retrieval gate, the main model is never called; the answer states that no sufficiently relevant evidence was found in the corpus.</span></span></li>
         </ol>
       </section>
@@ -109,6 +109,7 @@
           <li><span><b>Payload</b><span class="d"><code>n</code> indexes the citation payload of one retrieved chunk: document ID, page, heading path, bounding box, snippet.</span></span></li>
           <li><span><b>UI</b><span class="d">The marker renders clickable. Activating it opens the source PDF at that page with the bounding box highlighted.</span></span></li>
         </ol>
+        <p>Older stored answers can lack resolvable markers. Their citation payload remains available through numbered source controls, which open the same PDF page and highlight.</p>
         <p>The PDF viewer, page jump, and highlight interaction are designed and prototyped under <a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/24">issue 24</a>. This page fixes the contract that work builds against: one marker, one chunk, one exact location.</p>
       </section>
 

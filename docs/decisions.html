@@ -354,12 +354,12 @@
             <div class="body">
               <ol class="numbered">
                 <li><span><b>Generate cited claims</b><span class="d">The main model drafts atomic factual claims with citation markers from the retrieved set.</span></span></li>
-                <li><span><b>Read the answer and cited chunks</b><span class="d">A smaller verifier reads the complete answer, then checks each claim only against its cited chunks.</span></span></li>
+                <li><span><b>Verify each cited claim</b><span class="d">A verifier checks each claim only against its cited chunks. The <a href="generation.html#verification">generation contract</a> defines the request boundary and failure policy.</span></span></li>
                 <li><span><b>Return exact evidence</b><span class="d">For each claim, the verifier returns a structured status, chunk ID, and exact supporting text from that chunk.</span></span></li>
                 <li><span><b>Validate deterministically</b><span class="d">Code rejects unknown IDs, missing provenance, and evidence text that is not an exact substring of the cited chunk.</span></span></li>
                 <li><span><b>Emit verified claims</b><span class="d">Code keeps only accepted claims and renumbers their markers for the used citation payload. It cannot add facts, change values, or change citations.</span></span></li>
               </ol>
-              <p>The substring check proves that the evidence text exists. The smaller verifier still decides whether that text supports the claim. It does not judge whether the draft covered every retrieved result; the generation prompt requires coverage of all material packed evidence and both sides of each conflict.</p>
+              <p>The substring check proves that the evidence text exists. The verifier still decides whether that text supports the claim. It does not judge whether the draft covered every retrieved result; the generation prompt requires coverage of all material packed evidence and both sides of each conflict.</p>
               <p>Keep uncertainty stated by a source. Remove a claim when the verifier cannot confirm that its cited text supports it.</p>
               <p>Do not run another model review after validation. Run the response schema and deterministic citation checks before returning the answer.</p>
             </div>
