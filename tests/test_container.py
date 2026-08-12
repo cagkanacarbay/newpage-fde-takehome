@@ -31,7 +31,10 @@ class OpenAIHandler(BaseHTTPRequestHandler):
         payload = json.loads(self.rfile.read(body_size))
         self.requests.append(payload)
         if self.path == "/v1/responses":
-            self._send_json(_query_plan_response(payload))
+            if "Decide whether the cited corpus evidence" in payload.get("instructions", ""):
+                self._send_json(_verifier_response(payload))
+            else:
+                self._send_json(_query_plan_response(payload))
             return
 
         inputs = payload["input"]
@@ -113,6 +116,50 @@ def _query_plan_response(payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _verifier_response(payload: dict[str, Any]) -> dict[str, Any]:
+    verification = json.dumps(
+        {
+            "supported": True,
+            "evidence": [
+                {
+                    "marker": 1,
+                    "exact_text": "Senolytics selectively remove senescent cells.",
+                }
+            ],
+        }
+    )
+    return {
+        "id": "resp_verifier_container_test",
+        "object": "response",
+        "created_at": 0,
+        "status": "completed",
+        "model": payload["model"],
+        "output": [
+            {
+                "id": "msg_verifier_container_test",
+                "type": "message",
+                "status": "completed",
+                "role": "assistant",
+                "content": [
+                    {
+                        "type": "output_text",
+                        "text": verification,
+                        "annotations": [],
+                        "logprobs": [],
+                    }
+                ],
+            }
+        ],
+        "usage": {
+            "input_tokens": 1,
+            "output_tokens": 1,
+            "total_tokens": 2,
+            "input_tokens_details": {"cached_tokens": 0},
+            "output_tokens_details": {"reasoning_tokens": 0},
+        },
+    }
+
+
 def _create_fixture_index(index_dir: Path) -> None:
     value = 1.0 / math.sqrt(3_072)
     node = TextNode(
@@ -176,6 +223,95 @@ def _published_port(container_id: str) -> int:
     return int(result.stdout.rsplit(":", maxsplit=1)[1])
 
 
+def _run_api_container(
+    image_tag: str,
+    state_dir: Path,
+    embedding_server_port: int,
+) -> tuple[str, int]:
+    result = subprocess.run(
+        [
+            "docker",
+            "run",
+            "--detach",
+            "--rm",
+            "--add-host",
+            "host.docker.internal:host-gateway",
+            "--publish",
+            "127.0.0.1::8000",
+            "--group-add",
+            str(os.getgid()),
+            "--volume",
+            f"{state_dir}:/app/state",
+            "--env",
+            "OPENAI_API_KEY=test-key",
+            "--env",
+            f"OPENAI_BASE_URL=http://host.docker.internal:{embedding_server_port}/v1",
+            "--env",
+            "LIVE_LONG_LLM=stub",
+            image_tag,
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    container_id = result.stdout.strip()
+    port = _published_port(container_id)
+    _wait_for_api(port)
+    return container_id, port
+
+
+def _chat_events(port: int, message: str) -> list[dict[str, Any]]:
+    request = urllib.request.Request(
+        f"http://127.0.0.1:{port}/api/chat",
+        data=json.dumps({"message": message}).encode(),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    with urllib.request.urlopen(request, timeout=30) as response:
+        assert response.status == 200
+        body = response.read().decode()
+    return [
+        json.loads(line.removeprefix("data: "))
+        for line in body.splitlines()
+        if line.startswith("data: ")
+    ]
+
+
+def _assert_persisted_conversation(port: int, conversation_id: str) -> None:
+    with urllib.request.urlopen(
+        f"http://127.0.0.1:{port}/api/conversations/{conversation_id}",
+        timeout=10,
+    ) as conversation_response:
+        conversation = json.loads(conversation_response.read().decode())
+    messages = conversation["messages"]
+    assert messages[0]["text"] == "What do senolytics do?"
+    assert messages[1]["text"].startswith("Senolytics are drugs")
+
+
+def _citation_event(events: list[dict[str, Any]]) -> dict[str, Any]:
+    event = next(
+        (item for item in events if item["type"] == "citations"),
+        None,
+    )
+    assert event is not None, events
+    return event
+
+
+def _assert_baked_document_access(port: int) -> None:
+    metadata_url = f"http://127.0.0.1:{port}/api/documents/docker-paper"
+    with urllib.request.urlopen(metadata_url, timeout=10) as metadata_response:
+        metadata = json.loads(metadata_response.read().decode())
+    assert metadata == {
+        "document_id": "docker-paper",
+        "title": "Senolytics in a container",
+    }
+
+    pdf_url = f"http://127.0.0.1:{port}/api/documents/docker-paper/pdf"
+    with urllib.request.urlopen(pdf_url, timeout=10) as pdf_response:
+        assert pdf_response.headers["Content-Type"] == "application/pdf"
+        assert pdf_response.read().startswith(b"%PDF-")
+
+
 @pytest.mark.e2e
 def test_api_image_serves_citations_from_its_baked_index(tmp_path: Path) -> None:
     if os.environ.get("RUN_DOCKER_E2E") != "1":
@@ -185,6 +321,9 @@ def test_api_image_serves_citations_from_its_baked_index(tmp_path: Path) -> None
     _create_fixture_index(index_dir)
     corpus_dir = tmp_path / "corpus"
     _create_fixture_corpus(corpus_dir)
+    state_dir = tmp_path / "state"
+    state_dir.mkdir()
+    state_dir.chmod(0o770)
     image_tag = f"live-long-rnd-e2e:{os.getpid()}"
     OpenAIHandler.requests = []
     server = ThreadingHTTPServer(("0.0.0.0", 0), OpenAIHandler)
@@ -207,64 +346,52 @@ def test_api_image_serves_citations_from_its_baked_index(tmp_path: Path) -> None
             ],
             check=True,
         )
-        result = subprocess.run(
-            [
-                "docker",
-                "run",
-                "--detach",
-                "--rm",
-                "--add-host",
-                "host.docker.internal:host-gateway",
-                "--publish",
-                "127.0.0.1::8000",
-                "--env",
-                "OPENAI_API_KEY=test-key",
-                "--env",
-                f"OPENAI_BASE_URL=http://host.docker.internal:{server.server_port}/v1",
-                "--env",
-                "LIVE_LONG_LLM=stub",
-                image_tag,
-            ],
-            check=True,
-            capture_output=True,
-            text=True,
+        container_id, port = _run_api_container(
+            image_tag,
+            state_dir,
+            server.server_port,
         )
-        container_id = result.stdout.strip()
-        port = _published_port(container_id)
-        _wait_for_api(port)
         with urllib.request.urlopen(f"http://127.0.0.1:{port}/", timeout=10) as response:
             home_page = response.read().decode()
-        request = urllib.request.Request(
-            f"http://127.0.0.1:{port}/api/chat",
-            data=json.dumps({"message": "What do senolytics do?"}).encode(),
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
-        with urllib.request.urlopen(request, timeout=30) as response:
-            body = response.read().decode()
-
-        events = [
-            json.loads(line.removeprefix("data: "))
-            for line in body.splitlines()
-            if line.startswith("data: ")
-        ]
-        citation_event = next(event for event in events if event["type"] == "citations")
+        events = _chat_events(port, "What do senolytics do?")
+        citation_event = _citation_event(events)
+        token_events = [event for event in events if event["type"] == "token"]
         assert "<title>Live Long R&amp;D</title>" in home_page
-        assert response.status == 200
+        assert token_events == [
+            {
+                "type": "token",
+                "text": (
+                    "Senolytics are drugs designed to selectively target senescent cells [1]."
+                ),
+            }
+        ]
         assert citation_event["citations"][0]["document_id"] == "docker-paper"
+        assert len(citation_event["citations"]) == 1
         assert events[-1] == {"type": "done"}
-        metadata_url = f"http://127.0.0.1:{port}/api/documents/docker-paper"
-        with urllib.request.urlopen(metadata_url, timeout=10) as metadata_response:
-            metadata = json.loads(metadata_response.read().decode())
-        assert metadata == {
-            "document_id": "docker-paper",
-            "title": "Senolytics in a container",
-        }
-        pdf_url = f"http://127.0.0.1:{port}/api/documents/docker-paper/pdf"
-        with urllib.request.urlopen(pdf_url, timeout=10) as pdf_response:
-            assert pdf_response.headers["Content-Type"] == "application/pdf"
-            assert pdf_response.read().startswith(b"%PDF-")
-        assert len(OpenAIHandler.requests) == 2
+        assert OpenAIHandler.requests
+        assert any(
+            "Decide whether the cited corpus evidence" in request.get("instructions", "")
+            for request in OpenAIHandler.requests
+        )
+        assert (state_dir / "conversations.db").is_file()
+
+        conversation_id = events[0]["id"]
+        subprocess.run(
+            ["docker", "rm", "--force", container_id],
+            check=True,
+            capture_output=True,
+        )
+        container_id, port = _run_api_container(
+            image_tag,
+            state_dir,
+            server.server_port,
+        )
+        _assert_persisted_conversation(port, conversation_id)
+        restarted_events = _chat_events(port, "What do senolytics do after restart?")
+        restarted_citations = _citation_event(restarted_events)
+        assert restarted_citations["citations"][0]["document_id"] == "docker-paper"
+        _assert_baked_document_access(port)
+        assert len(OpenAIHandler.requests) == 6
     finally:
         if container_id:
             subprocess.run(

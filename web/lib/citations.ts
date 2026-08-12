@@ -32,6 +32,24 @@ export function numberCitations(citations: Citation[]): NumberedCitation[] {
   return numbered;
 }
 
+/** Make generated `[n]` markers actionable without changing their visible text. */
+export function linkCitationMarkers(text: string): string {
+  return text.replace(/\[(\d+)]/g, "[[$1]](#citation-$1)");
+}
+
+/** Keep citations from older stored answers reachable when their text has no markers. */
+export function fallbackCitations(
+  text: string,
+  citations: Citation[],
+): NumberedCitation[] {
+  const numbered = numberCitations(citations);
+  const availableMarkers = new Set(numbered.map(({ index }) => String(index)));
+  const hasResolvableMarker = [...text.matchAll(/\[(\d+)]/g)].some(
+    (match) => match[1] !== undefined && availableMarkers.has(match[1]),
+  );
+  return hasResolvableMarker ? [] : numbered;
+}
+
 export type CssRect = {
   left: number;
   top: number;

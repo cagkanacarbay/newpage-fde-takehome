@@ -1,4 +1,4 @@
-"""The fixed 24-item retrieval suite and document-level quality gates."""
+"""The fixed 24-item retrieval suite and deterministic quality gates."""
 
 from __future__ import annotations
 
@@ -8,6 +8,9 @@ from dataclasses import dataclass
 from typing import Literal, Protocol
 
 EVALUATION_DEPTH = 10
+SELECTED_MIN_CITATION_ITEMS = 13
+SELECTED_MIN_COVERED_FACTS = 49
+SELECTED_MIN_FULLY_ANSWERABLE_ITEMS = 18
 
 
 @dataclass(frozen=True)
@@ -439,6 +442,20 @@ def score_answer_quality(
         total_items=len(EVALUATION_ITEMS),
         mean_fact_coverage=round(sum(item_coverage.values()) / len(EVALUATION_ITEMS), 4),
         item_coverage=item_coverage,
+    )
+
+
+def selected_runtime_quality_passes(
+    gates: GateScores,
+    citations: CitationScores,
+    answer_quality: AnswerQualityScores,
+) -> bool:
+    """Enforce the selected runtime's document, citation, and answer floors."""
+    return (
+        gates.passed
+        and citations.supported_items >= SELECTED_MIN_CITATION_ITEMS
+        and answer_quality.covered_facts >= SELECTED_MIN_COVERED_FACTS
+        and answer_quality.fully_answerable_items >= SELECTED_MIN_FULLY_ANSWERABLE_ITEMS
     )
 
 

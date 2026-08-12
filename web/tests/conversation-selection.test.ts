@@ -1,0 +1,50 @@
+import { strict as assert } from "node:assert";
+import { describe, it } from "node:test";
+
+import {
+  ConversationListRefresh,
+  ConversationSelection,
+} from "../lib/conversation-selection";
+
+describe("ConversationSelection", () => {
+  it("rejects an earlier load after returning to the same conversation", () => {
+    const selection = new ConversationSelection();
+
+    const firstA = selection.select("conversation-a");
+    selection.select("conversation-b");
+    const secondA = selection.select("conversation-a");
+
+    assert.equal(selection.isCurrent(firstA), false);
+    assert.equal(selection.isCurrent(secondA), true);
+  });
+
+  it("rejects a pending load when the user sends a message", () => {
+    const selection = new ConversationSelection();
+
+    const pendingLoad = selection.select("conversation-a");
+    selection.select("conversation-a");
+
+    assert.equal(selection.isCurrent(pendingLoad), false);
+  });
+
+  it("invalidates an active deletion after the user switches conversations", () => {
+    const selection = new ConversationSelection();
+
+    selection.select("conversation-a");
+    const pendingDeletion = selection.current();
+    selection.select("conversation-b");
+
+    assert.equal(pendingDeletion.id, "conversation-a");
+    assert.equal(selection.isCurrent(pendingDeletion), false);
+  });
+
+  it("rejects an earlier conversation-list refresh", () => {
+    const refresh = new ConversationListRefresh();
+
+    const initial = refresh.start();
+    const afterSend = refresh.start();
+
+    assert.equal(refresh.isCurrent(initial), false);
+    assert.equal(refresh.isCurrent(afterSend), true);
+  });
+});

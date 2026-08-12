@@ -883,8 +883,8 @@ llama-index-core     base package, every integration added deliberately</code></
       </section>
 
       <section id="c9">
-        <h2><span class="idx">09</span> Multi-turn handling <span class="state open">Open</span></h2>
-        <div class="callout note"><span class="lbl">GitHub coverage</span><p><strong><a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/22">Issue #22</a> is open.</strong> It covers the context-management strategy for multi-turn behavior. <a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/26">Issue #26</a> carries the wider architecture boundary.</p></div>
+        <h2><span class="idx">09</span> Multi-turn handling <span class="state set">Set</span></h2>
+        <div class="callout note"><span class="lbl">Current decision</span><p><a href="decisions.html#context-management">The decisions page</a> owns the current context-management contract: a 100k-token history window, SQLite storage, and a visible truncation notice. This section preserves the earlier option analysis.</p></div>
         <p class="determines"><b>Determines</b> whether the thing is actually conversational. The brief says “conversational AI assistant”, and a demo gets judged on a conversation, not a single question.</p>
 
         <p>The failing case is short: ask “what did Hickson find about senolytics”, then ask “what about the other trial”. Retrieving on that second message alone returns nothing useful, because on its own it means nothing.</p>
@@ -921,8 +921,8 @@ llama-index-core     base package, every integration added deliberately</code></
         </table></div>
 
         <div class="decider">
-          <span class="lbl">What settles it</span>
-          <p>How much per-turn latency the chat can absorb before it stops feeling responsive, and whether we want a deterministic retrieval path we can evaluate — an agentic loop is much harder to score against a fixed question set, which pulls directly against choice 13.</p>
+          <span class="lbl">Decision</span>
+          <p>The current implementation keeps complete recent turns within a 100k-token window. The remaining options are not selected for v1. See <a href="decisions.html#context-management">the decisions page</a> for the authoritative contract.</p>
         </div>
       </section>
 

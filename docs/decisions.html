@@ -302,7 +302,7 @@
             <p><strong>What:</strong> Gate retrieved chunks before generation, require a citation for every factual claim, and verify each claim against its cited text.</p>
             <p><strong>Why:</strong> Live Long R&amp;D needs a research assistant, not a general chatbot. A fluent answer without paper support is a product failure.</p>
             <p><strong>Boundary:</strong> User prompts control the answer form. They cannot override retrieval, evidence, citation, conflict, medical, or prompt-injection guardrails.</p>
-            <p><strong>Status:</strong> Policy decided. The calibrated score and smaller verifier model remain implementation choices.</p>
+            <p><strong>Status:</strong> Implemented. <code>gpt-5.6-luna</code> verifies each claim at low reasoning effort, and deterministic code validates its exact evidence text.</p>
             <p><strong>GitHub:</strong> <a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/21">Issue 21 - define assistant guardrails</a> records the agreed policy. The <a href="technical-choices.html#c12">technical-choice analysis</a> preserves the alternatives and implementation limits.</p>
           </div>
         </div>
@@ -353,23 +353,23 @@
             <summary>Verify every factual claim through structured evidence</summary>
             <div class="body">
               <ol class="numbered">
-                <li><span><b>Generate structured claims</b><span class="d">The main model returns atomic factual claims with citation IDs from the retrieved set.</span></span></li>
-                <li><span><b>Read the answer and cited chunks</b><span class="d">A smaller verifier reads the complete answer, then checks each claim only against its cited chunks.</span></span></li>
+                <li><span><b>Generate cited claims</b><span class="d">The main model drafts atomic factual claims with citation markers from the retrieved set.</span></span></li>
+                <li><span><b>Verify each cited claim</b><span class="d">A verifier checks each claim only against its cited chunks. The <a href="generation.html#verification">generation contract</a> defines the request boundary and failure policy.</span></span></li>
                 <li><span><b>Return exact evidence</b><span class="d">For each claim, the verifier returns a structured status, chunk ID, and exact supporting text from that chunk.</span></span></li>
                 <li><span><b>Validate deterministically</b><span class="d">Code rejects unknown IDs, missing provenance, and evidence text that is not an exact substring of the cited chunk.</span></span></li>
-                <li><span><b>Clean without changing meaning</b><span class="d">The reviewer removes rejected claims and adjusts connective text only. It cannot add facts, change values, or change citations.</span></span></li>
+                <li><span><b>Emit verified claims</b><span class="d">Code keeps only accepted claims and renumbers their markers for the used citation payload. It cannot add facts, change values, or change citations.</span></span></li>
               </ol>
-              <p>The substring check proves that the evidence text exists. The smaller verifier still decides whether that text supports the claim.</p>
+              <p>The substring check proves that the evidence text exists. The verifier still decides whether that text supports the claim. It does not judge whether the draft covered every retrieved result; the generation prompt requires coverage of all material packed evidence and both sides of each conflict.</p>
               <p>Keep uncertainty stated by a source. Remove a claim when the verifier cannot confirm that its cited text supports it.</p>
-              <p>Do not run another model review after cleanup. Run the response schema and deterministic citation checks before returning the answer.</p>
+              <p>Do not run another model review after validation. Run the response schema and deterministic citation checks before returning the answer.</p>
             </div>
           </details>
 
           <details>
             <summary>Fail closed without hiding what happened</summary>
             <div class="body">
-              <p>If some requested parts lack support, return the supported answer and identify the specific gaps in the retrieved evidence.</p>
-              <p>If cleanup removes every factual claim, return that the retrieved evidence did not provide a supported answer.</p>
+              <p>If some requested parts lack support, return only the factual claims that verification accepts.</p>
+              <p>If verification rejects every factual claim, return that the retrieved evidence did not provide a supported answer.</p>
               <p>If the verifier times out or returns invalid output, return a verification error. Never return the unverified draft.</p>
             </div>
           </details>
@@ -383,7 +383,7 @@
         <div class="rec">
           <div class="rec-head">TL;DR</div>
           <div class="rec-body">
-            <p><strong>What:</strong> Keep the most recent turns verbatim within a 100k-token history budget. Drop oldest turns beyond the budget, with an inline notice to the user. Persist conversations in SQLite, bind-mounted outside the Docker container.</p>
+            <p><strong>What:</strong> Keep the most recent complete turns verbatim within a 100k-token history budget. Drop oldest turns beyond the budget, with an SSE notice in the conversation. Persist the full completed history in SQLite at <code>data/conversations.db</code> during local development and at <code>/app/state/conversations.db</code> in Docker. Bind-mount a host directory to <code>/app/state</code> in Docker.</p>
             <p><strong>Why:</strong> The model context window is large, so capacity is not the constraint. Demo-length conversations do not need summarization or retrieval over history, and a plain token window keeps every referenced entity verbatim.</p>
             <p><strong>Status:</strong> Strategy decided. <a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/22">Issue 22 - context management strategy</a> records the grilling.</p>
           </div>
@@ -395,15 +395,22 @@
             <summary>Window by tokens, not by turn count</summary>
             <div class="body">
               <p>Keep the newest turns verbatim until adding the next older turn would exceed 100k tokens.</p>
-              <p>There is no fixed turn limit. Short turns give a long memory; long turns give a short one.</p>
+              <p>There is no fixed model-history turn limit. Short turns give a long memory; long turns give a short one.</p>
               <p>Summarization and retrieval over history are rejected for v1. Both can mangle the exact entities, doses, and paper IDs that follow-up questions reference.</p>
             </div>
           </details>
           <details>
             <summary>Never truncate silently</summary>
             <div class="body">
-              <p>When turns are dropped to fit the budget, place an inline notice in the conversation.</p>
+              <p>When turns are dropped to fit the budget, send an SSE notice and place it in the conversation.</p>
               <p>No permanent token meter and no near-cap banner. With a 100k budget, hitting it is rare.</p>
+            </div>
+          </details>
+          <details>
+            <summary>Return thirty complete turns for the chat view</summary>
+            <div class="body">
+              <p>Return the newest 30 completed user-assistant turns in one conversation response.</p>
+              <p>This display limit does not change the 100k-token model-history window.</p>
             </div>
           </details>
           <details>
@@ -424,14 +431,16 @@
           <details>
             <summary>Persist conversations in SQLite outside the container</summary>
             <div class="body">
-              <p>Store every conversation in a SQLite database.</p>
-              <p>Bind-mount the database file from the host, so it survives the container. This is a one-line volume for the reviewer.</p>
+              <p>Store the full completed user-assistant history in <code>data/conversations.db</code> during local development. Failed streams leave no partial turn.</p>
+              <p>Name an empty conversation from its first successfully completed user message. An empty conversation stays <code>New conversation</code> when that stream fails.</p>
+              <p>Docker stores the database at <code>/app/state/conversations.db</code>.</p>
+              <p>Bind-mount a writable host directory to <code>/app/state</code>, so the database survives without hiding the baked corpus or index.</p>
             </div>
           </details>
         </div>
       </section>
       <section id="quality-controls">
-        <h2><span class="idx">08</span> Quality controls: three deterministic retrieval gates</h2>
+        <h2><span class="idx">08</span> Quality controls: deterministic retrieval gates</h2>
         <p class="lead">The v1 quality gates are a hand-authored, deterministic retrieval suite over the 27-paper corpus. No LLM judge, no API keys.</p>
 
         <div class="rec">
@@ -441,7 +450,7 @@
             <p><strong>Why:</strong> The corpus was built with papers that disagree and entities that look alike. These gates test those planted failure cases deterministically, so a retrieval regression fails CI without any model in the loop.</p>
             <p><strong>Thresholds:</strong> 6/6, 6/6, and 11/12 with item C1 mandatory. The 2026-08-11 run confirmed these thresholds. <a href="research/evaluation.html">Research evidence and full item set</a>.</p>
             <p><strong>GitHub:</strong> <a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/20">Issue 20 - choose the v1 eval suite</a> records the decision.</p>
-            <p><strong>Status:</strong> Implemented as a blocking, path-scoped pytest job.</p>
+            <p><strong>Status:</strong> Implemented as a blocking, path-scoped pytest job. The selected fixture also has exact-page and answer-evidence floors. <a href="research/evaluation.html">Research evidence records the measured floors</a>.</p>
           </div>
         </div>
 
@@ -462,9 +471,9 @@
             </div>
           </details>
           <details>
-            <summary>Citation-level gates are v2</summary>
+            <summary>Exact-page support is a fixture floor</summary>
             <div class="body">
-              <p>Gate A requires both sides <em>retrieved</em>. The bar becomes both sides <em>cited</em> only when the answer-generation slice lands.</p>
+              <p>The selected fixture checks exact-page support from packed results and their page provenance. It does not evaluate generated claim citations.</p>
               <p>LLM-judge metrics such as faithfulness and answer correctness are a later consideration, not v1.</p>
             </div>
           </details>

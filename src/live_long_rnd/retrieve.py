@@ -522,14 +522,11 @@ def _pack_evidence(
     document_counts: dict[str, int] = {}
     remaining = list(candidates)
     while remaining:
-        candidate = max(
+        candidate = _pop_diversity_priority(
             remaining,
-            key=lambda item: (
-                item.score
-                / (1.0 + document_diversity_penalty * document_counts.get(item.document_id, 0))
-            ),
+            document_counts,
+            document_diversity_penalty,
         )
-        remaining.remove(candidate)
         candidate_tokens = len(encoding.encode(candidate.original_text))
         if used_tokens + candidate_tokens > source_budget_tokens:
             continue
@@ -550,14 +547,28 @@ def _select_diverse_candidates(
     document_counts: dict[str, int] = {}
     remaining = list(candidates)
     while remaining and len(selected) < limit:
-        candidate = max(
+        candidate = _pop_diversity_priority(
             remaining,
-            key=lambda item: (
-                item.score
-                / (1.0 + document_diversity_penalty * document_counts.get(item.document_id, 0))
-            ),
+            document_counts,
+            document_diversity_penalty,
         )
-        remaining.remove(candidate)
         selected.append(candidate)
         document_counts[candidate.document_id] = document_counts.get(candidate.document_id, 0) + 1
     return selected
+
+
+def _pop_diversity_priority(
+    remaining: list[RetrievalResult],
+    document_counts: Mapping[str, int],
+    document_diversity_penalty: float,
+) -> RetrievalResult:
+    """Remove the highest soft-diversity priority candidate."""
+    candidate = max(
+        remaining,
+        key=lambda item: (
+            item.score
+            / (1.0 + document_diversity_penalty * document_counts.get(item.document_id, 0))
+        ),
+    )
+    remaining.remove(candidate)
+    return candidate

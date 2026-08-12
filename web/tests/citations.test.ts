@@ -4,6 +4,8 @@ import { describe, it } from "node:test";
 import {
   bboxToCssRect,
   citationKey,
+  fallbackCitations,
+  linkCitationMarkers,
   numberCitations,
   prettifySlug,
 } from "../lib/citations";
@@ -74,6 +76,39 @@ describe("numberCitations", () => {
 describe("citationKey", () => {
   it("is stable for identical citations", () => {
     assert.equal(citationKey(makeCitation()), citationKey(makeCitation()));
+  });
+});
+
+describe("linkCitationMarkers", () => {
+  it("turns answer markers into links that preserve their citation number", () => {
+    assert.equal(
+      linkCitationMarkers("One finding [1]. A conflict [2][3]."),
+      "One finding [[1]](#citation-1). A conflict [[2]](#citation-2)[[3]](#citation-3).",
+    );
+  });
+});
+
+describe("fallbackCitations", () => {
+  it("keeps markerless stored citations reachable", () => {
+    const citations = [makeCitation(), makeCitation({ page: 3 })];
+
+    assert.deepEqual(fallbackCitations("A legacy saved answer.", citations), [
+      { citation: citations[0], index: 1 },
+      { citation: citations[1], index: 2 },
+    ]);
+  });
+
+  it("does not duplicate controls when inline markers are present", () => {
+    assert.deepEqual(fallbackCitations("A verified answer [1].", [makeCitation()]), []);
+  });
+
+  it("keeps controls when bracketed numbers do not match a citation", () => {
+    const citations = [makeCitation(), makeCitation({ page: 3 })];
+
+    assert.deepEqual(fallbackCitations("The 2024 result [2024].", citations), [
+      { citation: citations[0], index: 1 },
+      { citation: citations[1], index: 2 },
+    ]);
   });
 });
 

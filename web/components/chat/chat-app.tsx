@@ -11,10 +11,14 @@ import {
   type ConversationClient,
   type ConversationSummary,
 } from "@/lib/conversations";
+import {
+  ConversationListRefresh,
+  ConversationSelection,
+} from "@/lib/conversation-selection";
 import { DraftStore } from "@/lib/drafts";
 import type { Citation } from "@/lib/sse";
 
-import { retryFailedTurn, withDroppedTurnsNotice } from "./chat-turns";
+import { retryFailedTurn, withHistoryNotice } from "./chat-turns";
 import { Composer } from "./composer";
 import { EmptyState } from "./empty-state";
 import { MessageList } from "./message-list";
@@ -32,6 +36,8 @@ export function ChatApp() {
     clientRef.current = createConversationClient();
   }
   const client = clientRef.current;
+  const selectionRef = useRef(new ConversationSelection());
+  const listRefreshRef = useRef(new ConversationListRefresh());
 
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -45,7 +51,17 @@ export function ChatApp() {
   const draftsRef = useRef(new DraftStore());
 
   const refreshConversations = useCallback(async () => {
-    setConversations(await client.listConversations());
+    const generation = listRefreshRef.current.start();
+    try {
+      const next = await client.listConversations();
+      if (listRefreshRef.current.isCurrent(generation)) {
+        setConversations(next);
+      }
+    } catch (error) {
+      if (listRefreshRef.current.isCurrent(generation)) {
+        console.error("Conversation list loading failed.", error);
+      }
+    }
   }, [client]);
 
   useEffect(() => {
@@ -73,24 +89,35 @@ export function ChatApp() {
       return;
     }
     draftsRef.current.set(draftKeyFor(activeId), composer);
+    const load = selectionRef.current.select(id);
     setActiveId(id);
+    setMessages([]);
     setComposer(draftsRef.current.get(draftKeyFor(id)));
     setPdf(null);
     setSidebarOpen(false);
     if (id === null) {
-      setMessages([]);
       return;
     }
-    void client.getConversation(id).then((conversation) => {
-      setMessages(
-        conversation.messages.map((message, index) => ({
-          id: `${conversation.id}-${index}`,
-          role: message.role,
-          text: message.text,
-          citations: message.citations,
-        })),
-      );
-    });
+    void client
+      .getConversation(id)
+      .then((conversation) => {
+        if (!selectionRef.current.isCurrent(load)) {
+          return;
+        }
+        setMessages(
+          conversation.messages.map((message, index) => ({
+            id: `${conversation.id}-${index}`,
+            role: message.role,
+            text: message.text,
+            citations: message.citations,
+          })),
+        );
+      })
+      .catch((error: unknown) => {
+        if (selectionRef.current.isCurrent(load)) {
+          console.error("Conversation loading failed.", error);
+        }
+      });
   }
 
   async function send(text: string) {
@@ -99,6 +126,7 @@ export function ChatApp() {
       return;
     }
 
+    selectionRef.current.select(activeId);
     const assistantId = crypto.randomUUID();
     const userId = crypto.randomUUID();
     setMessages((current) => [
@@ -121,6 +149,8 @@ export function ChatApp() {
     await client.sendMessage({ conversationId, message }, (event) => {
       if (event.type === "conversation") {
         conversationId = event.id;
+        selectionRef.current.select(event.id);
+        listRefreshRef.current.start();
         setActiveId(event.id);
         setConversations((current) => {
           const rest = current.filter((item) => item.id !== event.id);
@@ -150,9 +180,9 @@ export function ChatApp() {
         }),
       );
 
-      if (event.type === "dropped") {
+      if (event.type === "history_notice") {
         setMessages((current) =>
-          withDroppedTurnsNotice(current, event.turns, crypto.randomUUID()),
+          withHistoryNotice(current, event.text, crypto.randomUUID()),
         );
       }
     });
@@ -178,14 +208,19 @@ export function ChatApp() {
   }
 
   async function deleteConversation(id: string) {
-    await client.deleteConversation(id);
-    if (id === activeId) {
-      setActiveId(null);
-      setMessages([]);
-      setComposer(draftsRef.current.get(NEW_CONVERSATION_KEY));
-      setPdf(null);
+    try {
+      await client.deleteConversation(id);
+      if (selectionRef.current.current().id === id) {
+        selectionRef.current.select(null);
+        setActiveId(null);
+        setMessages([]);
+        setComposer(draftsRef.current.get(NEW_CONVERSATION_KEY));
+        setPdf(null);
+      }
+      await refreshConversations();
+    } catch (error) {
+      console.error("Conversation deletion failed.", error);
     }
-    await refreshConversations();
   }
 
   const sidebar = (
@@ -241,7 +276,6 @@ export function ChatApp() {
           <MessageList
             messages={messages}
             streaming={streaming}
-            pdf={pdf}
             onOpenCitation={openCitation}
             onRetry={retry}
           />
