@@ -6,7 +6,8 @@ from typing import Protocol
 from live_long_rnd.api.retrieval import RetrievedChunk
 
 _CITATION_MARKER = re.compile(r"\[(\d+)]")
-_CLAIM_BOUNDARY = re.compile(r"(?<=[.!?])(?:\s+|\n+)(?!\[\d+])")
+_GROUPED_CITATION_MARKER = re.compile(r"\[(\d+(?:\s*,\s*\d+)+)]")
+_CITED_CLAIM_END = re.compile(r"(?:[.!?]\s*(?:\[\d+]\s*)+|(?:\[\d+]\s*)+[.!?]?)(?=\s|$)")
 
 NO_SUPPORTED_ANSWER = "The retrieved evidence did not provide a supported answer."
 NO_RELEVANT_EVIDENCE = "No sufficiently relevant evidence was found in the corpus."
@@ -119,6 +120,7 @@ async def verify_draft(
     chunks: Sequence[RetrievedChunk],
     verifier: ClaimVerifier,
 ) -> VerifiedAnswer:
+    draft = _normalize_citation_markers(draft)
     candidates: list[tuple[str, tuple[int, ...], CitedClaim]] = []
     for claim in _split_claims(draft):
         markers = tuple(dict.fromkeys(int(match) for match in _CITATION_MARKER.findall(claim)))
@@ -140,15 +142,16 @@ async def verify_draft(
         return VerifiedAnswer(text=NO_SUPPORTED_ANSWER, citations=())
 
     accepted: list[tuple[str, tuple[int, ...]]] = []
-    for (claim, markers, candidate), verification in zip(
+    for (claim, _markers, candidate), verification in zip(
         candidates,
         verifications,
         strict=True,
     ):
         cited = candidate.evidence
-        if not _valid_verification(verification, cited):
+        supported_markers = _supported_markers(verification, cited)
+        if not supported_markers:
             continue
-        accepted.append((claim, markers))
+        accepted.append((_keep_markers(claim, supported_markers), supported_markers))
 
     if not accepted:
         return VerifiedAnswer(text=NO_SUPPORTED_ANSWER, citations=())
@@ -157,13 +160,14 @@ async def verify_draft(
         dict.fromkeys(marker for _claim, markers in accepted for marker in markers)
     )
     compact_markers = {original: compact for compact, original in enumerate(used_markers, start=1)}
-    text = " ".join(
+    compacted_claims = tuple(
         _CITATION_MARKER.sub(
             lambda match: f"[{compact_markers[int(match.group(1))]}]",
             claim,
         )
         for claim, _markers in accepted
     )
+    text = _join_claims(compacted_claims)
     return VerifiedAnswer(
         text=text,
         citations=tuple(chunks[marker - 1] for marker in used_markers),
@@ -171,7 +175,25 @@ async def verify_draft(
 
 
 def _split_claims(draft: str) -> tuple[str, ...]:
-    return tuple(part.strip() for part in _CLAIM_BOUNDARY.split(draft.strip()) if part.strip())
+    claims: list[str] = []
+    for line in draft.splitlines():
+        start = 0
+        for match in _CITED_CLAIM_END.finditer(line.strip()):
+            claim = line.strip()[start : match.end()].strip()
+            if claim:
+                claims.append(claim)
+            start = match.end()
+        remainder = line.strip()[start:].strip()
+        if remainder:
+            claims.append(remainder)
+    return tuple(claims)
+
+
+def _normalize_citation_markers(draft: str) -> str:
+    return _GROUPED_CITATION_MARKER.sub(
+        lambda match: "".join(f"[{marker.strip()}]" for marker in match.group(1).split(",")),
+        draft,
+    )
 
 
 def _has_provenance(chunk: RetrievedChunk) -> bool:
@@ -187,17 +209,40 @@ def _has_provenance(chunk: RetrievedChunk) -> bool:
     )
 
 
-def _valid_verification(
+def _supported_markers(
     verification: ClaimVerification,
     cited: Sequence[CitedEvidence],
-) -> bool:
+) -> tuple[int, ...]:
     if not verification.supported or not verification.evidence:
-        return False
+        return ()
+    cited_by_marker = {item.marker: item for item in cited}
     evidence_by_marker = {item.marker: item.exact_text for item in verification.evidence}
-    if set(evidence_by_marker) != {item.marker for item in cited}:
-        return False
-    return all(
-        evidence_by_marker[item.marker] in item.chunk.text
-        and bool(evidence_by_marker[item.marker].strip())
+    if not set(evidence_by_marker).issubset(cited_by_marker):
+        return ()
+    return tuple(
+        item.marker
         for item in cited
+        if item.marker in evidence_by_marker
+        and bool(evidence_by_marker[item.marker].strip())
+        and evidence_by_marker[item.marker] in item.chunk.text
     )
+
+
+def _keep_markers(claim: str, markers: Sequence[int]) -> str:
+    retained = set(markers)
+    text = _CITATION_MARKER.sub(
+        lambda match: match.group(0) if int(match.group(1)) in retained else "",
+        claim,
+    )
+    return re.sub(r"\s+([.!?,;:])", r"\1", text).strip()
+
+
+def _join_claims(claims: Sequence[str]) -> str:
+    text = ""
+    for claim in claims:
+        if not text:
+            text = claim
+            continue
+        separator = "\n" if re.match(r"(?:[-*+]\s+|\d+\.\s+)", claim) else " "
+        text += separator + claim
+    return text

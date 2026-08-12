@@ -259,6 +259,124 @@ def test_research_answer_verifies_all_claims_in_one_batch(tmp_path: Path) -> Non
     ]
 
 
+@pytest.mark.e2e
+def test_live_citation_punctuation_keeps_atomic_claims(tmp_path: Path) -> None:
+    class AtomicOnlyVerifier:
+        async def verify_claims(
+            self,
+            question: str,
+            claims: Sequence[CitedClaim],
+        ) -> Sequence[ClaimVerification]:
+            del question
+            return tuple(
+                ClaimVerification(
+                    supported=len(claim.evidence) == 1,
+                    evidence=(
+                        (
+                            EvidenceQuote(
+                                marker=claim.evidence[0].marker,
+                                exact_text=claim.evidence[0].chunk.text,
+                            ),
+                        )
+                        if len(claim.evidence) == 1
+                        else ()
+                    ),
+                )
+                for claim in claims
+            )
+
+    async def exercise() -> list[dict[str, object]]:
+        transport = httpx.ASGITransport(
+            app=create_app(
+                retriever=StubRetriever(),
+                llm_client=CitedDraftLLM(
+                    "Senolytics target senescent cells. [1] "
+                    "A pilot study reported improved physical function. [2]"
+                ),
+                verifier=AtomicOnlyVerifier(),
+                config=ApplicationConfig(database_path=tmp_path / "conversations.db"),
+            )
+        )
+        async with httpx.AsyncClient(
+            transport=transport,
+            base_url="http://testserver",
+        ) as client:
+            return _events(
+                await client.post(
+                    "/api/chat",
+                    json={"message": "What did the studies find?"},
+                )
+            )
+
+    events = asyncio.run(exercise())
+
+    completion = next(
+        event
+        for event in events
+        if event["type"] == "verification" and event["status"] == "complete"
+    )
+    assert completion["text"] == (
+        "Senolytics target senescent cells. [1] "
+        "A pilot study reported improved physical function. [2]"
+    )
+    citations = completion["citations"]
+    assert isinstance(citations, list)
+    assert len(citations) == 2
+
+
+@pytest.mark.e2e
+def test_gemini_grouped_citations_are_verified(tmp_path: Path) -> None:
+    async def exercise() -> list[dict[str, object]]:
+        transport = httpx.ASGITransport(
+            app=create_app(
+                retriever=StubRetriever(),
+                llm_client=CitedDraftLLM(
+                    "A pilot study reported improved physical function [1, 2]."
+                ),
+                verifier=ExactEvidenceVerifier(),
+                config=ApplicationConfig(database_path=tmp_path / "conversations.db"),
+            )
+        )
+        async with httpx.AsyncClient(
+            transport=transport,
+            base_url="http://testserver",
+        ) as client:
+            return _events(
+                await client.post(
+                    "/api/chat",
+                    json={"message": "What did the pilot study find?"},
+                )
+            )
+
+    events = asyncio.run(exercise())
+
+    completion = next(
+        event
+        for event in events
+        if event["type"] == "verification" and event["status"] == "complete"
+    )
+    assert completion["text"] == ("A pilot study reported improved physical function [1][2].")
+    citations = completion["citations"]
+    assert isinstance(citations, list)
+    assert len(citations) == 2
+
+
+def test_verified_markdown_list_keeps_line_breaks() -> None:
+    async def exercise() -> str:
+        chunks = await StubRetriever().retrieve("question")
+        answer = await verify_draft(
+            "What did the studies find?",
+            "* Targeted senescent cells [1].\n* Improved physical function [2].",
+            chunks,
+            ExactEvidenceVerifier(),
+        )
+        return answer.text
+
+    assert asyncio.run(exercise()) == (
+        "* Targeted senescent cells [1].\n* Improved physical function [2]."
+    )
+
+
 def _events(response: httpx.Response) -> list[dict[str, object]]:
     return [
         json.loads(frame.removeprefix("data: "))
@@ -650,6 +768,45 @@ def test_evidence_text_absent_from_cited_chunk_rejects_claim() -> None:
         return answer.text
 
     assert asyncio.run(exercise()) == ("The retrieved evidence did not provide a supported answer.")
+
+
+def test_claim_keeps_only_citations_that_supply_exact_support() -> None:
+    class OneSupportingSourceVerifier:
+        async def verify_claims(
+            self,
+            question: str,
+            claims: Sequence[CitedClaim],
+        ) -> Sequence[ClaimVerification]:
+            del question, claims
+            return (
+                ClaimVerification(
+                    supported=True,
+                    evidence=(
+                        EvidenceQuote(
+                            marker=1,
+                            exact_text="Senolytics selectively target senescent cells.",
+                        ),
+                    ),
+                ),
+            )
+
+    async def exercise() -> tuple[str, tuple[RetrievedChunk, ...]]:
+        chunks = await StubRetriever().retrieve("question")
+        answer = await verify_draft(
+            "What changed?",
+            "Senolytics selectively target senescent cells [1][2].",
+            chunks,
+            OneSupportingSourceVerifier(),
+        )
+        return answer.text, answer.citations
+
+    text, citations = asyncio.run(exercise())
+
+    assert text == "Senolytics selectively target senescent cells [1]."
+    assert len(citations) == 1
+    assert citations[0].citation["document_id"] == (
+        "015-hickson-2019-senolytics-dasatinib-quercetin-first-in-human"
+    )
 
 
 def test_verifier_receives_the_user_question_with_each_claim() -> None:

@@ -16,7 +16,7 @@ table tracks status; the reasoning is written up in the README, not here.
 | Parsing | Decided — Docling |
 | Chunking | Provisional — Docling HybridChunker |
 | Embedding model | Decided - OpenAI text-embedding-3-large |
-| LLM selection | Decided — OpenAI, GPT 5.6 Luna default |
+| LLM selection | Decided - Gemini 3 Flash for answers; OpenAI for planning and verification |
 | Vector database | Decided — LanceDB |
 | Retrieval approach | Decided - hybrid retrieval, MiniLM reranking, token packing |
 | Prompt engineering | Decided — per-claim citation markers + verifier (`docs/generation.html`) |
