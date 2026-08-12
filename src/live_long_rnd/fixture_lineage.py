@@ -116,6 +116,9 @@ def _module_name(source_path: Path) -> str:
 def _imported_modules(source: str, *, package_name: str) -> set[str]:
     tree = ast.parse(source)
     imports: set[str] = set()
+    import_module_names, builtin_import_names, importlib_modules, builtins_modules = (
+        _dynamic_import_bindings(tree)
+    )
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             imports.update(alias.name for alias in node.names)
@@ -127,7 +130,13 @@ def _imported_modules(source: str, *, package_name: str) -> set[str]:
                     f"{base_module}.{alias.name}" for alias in node.names if alias.name != "*"
                 )
         elif isinstance(node, ast.Call):
-            dynamic_module = _literal_dynamic_import(node)
+            dynamic_module = _literal_dynamic_import(
+                node,
+                import_module_names=import_module_names,
+                builtin_import_names=builtin_import_names,
+                importlib_modules=importlib_modules,
+                builtins_modules=builtins_modules,
+            )
             if dynamic_module:
                 imports.add(dynamic_module)
     return imports
@@ -146,14 +155,72 @@ def _resolve_import_from(node: ast.ImportFrom, *, package_name: str) -> str:
     return ".".join(base_parts)
 
 
-def _literal_dynamic_import(node: ast.Call) -> str | None:
-    function_name = node.func.id if isinstance(node.func, ast.Name) else None
-    if function_name not in {"import_module", "__import__"} or not node.args:
+def _dynamic_import_bindings(tree: ast.AST) -> tuple[set[str], set[str], set[str], set[str]]:
+    import_module_names = {"import_module"}
+    builtin_import_names = {"__import__"}
+    importlib_modules: set[str] = set()
+    builtins_modules: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.name == "importlib":
+                    importlib_modules.add(alias.asname or "importlib")
+                elif alias.name == "builtins":
+                    builtins_modules.add(alias.asname or "builtins")
+        elif isinstance(node, ast.ImportFrom) and node.level == 0:
+            for alias in node.names:
+                if node.module == "importlib" and alias.name == "import_module":
+                    import_module_names.add(alias.asname or alias.name)
+                elif node.module == "builtins" and alias.name == "__import__":
+                    builtin_import_names.add(alias.asname or alias.name)
+    return import_module_names, builtin_import_names, importlib_modules, builtins_modules
+
+
+def _literal_dynamic_import(
+    node: ast.Call,
+    *,
+    import_module_names: set[str],
+    builtin_import_names: set[str],
+    importlib_modules: set[str],
+    builtins_modules: set[str],
+) -> str | None:
+    if not _is_dynamic_import_call(
+        node,
+        import_module_names=import_module_names,
+        builtin_import_names=builtin_import_names,
+        importlib_modules=importlib_modules,
+        builtins_modules=builtins_modules,
+    ):
         return None
+    if not node.args:
+        raise LineageDiscoveryError("Production indexing uses a dynamic import without a module name")
     module = node.args[0]
     if isinstance(module, ast.Constant) and isinstance(module.value, str):
         return module.value
     raise LineageDiscoveryError("Production indexing uses a non-literal dynamic import")
+
+
+def _is_dynamic_import_call(
+    node: ast.Call,
+    *,
+    import_module_names: set[str],
+    builtin_import_names: set[str],
+    importlib_modules: set[str],
+    builtins_modules: set[str],
+) -> bool:
+    if isinstance(node.func, ast.Name):
+        return node.func.id in import_module_names | builtin_import_names
+    if not isinstance(node.func, ast.Attribute):
+        return False
+    if node.func.attr == "import_module":
+        if isinstance(node.func.value, ast.Name) and node.func.value.id in importlib_modules:
+            return True
+        raise LineageDiscoveryError("Production indexing uses an unsupported dynamic import")
+    if node.func.attr == "__import__":
+        if isinstance(node.func.value, ast.Name) and node.func.value.id in builtins_modules:
+            return True
+        raise LineageDiscoveryError("Production indexing uses an unsupported dynamic import")
+    return False
 
 
 def _local_module_paths(root: Path, module_name: str) -> Iterable[Path]:

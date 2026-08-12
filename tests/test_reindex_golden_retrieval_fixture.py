@@ -50,13 +50,13 @@ def test_explicit_rebuild_records_current_production_lineage(
     for number in range(1, 28):
         (corpus_dir / f"{number:03d}-paper.pdf").write_bytes(b"%PDF fixture")
     output = tmp_path / "golden_retrieval_index"
-    expected_lineage = {"src/live_long_rnd/ingest.py": "abc123"}
     monkeypatch.setattr(reindex, "DEFAULT_OUTPUT", output)
     monkeypatch.setattr(reindex, "LanceDBNodeStore", _Store)
     monkeypatch.setattr(reindex, "create_reader", object)
     monkeypatch.setattr(reindex, "ingest_pdf", lambda *_args, **_kwargs: 1)
-    monkeypatch.setattr(reindex, "production_index_input_hashes", lambda: expected_lineage)
     monkeypatch.setenv("ALLOW_CORPUS_REINDEX", "1")
+
+    expected_lineage = reindex.production_index_input_hashes()
 
     assert reindex.main(["--corpus-dir", str(corpus_dir), "--output", str(output)]) == 0
 

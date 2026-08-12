@@ -84,3 +84,27 @@ def test_fixture_lineage_discovers_new_package_relative_import(tmp_path: Path) -
 
     with pytest.raises(StaleGoldenFixtureError, match=r"src/live_long_rnd/provenance\.py"):
         validate_fixture_lineage(manifest_path, repository_root=tmp_path)
+
+
+# Brief: qualified and aliased dynamic imports must join the indexed source closure.
+def test_fixture_lineage_discovers_qualified_and_aliased_dynamic_imports(tmp_path: Path) -> None:
+    _write_minimal_indexing_repo(tmp_path)
+    (tmp_path / "src/live_long_rnd/provenance.py").write_text(
+        "FIELD = 'page_numbers'\n", encoding="utf-8"
+    )
+    (tmp_path / "src/live_long_rnd/metadata.py").write_text(
+        "FIELD = 'bboxes'\n", encoding="utf-8"
+    )
+    ingest_path = tmp_path / "src/live_long_rnd/ingest.py"
+    ingest_path.write_text(
+        "import importlib as loader\n"
+        "from importlib import import_module as load_module\n"
+        "loader.import_module('live_long_rnd.provenance')\n"
+        "load_module('live_long_rnd.metadata')\n",
+        encoding="utf-8",
+    )
+
+    hashes = production_index_input_hashes(tmp_path)
+
+    assert "src/live_long_rnd/provenance.py" in hashes
+    assert "src/live_long_rnd/metadata.py" in hashes
