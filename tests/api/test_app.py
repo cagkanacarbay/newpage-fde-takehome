@@ -546,5 +546,7 @@ def test_chat_emits_setup_error_when_openai_key_is_missing(
     assert conversation["messages"] == []
     assert conversation["title"] == "New conversation"
     error_record = next(record for record in caplog.records if record.levelno == logging.ERROR)
-    assert error_record.getMessage() == f"Chat turn failed for conversation {events[0]['id']}."
-    assert error_record.exc_info is not None
+    assert error_record.getMessage() == (
+        f"Chat turn failed for conversation {events[0]['id']} with LLMConfigurationError."
+    )
+    assert error_record.exc_info is None

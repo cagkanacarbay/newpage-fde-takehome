@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 from collections.abc import AsyncIterator, Sequence
 from pathlib import Path
 
@@ -227,18 +228,24 @@ def test_verifier_rejection_removes_the_claim(tmp_path: Path) -> None:
 
 
 @pytest.mark.e2e
-def test_verifier_failure_returns_error_without_draft_text(tmp_path: Path) -> None:
-    events = asyncio.run(
-        _chat(
-            tmp_path,
-            draft="This unverified draft must stay private [1].",
-            verifier=ExactEvidenceVerifier(fail=True),
+def test_verifier_failure_returns_error_without_draft_text(
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    with caplog.at_level(logging.ERROR):
+        events = asyncio.run(
+            _chat(
+                tmp_path,
+                draft="This unverified draft must stay private [1].",
+                verifier=ExactEvidenceVerifier(fail=True),
+            )
         )
-    )
 
     assert [event["type"] for event in events] == ["conversation", "error"]
     assert events[-1] == {"type": "error", "message": "The chat request failed."}
     assert "unverified draft" not in json.dumps(events)
+    assert "Verifier service failed" not in caplog.text
+    assert "RuntimeError" in caplog.text
 
 
 @pytest.mark.e2e
@@ -273,12 +280,12 @@ def test_openai_verifier_missing_key_fails_closed(
     assert [event["type"] for event in events] == ["conversation", "error"]
     assert events[-1] == {
         "type": "error",
-        "message": (
-            "OpenAI verification is selected but OPENAI_API_KEY is not set. "
-            "Set OPENAI_API_KEY and restart the server."
-        ),
+        "message": "The chat request failed.",
     }
-    assert "Private draft" not in json.dumps(events)
+    serialized = json.dumps(events)
+    assert "Private draft" not in serialized
+    assert "OPENAI_API_KEY" not in serialized
+    assert "OpenAI verification" not in serialized
 
 
 @pytest.mark.e2e
@@ -395,6 +402,42 @@ def test_personal_condition_and_safety_question_is_declined_without_generation(
                 await client.post(
                     "/api/chat",
                     json={"message": "I have kidney disease. Is creatine safe?"},
+                )
+            )
+
+    events = asyncio.run(exercise())
+
+    assert llm.calls == 0
+    assert events[1]["text"] == (
+        "I can summarize study evidence, but I cannot provide personal diagnosis, "
+        "treatment, or dosing advice."
+    )
+    assert events[2] == {"type": "citations", "citations": []}
+
+
+@pytest.mark.e2e
+def test_personal_medication_recommendation_is_declined_without_generation(
+    tmp_path: Path,
+) -> None:
+    llm = RecordingLLM("I recommend a medication [1].")
+
+    async def exercise() -> list[dict[str, object]]:
+        transport = httpx.ASGITransport(
+            app=create_app(
+                retriever=StubRetriever(),
+                llm_client=llm,
+                verifier=ExactEvidenceVerifier(),
+                config=ApplicationConfig(database_path=tmp_path / "conversations.db"),
+            )
+        )
+        async with httpx.AsyncClient(
+            transport=transport,
+            base_url="http://testserver",
+        ) as client:
+            return _events(
+                await client.post(
+                    "/api/chat",
+                    json={"message": "What medication do you recommend for my arthritis?"},
                 )
             )
 

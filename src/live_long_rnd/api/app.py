@@ -28,7 +28,7 @@ from live_long_rnd.api.generation import (
 from live_long_rnd.api.llm import LLMClient, create_llm_client
 from live_long_rnd.api.retrieval import RetrievedChunk, Retriever, create_retriever
 from live_long_rnd.api.sse import encode_sse
-from live_long_rnd.api.verifier import VerifierConfigurationError, create_claim_verifier
+from live_long_rnd.api.verifier import create_claim_verifier
 from live_long_rnd.query_planning import ConversationMessage
 
 logger = logging.getLogger(__name__)
@@ -232,16 +232,11 @@ async def _stream_chat(
             }
         )
         yield encode_sse({"type": "done"})
-    except VerifierConfigurationError as error:
-        logger.exception(
-            "Chat turn failed for conversation %s.",
+    except Exception as error:
+        logger.error(  # noqa: TRY400 - traceback details can expose provider input
+            "Chat turn failed for conversation %s with %s.",
             conversation.id,
-        )
-        yield encode_sse({"type": "error", "message": str(error)})
-    except Exception:
-        logger.exception(
-            "Chat turn failed for conversation %s.",
-            conversation.id,
+            type(error).__name__,
         )
         yield encode_sse({"type": "error", "message": "The chat request failed."})
 

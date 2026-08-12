@@ -40,7 +40,8 @@ _PERSONAL_HEALTH_CONTEXT = re.compile(
 )
 _PERSONAL_MEDICAL_REQUEST = re.compile(
     r"\b(?:safe|safety|contraindicat\w*|interact\w*|risk\w*|side effects?|"
-    r"okay|advisable|dose|dosing|treat\w*|diagnos\w*)\b",
+    r"okay|advisable|dose|dosing|treat\w*|diagnos\w*|medications?|"
+    r"recommend\w*|prescrib\w*)\b",
     re.I,
 )
 
