@@ -263,6 +263,12 @@
         <p>It verifies archive SHA-256 <code>bdd3772b651ffc34f70e414049285bb55ccc6d1b8e29d0640f836d44f70ec77a</code> before installation.</p>
         <p>Docker preloads the verified artifact into the image.</p>
         <p>At runtime, the loader rejects a cached model that lacks the matching verification marker.</p>
+        <p>For an empty shared cache, each process stages the verified artifact separately and accepts the verified installation completed by another process.</p>
+
+        <h3>Keep the quality fixture traceable</h3>
+        <p>The committed LanceDB fixture records the SHA-256 hash of every one of the 27 source PDFs in <code>tests/fixtures/golden_retrieval_index/manifest.json</code>.</p>
+        <p>The quality gate compares those hashes with the canonical corpus before it scores the 24 items.</p>
+        <p>Rebuild it only after explicit corpus approval with <code>ALLOW_CORPUS_REINDEX=1 uv run python scripts/reindex_golden_retrieval_fixture.py</code>.</p>
       </section>
 
       <section id="research">
