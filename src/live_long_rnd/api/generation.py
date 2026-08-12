@@ -22,26 +22,24 @@ _PERSONAL_MEDICAL_PATTERNS = (
     ),
     re.compile(r"\b(?:diagnos\w*|treat\w*)\s+me\b", re.I),
     re.compile(
-        r"\b(?:my|for me|personally)\b.*\b(?:dose|dosing|diagnos\w*|treat\w*|medication)\b",
-        re.I,
-    ),
-    re.compile(
         r"\b(?:is|would|will|can|could)\b.*\b(?:safe|harmful|dangerous)\b.*"
         r"\b(?:for me|for myself|personally)\b",
         re.I,
     ),
     re.compile(r"\b(?:do|could|can)\s+i\s+have\b", re.I),
     re.compile(r"\b(?:hurt|harm)\s+me\b", re.I),
+    re.compile(r"\b(?:what(?:'s| is)|is)\s+wrong\s+with\s+me\b", re.I),
 )
 
 _PERSONAL_HEALTH_CONTEXT = re.compile(
-    r"\b(?:i\s+(?:have|am|was|take|use)|my)\b",
+    r"\b(?:i\s+(?:have|am|was|take|use)\b|for\s+me\b|with\s+me\b|"
+    r"my\s+(?!(?:papers?|uploaded|research|corpus|documents?|files?)\b))",
     re.I,
 )
 _PERSONAL_MEDICAL_REQUEST = re.compile(
     r"\b(?:safe|safety|contraindicat\w*|interact\w*|risk\w*|side effects?|"
     r"okay|advisable|dose|dosing|treat\w*|diagnos\w*|medications?|"
-    r"recommend\w*|prescrib\w*)\b",
+    r"supplements?|recommend\w*|prescrib\w*|help\w*|wrong)\b",
     re.I,
 )
 
@@ -97,10 +95,12 @@ class VerifiedAnswer:
 
 def personal_medical_refusal(message: str) -> str | None:
     direct_request = any(pattern.search(message) for pattern in _PERSONAL_MEDICAL_PATTERNS)
+    if direct_request:
+        return PERSONAL_MEDICAL_REFUSAL
     contextual_request = bool(
         _PERSONAL_HEALTH_CONTEXT.search(message) and _PERSONAL_MEDICAL_REQUEST.search(message)
     )
-    if direct_request or contextual_request:
+    if contextual_request:
         return PERSONAL_MEDICAL_REFUSAL
     return None
 

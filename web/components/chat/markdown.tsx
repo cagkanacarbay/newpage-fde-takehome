@@ -45,7 +45,7 @@ export function Markdown({
                   aria-label={`Open citation ${index}: ${citation.snippet}`}
                   title={citation.snippet}
                   onClick={() => onOpenCitation(citation, index)}
-                  className="mx-0.5 inline-flex rounded-full bg-teal-bg px-1.5 py-0.5 align-baseline text-xs font-semibold text-teal-ink transition-colors hover:bg-teal hover:text-on-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+                  className="inline-flex rounded-full bg-teal-bg px-1.5 py-0.5 align-baseline text-xs font-semibold text-teal-ink transition-colors hover:bg-teal hover:text-on-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
                 >
                   {children}
                 </button>

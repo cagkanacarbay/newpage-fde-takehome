@@ -73,16 +73,12 @@ class FirstTitleRaceLLM:
 
 
 @pytest.mark.e2e
-def test_new_chat_streams_conversation_before_answer(
+def test_new_chat_streams_verified_answer_with_configured_application_adapters(
     tmp_path: Path,
 ) -> None:
     async def exercise() -> tuple[httpx.Response, str]:
         transport = httpx.ASGITransport(
-            app=create_app(
-                retriever=StubRetriever(),
-                llm_client=StubLLM(),
-                config=ApplicationConfig(database_path=tmp_path / "conversations.db"),
-            )
+            app=create_app(config=ApplicationConfig(database_path=tmp_path / "conversations.db"))
         )
         async with (
             httpx.AsyncClient(

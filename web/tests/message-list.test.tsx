@@ -49,4 +49,16 @@ describe("MessageList citation controls", () => {
     assert.match(html, /Open citation 2: Second chunk/);
     assert.doesNotMatch(html, /aria-label="Sources"/);
   });
+
+  it("keeps punctuation attached to inline citation buttons", () => {
+    const html = renderAssistant(
+      "One result [1]. Conflicting results [1][2].",
+      [citation("First chunk"), citation("Second chunk")],
+    );
+
+    assert.match(html, /<\/button>\./);
+    assert.match(html, /<\/button><button/);
+    assert.doesNotMatch(html, /<\/button>\s+\./);
+    assert.doesNotMatch(html, /mx-0\.5/);
+  });
 });

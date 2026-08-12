@@ -91,59 +91,37 @@ def test_personal_health_context_allows_corpus_research_questions() -> None:
     assert personal_medical_refusal("I take metformin. What trials studied it?") is None
 
 
+@pytest.mark.parametrize(
+    "message",
+    [
+        "What treatments were studied in my papers?",
+        "In my uploaded research, what dose did the study use?",
+    ],
+)
+def test_research_only_medical_questions_are_allowed(message: str) -> None:
+    assert personal_medical_refusal(message) is None
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        "Which supplements would help with my arthritis?",
+        "What is wrong with me?",
+        "I have insomnia. What should help me sleep?",
+    ],
+)
+def test_personal_diagnosis_and_treatment_requests_are_declined(message: str) -> None:
+    assert personal_medical_refusal(message) == (
+        "I can summarize study evidence, but I cannot provide personal diagnosis, "
+        "treatment, or dosing advice."
+    )
+
+
 def _events(response: httpx.Response) -> list[dict[str, object]]:
     return [
         json.loads(frame.removeprefix("data: "))
         for frame in response.text.rstrip("\n").split("\n\n")
     ]
-
-
-@pytest.mark.e2e
-def test_supported_answer_returns_one_verified_claim_and_exact_citation(
-    tmp_path: Path,
-) -> None:
-    async def exercise() -> httpx.Response:
-        transport = httpx.ASGITransport(
-            app=create_app(
-                retriever=StubRetriever(),
-                llm_client=CitedDraftLLM(),
-                verifier=ExactEvidenceVerifier(),
-                config=ApplicationConfig(database_path=tmp_path / "conversations.db"),
-            )
-        )
-        async with httpx.AsyncClient(
-            transport=transport,
-            base_url="http://testserver",
-        ) as client:
-            return await client.post(
-                "/api/chat",
-                json={"message": "What do senolytics target?"},
-            )
-
-    events = _events(asyncio.run(exercise()))
-
-    assert [event["type"] for event in events] == [
-        "conversation",
-        "token",
-        "citations",
-        "done",
-    ]
-    assert events[1] == {
-        "type": "token",
-        "text": "Senolytics selectively target senescent cells [1].",
-    }
-    assert events[2] == {
-        "type": "citations",
-        "citations": [
-            {
-                "document_id": ("015-hickson-2019-senolytics-dasatinib-quercetin-first-in-human"),
-                "page": 2,
-                "heading_path": ["Research in context", "1. Introduction"],
-                "bbox": {"l": 310.5, "t": 332.6, "r": 561.6, "b": 53.3},
-                "snippet": "By definition, the target of senolytics is senescent cells...",
-            }
-        ],
-    }
 
 
 async def _chat(
