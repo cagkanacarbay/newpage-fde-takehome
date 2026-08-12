@@ -14,11 +14,11 @@
 
   <header class="page">
     <h1>Live Long R&amp;D research assistant</h1>
-    <p class="standfirst">The first committed part of the assistant is its reproducible research corpus.</p>
+    <p class="standfirst">The documentation records the reproducible corpus, the calibrated retrieval path, and the full assistant architecture.</p>
     <div class="header-meta">
       <span><b>Corpus</b> 27 open-access papers</span>
       <span><b>Coverage</b> 425 pages</span>
-      <span><b>Stage</b> corpus ready</span>
+      <span><b>Stage</b> retrieval implemented</span>
     </div>
   </header>
 
@@ -26,16 +26,29 @@
     <nav class="toc" aria-label="On this page">
       <p class="toc-title">Contents</p>
       <ol>
-        <li><a href="#technical-choices"><span class="n">01</span><span>Technical Choices</span></a></li>
-        <li><a href="#corpus"><span class="n">02</span><span>Research corpus</span></a></li>
-        <li><a href="#research"><span class="n">03</span><span>Research</span></a></li>
-        <li><a href="#decisions"><span class="n">04</span><span>Decisions</span></a></li>
+        <li><a href="#architecture"><span class="n">01</span><span>Architecture overview</span></a></li>
+        <li><a href="#technical-choices"><span class="n">02</span><span>Technical Choices</span></a></li>
+        <li><a href="#corpus"><span class="n">03</span><span>Research corpus</span></a></li>
+        <li><a href="#research"><span class="n">04</span><span>Research</span></a></li>
+        <li><a href="#decisions"><span class="n">05</span><span>Decisions</span></a></li>
       </ol>
     </nav>
 
     <div class="col">
+      <section id="architecture">
+        <h2><span class="idx">01</span> Architecture overview</h2>
+        <p class="lead">A layered map of the RAG system from source PDF to grounded answer and exact PDF highlight.</p>
+        <div class="stack-sm">
+          <a class="doc" href="architecture.html">
+            <span class="t">Architecture overview <span class="tag">current</span></span>
+            <span class="d">Deployment boundary, index build, hybrid retrieval, answer verification, and citation-to-PDF traceability.</span>
+            <span class="path">architecture.html</span>
+          </a>
+        </div>
+      </section>
+
       <section id="technical-choices">
-        <h2><span class="idx">01</span> Technical Choices</h2>
+        <h2><span class="idx">02</span> Technical Choices</h2>
         <p class="lead">The working document for charting the path from zero to completion.</p>
         <div class="stack-sm">
           <a class="doc" href="technical-choices.html">
@@ -47,7 +60,7 @@
       </section>
 
       <section id="corpus">
-        <h2><span class="idx">02</span> Research corpus</h2>
+        <h2><span class="idx">03</span> Research corpus</h2>
         <p class="lead">The repository includes 27 open-access longevity papers for later ingestion and retrieval work.</p>
         <p>The corpus includes overlapping findings, tables, named entities, and mathematical models. It gives later work concrete source material and failure cases.</p>
         <div class="stack-sm">
@@ -60,7 +73,7 @@
       </section>
 
       <section id="research">
-        <h2><span class="idx">03</span> Research</h2>
+        <h2><span class="idx">04</span> Research</h2>
         <p class="lead">Measured results that inform system choices.</p>
         <div class="stack-sm">
           <a class="doc" href="research/parsing.html">
@@ -97,7 +110,7 @@
       </section>
 
       <section id="decisions">
-        <h2><span class="idx">04</span> Decisions</h2>
+        <h2><span class="idx">05</span> Decisions</h2>
         <p class="lead">Current technical choices and the evidence that supports them.</p>
         <div class="stack-sm">
           <a class="doc" href="decisions.html">

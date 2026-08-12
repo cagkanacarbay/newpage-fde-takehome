@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Architecture overview - Live Long R&amp;D assistant</title>
+<!-- ds:css:start -->
+<link rel="stylesheet" href="_assets/docs.css">
+<!-- ds:css:end -->
+</head>
+<body>
+<div class="wrap">
+  <button class="theme-toggle" type="button" aria-label="Switch to dark">☾</button>
+  <a class="backlink" href="index.html">← System documentation</a>
+
+  <header class="page">
+    <h1>Architecture overview</h1>
+    <p class="standfirst">Four views show how a researcher question becomes a grounded answer with an exact PDF highlight.</p>
+    <div class="header-meta">
+      <span><b>Corpus</b> 27 PDFs</span>
+      <span><b>Store</b> LanceDB</span>
+      <span><b>Answer model</b> GPT-5.6 Luna</span>
+      <span><b>Packaging</b> one Docker image</span>
+    </div>
+  </header>
+
+  <div class="shell">
+    <nav class="toc" aria-label="On this page">
+      <p class="toc-title">Contents</p>
+      <ol>
+        <li><a href="#reading-key"><span class="n">01</span><span>Reading key</span></a></li>
+        <li><a href="#system"><span class="n">02</span><span>System boundary</span></a></li>
+        <li><a href="#ingestion"><span class="n">03</span><span>Ingestion path</span></a></li>
+        <li><a href="#retrieval"><span class="n">04</span><span>Question path</span></a></li>
+        <li><a href="#traceability"><span class="n">05</span><span>Source trace</span></a></li>
+      </ol>
+    </nav>
+
+    <div class="col">
+      <section id="reading-key">
+        <h2><span class="idx">01</span> Read the views together</h2>
+        <p class="lead">Each diagram answers one question. Together they show the full RAG system without collapsing it into one crowded chart.</p>
+        <div class="callout note">
+          <span class="lbl">Status boundary</span>
+          <p>Teal nodes are in the implemented retrieval path.</p>
+          <p>Yellow nodes are decided architecture that still needs its application slice.</p>
+          <p>Orange nodes mark a system boundary, such as OpenAI or host-persisted SQLite.</p>
+        </div>
+      </section>
+
+      <section id="system">
+        <h2><span class="idx">02</span> One product, one image, two durable data paths</h2>
+        <p class="lead">Next.js gives researchers the chat and PDF interface. FastAPI serves chat, documents, and server-sent events.</p>
+
+        <figure class="architecture-figure">
+          <ul class="architecture-key" aria-label="Diagram key">
+            <li><i class="live"></i> implemented</li>
+            <li><i class="decided"></i> decided next slice</li>
+            <li><i class="boundary"></i> boundary</li>
+          </ul>
+          <div class="architecture-surface system-map">
+            <div class="architecture-band"><strong>Researcher browser</strong> - one interface for conversation and source inspection</div>
+            <div class="client-row">
+              <div class="architecture-node live">
+                <h3>Next.js chat</h3>
+                <p>Writes questions, streams replies, and renders citations.</p>
+              </div>
+              <span class="architecture-arrow right" aria-hidden="true"></span>
+              <div class="architecture-node live">
+                <h3>PDF panel</h3>
+                <p>Opens a cited paper at its page and highlight box.</p>
+              </div>
+            </div>
+            <span class="architecture-arrow down" aria-hidden="true"></span>
+            <div class="architecture-band"><strong>One Docker image</strong> - application, index, reranker, UI, and source PDFs</div>
+            <div class="container-row">
+              <div class="architecture-node decided">
+                <h3>FastAPI</h3>
+                <p>Serves conversations, document access, and SSE responses.</p>
+              </div>
+              <div class="architecture-node live">
+                <h3>Retrieval runtime</h3>
+                <p>Uses LanceDB and the bundled MiniLM reranker.</p>
+              </div>
+              <div class="architecture-node live">
+                <h3>Indexed corpus</h3>
+                <p>Keeps LanceDB and all 27 PDFs in the reviewer image.</p>
+              </div>
+            </div>
+            <span class="architecture-arrow down" aria-hidden="true"></span>
+            <div class="host-row">
+              <div class="architecture-node decided">
+                <h3>SQLite bind mount</h3>
+                <p>Stores conversations outside the container so they survive replacement.</p>
+              </div>
+              <span class="architecture-arrow right" aria-hidden="true"></span>
+              <div class="architecture-node boundary">
+                <h3>OpenAI API</h3>
+                <p>Provides embeddings, planning, answer generation, and claim verification.</p>
+              </div>
+            </div>
+          </div>
+          <figcaption>FastAPI is the only application service. LanceDB is embedded, so the image does not need a separate vector database process.</figcaption>
+        </figure>
+      </section>
+
+      <section id="ingestion">
+        <h2><span class="idx">03</span> Build the index from the paper corpus</h2>
+        <p class="lead">Ingestion turns each source PDF into contextual chunks, vectors, lexical text, and citation geometry.</p>
+
+        <figure class="architecture-figure">
+          <div class="architecture-surface">
+            <div class="pipeline-flow ingestion" aria-label="PDF ingestion flow">
+              <div class="architecture-node external">
+                <h3>27 PDFs</h3>
+                <p>Open-access longevity papers.</p>
+              </div>
+              <span class="architecture-arrow right" aria-hidden="true"></span>
+              <div class="architecture-node live">
+                <h3>Docling JSON</h3>
+                <p>Parses text, headings, tables, pages, and boxes.</p>
+              </div>
+              <span class="architecture-arrow right" aria-hidden="true"></span>
+              <div class="architecture-node live">
+                <h3>LlamaIndex HybridChunker</h3>
+                <p>Makes structure-aware chunks with source context.</p>
+              </div>
+              <span class="architecture-arrow right" aria-hidden="true"></span>
+              <div class="architecture-node boundary">
+                <h3>OpenAI embeddings</h3>
+                <p><code>text-embedding-3-large</code> creates dense vectors.</p>
+              </div>
+              <span class="architecture-arrow right" aria-hidden="true"></span>
+              <div class="architecture-node live">
+                <h3>LanceDB indexes</h3>
+                <p>Stores dense vectors and a BM25 full-text index.</p>
+              </div>
+            </div>
+          </div>
+          <figcaption>Each chunk retains its document ID, page numbers, heading path, bounding boxes, captions, and original text before indexing.</figcaption>
+        </figure>
+      </section>
+
+      <section id="retrieval">
+        <h2><span class="idx">04</span> Plan, retrieve, rank, answer, verify</h2>
+        <p class="lead">The request path uses different query forms for semantic meaning and exact scientific terms, then limits the answer to packed evidence.</p>
+
+        <figure class="architecture-figure">
+          <div class="architecture-surface">
+            <div class="architecture-band"><strong>Input</strong> - question plus the selected conversation history</div>
+            <div class="retrieval-flow" aria-label="Query planning and hybrid retrieval flow">
+              <div class="architecture-node live planner">
+                <h3>GPT-5.6 Luna query planner</h3>
+                <p>Creates one to three search intents, dense meaning, sparse anchors, and safe filters.</p>
+              </div>
+              <span class="architecture-arrow split planner-arrow" aria-hidden="true"></span>
+              <div class="architecture-node live dense">
+                <h3>Dense search</h3>
+                <p>Embeds the semantic query and searches LanceDB vectors.</p>
+              </div>
+              <div class="architecture-node live sparse">
+                <h3>Sparse search</h3>
+                <p>Searches BM25 with paper names, doses, years, and other exact terms.</p>
+              </div>
+              <span class="architecture-arrow right merge-arrow" aria-hidden="true"></span>
+              <div class="architecture-node live fusion">
+                <h3>RRF fusion</h3>
+                <p>Combines candidate ranks and deduplicates shared chunks.</p>
+              </div>
+            </div>
+            <div class="retrieval-tail" aria-label="Evidence selection and answer flow">
+              <div class="retrieval-selection">
+                <div class="architecture-node live">
+                  <h3>Document diversity</h3>
+                  <p>Applies the 0.15 repeated-document penalty.</p>
+                </div>
+                <span class="architecture-arrow right" aria-hidden="true"></span>
+                <div class="architecture-node live">
+                  <h3>MiniLM reranking</h3>
+                  <p>Ranks the 20 selected candidates with a cross-encoder.</p>
+                </div>
+                <span class="architecture-arrow right" aria-hidden="true"></span>
+                <div class="architecture-node live">
+                  <h3>12,000-token evidence pack</h3>
+                  <p>Packs complete, diverse chunks into the source budget.</p>
+                </div>
+              </div>
+              <span class="architecture-arrow down" aria-hidden="true"></span>
+              <div class="retrieval-generation">
+                <div class="architecture-node decided">
+                  <h3>GPT-5.6 Luna answer</h3>
+                  <p>Streams grounded prose with per-claim citation markers.</p>
+                </div>
+                <span class="architecture-arrow right" aria-hidden="true"></span>
+                <div class="architecture-node decided">
+                  <h3>Claim verifier</h3>
+                  <p>Rejects unsupported claims before the answer is final.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <figcaption>The implemented retriever includes planning, dense and BM25 search, RRF, diversity selection, MiniLM, and 12,000-token packing. History persistence and the claim verifier are decided next slices.</figcaption>
+        </figure>
+      </section>
+
+      <section id="traceability">
+        <h2><span class="idx">05</span> Every citation returns to its PDF evidence</h2>
+        <p class="lead">The system preserves source geometry from parsing to the highlighted paper page. It does not create citations after generation.</p>
+
+        <figure class="architecture-figure">
+          <div class="architecture-surface">
+            <div class="trace-flow" aria-label="Citation traceability flow">
+              <div class="architecture-node external">
+                <h3>Source PDF</h3>
+                <p>One paper and its original page layout.</p>
+              </div>
+              <div class="architecture-node live">
+                <h3>Docling provenance</h3>
+                <p>Page number and bounding box for each source item.</p>
+              </div>
+              <div class="architecture-node live">
+                <h3>Retrieved chunk</h3>
+                <p>Original text and source metadata survive ranking.</p>
+              </div>
+              <div class="architecture-node decided">
+                <h3>Citation marker</h3>
+                <p>Each answer claim points to a chunk payload.</p>
+              </div>
+              <div class="architecture-node live">
+                <h3>PDF highlight</h3>
+                <p>Next.js opens the paper at the cited page and box.</p>
+              </div>
+            </div>
+          </div>
+          <figcaption>The citation payload includes document ID, page, heading path, bounding box, and source snippet. The PDF panel uses that geometry to show the evidence.</figcaption>
+        </figure>
+
+        <div class="callout note">
+          <span class="lbl">Related documents</span>
+          <p>See <a href="retrieval.html">retrieval approach</a> for measured retrieval settings, <a href="generation.html">generation</a> for the answer and verification contract, and <a href="decisions.html#context-management">context management</a> for SQLite persistence.</p>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <footer class="page">
+    <a class="backlink mb-0" href="index.html">← System documentation</a>
+  </footer>
+</div>
+<!-- ds:js:start -->
+<script defer src="_assets/docs.js"></script>
+<!-- ds:js:end -->
+</body>
+</html>

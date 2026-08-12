@@ -987,6 +987,231 @@ details.why .body p { font-size: 1rem; max-width: var(--measure); }
 .mb-0 { margin-bottom: 0; }
 .wide { max-width: none; }
 
+/* -------------------------------------------------- architecture views --- */
+
+/* Layered architecture graphics. Each view owns one question: deployment,
+   ingestion, retrieval, or citation traceability. The semantic reading order
+   matches the visual flow, so the diagrams stay useful without CSS. */
+.architecture-figure {
+  margin: var(--s8) 0;
+  max-width: none;
+}
+.architecture-figure figcaption {
+  margin: var(--s4) var(--s2) 0;
+  font-size: .98rem;
+  line-height: 1.55;
+  color: var(--muted);
+  max-width: 72ch;
+}
+.architecture-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2) var(--s5);
+  margin: 0 0 var(--s4);
+  padding: 0;
+  list-style: none;
+  max-width: none;
+}
+.architecture-key li {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  margin: 0;
+  font-size: .92rem;
+  color: var(--muted);
+}
+.architecture-key i {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 4px;
+  background: var(--surface);
+}
+.architecture-key i.live { background: var(--teal); }
+.architecture-key i.decided { background: var(--yellow); }
+.architecture-key i.boundary { background: var(--orange); }
+
+.architecture-surface {
+  padding: var(--s8);
+  background: var(--surface);
+  border-radius: var(--r-3xl);
+}
+.architecture-surface > :last-child { margin-bottom: 0; }
+.architecture-band {
+  padding: var(--s3) var(--s5);
+  margin: 0 0 var(--s5);
+  background: var(--surface-2);
+  border-radius: var(--r-pill);
+  color: var(--muted);
+  font-size: .95rem;
+  font-weight: 600;
+}
+.architecture-band strong { color: var(--text); }
+
+.architecture-node {
+  min-width: 0;
+  padding: var(--s5);
+  background: var(--surface-2);
+  border-radius: var(--r-xl);
+}
+.architecture-node h3 {
+  margin: 0 0 var(--s2);
+  font-size: 1.08rem;
+  line-height: 1.25;
+}
+.architecture-node p {
+  margin: 0;
+  max-width: none;
+  font-size: .94rem;
+  line-height: 1.45;
+  color: var(--muted);
+}
+.architecture-node.live { background: var(--teal-bg); }
+.architecture-node.live h3 { color: var(--teal-ink); }
+.architecture-node.decided { background: var(--yellow-bg); }
+.architecture-node.decided h3 { color: var(--yellow-ink); }
+.architecture-node.boundary { background: var(--orange-bg); }
+.architecture-node.boundary h3 { color: var(--orange-ink); }
+.architecture-node.external { background: var(--surface); }
+
+.architecture-arrow {
+  display: grid;
+  place-items: center;
+  min-width: 1.5rem;
+  color: var(--teal);
+  font-size: 1.7rem;
+  font-weight: 600;
+  line-height: 1;
+}
+.architecture-arrow.down { min-height: 2.25rem; }
+.architecture-arrow.down::before { content: "↓"; }
+.architecture-arrow.right::before { content: "→"; }
+.architecture-arrow.split::before { content: "↘"; }
+
+/* System boundary: product, embedded image, durable host state, and API. */
+.system-map { display: grid; gap: var(--s3); }
+.system-map .client-row,
+.system-map .container-row,
+.system-map .host-row {
+  display: grid;
+  gap: var(--s3);
+}
+.system-map .client-row { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
+.system-map .container-row { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.system-map .host-row { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
+.system-map .container-row .architecture-node { min-height: 100%; }
+.system-map .container-row .architecture-node:last-child { grid-column: span 1; }
+
+/* Read left to right: a linear stage graph that wraps cleanly on small screens. */
+.pipeline-flow {
+  display: grid;
+  grid-template-columns: repeat(9, minmax(0, 1fr));
+  align-items: stretch;
+  gap: var(--s2);
+}
+.pipeline-flow .architecture-node {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.pipeline-flow .architecture-arrow { min-width: 0; }
+.pipeline-flow.ingestion {
+  grid-template-columns: minmax(80px, .8fr) auto minmax(100px, 1fr) auto minmax(130px, 1.15fr) auto minmax(125px, 1.1fr) auto minmax(120px, 1.05fr);
+}
+.pipeline-flow.ingestion .architecture-node { padding: var(--s3); }
+.pipeline-flow.ingestion .architecture-node h3 { overflow-wrap: normal; }
+
+/* The query planner deliberately branches into dense and sparse search, then
+   merges before diversity selection and MiniLM reranking. */
+.retrieval-flow {
+  display: grid;
+  grid-template-columns: minmax(145px, 1fr) auto minmax(145px, 1fr) auto minmax(145px, 1fr);
+  gap: var(--s3) var(--s2);
+  align-items: stretch;
+}
+.retrieval-flow .planner { grid-column: 1; grid-row: 1 / span 2; }
+.retrieval-flow .planner-arrow { grid-column: 2; grid-row: 1 / span 2; }
+.retrieval-flow .dense { grid-column: 3; grid-row: 1; }
+.retrieval-flow .sparse { grid-column: 3; grid-row: 2; }
+.retrieval-flow .merge-arrow { grid-column: 4; grid-row: 1 / span 2; }
+.retrieval-flow .fusion { grid-column: 5; grid-row: 1 / span 2; }
+.retrieval-tail {
+  display: grid;
+  gap: var(--s3);
+  margin-top: var(--s3);
+}
+.retrieval-selection,
+.retrieval-generation {
+  display: grid;
+  align-items: stretch;
+  gap: var(--s2);
+}
+.retrieval-selection {
+  grid-template-columns: minmax(135px, 1fr) auto minmax(145px, 1fr) auto minmax(155px, 1fr);
+}
+.retrieval-generation {
+  grid-template-columns: minmax(145px, 1fr) auto minmax(155px, 1fr);
+  width: min(100%, 32rem);
+  justify-self: end;
+}
+.retrieval-tail > .architecture-arrow { min-height: 1.8rem; }
+
+/* Citation traceability: the same page geometry survives all five handoffs. */
+.trace-flow {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--s3);
+  align-items: stretch;
+}
+.trace-flow .architecture-node { position: relative; }
+.trace-flow .architecture-node:not(:last-child)::after {
+  content: "→";
+  position: absolute;
+  top: 50%;
+  right: calc(var(--s3) * -1 - .45em);
+  transform: translateY(-50%);
+  color: var(--teal);
+  font-size: 1.5rem;
+  font-weight: 600;
+  z-index: 1;
+}
+
+@media (max-width: 900px) {
+  .architecture-surface { padding: var(--s6); }
+  .system-map .container-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pipeline-flow.ingestion { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
+  .retrieval-selection { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
+  .retrieval-generation { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
+  .pipeline-flow.ingestion .architecture-arrow:nth-of-type(2),
+  .pipeline-flow.ingestion .architecture-arrow:nth-of-type(4),
+  .retrieval-tail .architecture-arrow:nth-of-type(2),
+  .retrieval-tail .architecture-arrow:nth-of-type(4) { transform: rotate(90deg); }
+  .trace-flow { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .trace-flow .architecture-node:not(:last-child)::after { display: none; }
+}
+@media (max-width: 620px) {
+  .system-map .client-row,
+  .system-map .container-row,
+  .system-map .host-row,
+  .pipeline-flow.ingestion,
+  .retrieval-flow,
+  .retrieval-selection,
+  .retrieval-generation,
+  .trace-flow { grid-template-columns: minmax(0, 1fr); }
+  .system-map .architecture-arrow,
+  .pipeline-flow .architecture-arrow,
+  .retrieval-tail .architecture-arrow { min-height: 1.8rem; transform: rotate(90deg) !important; }
+  .retrieval-flow .planner,
+  .retrieval-flow .planner-arrow,
+  .retrieval-flow .dense,
+  .retrieval-flow .sparse,
+  .retrieval-flow .merge-arrow,
+  .retrieval-flow .fusion { grid-column: auto; grid-row: auto; }
+  .retrieval-flow .planner-arrow,
+  .retrieval-flow .merge-arrow { transform: rotate(90deg); }
+  .trace-flow .architecture-node:not(:last-child)::after { display: none; }
+}
+
 ::selection { background: var(--orange-mid); color: var(--text); }
 
 @media print {
