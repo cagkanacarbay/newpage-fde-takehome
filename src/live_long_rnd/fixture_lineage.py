@@ -161,44 +161,82 @@ def _dynamic_import_bindings(tree: ast.AST) -> tuple[set[str], set[str], set[str
     importlib_modules: set[str] = set()
     builtins_modules: set[str] = set()
     for node in ast.walk(tree):
-        if isinstance(node, ast.Import):
-            for alias in node.names:
-                if alias.name == "importlib":
-                    importlib_modules.add(alias.asname or "importlib")
-                elif alias.name == "builtins":
-                    builtins_modules.add(alias.asname or "builtins")
-        elif isinstance(node, ast.ImportFrom) and node.level == 0:
-            for alias in node.names:
-                if node.module == "importlib" and alias.name == "import_module":
-                    import_module_names.add(alias.asname or alias.name)
-                elif node.module == "builtins" and alias.name == "__import__":
-                    builtin_import_names.add(alias.asname or alias.name)
+        _collect_dynamic_import_bindings(
+            node,
+            import_module_names=import_module_names,
+            builtin_import_names=builtin_import_names,
+            importlib_modules=importlib_modules,
+            builtins_modules=builtins_modules,
+        )
     changed = True
     while changed:
         changed = False
         for target, value in _assignment_values(tree):
-            import_kind = _dynamic_import_reference_kind(
+            changed |= _propagate_dynamic_import_binding(
+                target,
                 value,
-                import_module_names=import_module_names,
-                builtin_import_names=builtin_import_names,
-                importlib_modules=importlib_modules,
-                builtins_modules=builtins_modules,
+                binding_sets=(
+                    import_module_names,
+                    builtin_import_names,
+                    importlib_modules,
+                    builtins_modules,
+                ),
             )
-            if import_kind == "import_module" and target not in import_module_names:
-                import_module_names.add(target)
-                changed = True
-            elif import_kind == "__import__" and target not in builtin_import_names:
-                builtin_import_names.add(target)
-                changed = True
-            elif isinstance(value, ast.Name) and value.id in importlib_modules:
-                if target not in importlib_modules:
-                    importlib_modules.add(target)
-                    changed = True
-            elif isinstance(value, ast.Name) and value.id in builtins_modules:
-                if target not in builtins_modules:
-                    builtins_modules.add(target)
-                    changed = True
     return import_module_names, builtin_import_names, importlib_modules, builtins_modules
+
+
+def _collect_dynamic_import_bindings(
+    node: ast.AST,
+    *,
+    import_module_names: set[str],
+    builtin_import_names: set[str],
+    importlib_modules: set[str],
+    builtins_modules: set[str],
+) -> None:
+    if isinstance(node, ast.Import):
+        for alias in node.names:
+            if alias.name == "importlib":
+                importlib_modules.add(alias.asname or "importlib")
+            elif alias.name == "builtins":
+                builtins_modules.add(alias.asname or "builtins")
+    elif isinstance(node, ast.ImportFrom) and node.level == 0:
+        for alias in node.names:
+            if node.module == "importlib" and alias.name == "import_module":
+                import_module_names.add(alias.asname or alias.name)
+            elif node.module == "builtins" and alias.name == "__import__":
+                builtin_import_names.add(alias.asname or alias.name)
+
+
+def _propagate_dynamic_import_binding(
+    target: str,
+    value: ast.expr,
+    *,
+    binding_sets: tuple[set[str], set[str], set[str], set[str]],
+) -> bool:
+    import_module_names, builtin_import_names, importlib_modules, builtins_modules = binding_sets
+    import_kind = _dynamic_import_reference_kind(
+        value,
+        import_module_names=import_module_names,
+        builtin_import_names=builtin_import_names,
+        importlib_modules=importlib_modules,
+        builtins_modules=builtins_modules,
+    )
+    if import_kind == "import_module":
+        return _add_if_missing(import_module_names, target)
+    if import_kind == "__import__":
+        return _add_if_missing(builtin_import_names, target)
+    if isinstance(value, ast.Name) and value.id in importlib_modules:
+        return _add_if_missing(importlib_modules, target)
+    if isinstance(value, ast.Name) and value.id in builtins_modules:
+        return _add_if_missing(builtins_modules, target)
+    return False
+
+
+def _add_if_missing(names: set[str], name: str) -> bool:
+    if name in names:
+        return False
+    names.add(name)
+    return True
 
 
 def _assignment_values(tree: ast.AST) -> Iterable[tuple[str, ast.expr]]:
