@@ -3,7 +3,9 @@ from collections.abc import AsyncIterator, Mapping, Sequence
 from typing import Protocol
 
 from openai import AsyncOpenAI
+from openai.types.responses.response_input_param import ResponseInputParam
 
+from live_long_rnd.api.conversations import StoredMessage
 from live_long_rnd.api.retrieval import RetrievedChunk
 
 
@@ -12,6 +14,7 @@ class LLMClient(Protocol):
         self,
         message: str,
         chunks: Sequence[RetrievedChunk],
+        history: Sequence[StoredMessage],
     ) -> AsyncIterator[str]: ...
 
 
@@ -24,8 +27,9 @@ class StubLLM:
         self,
         message: str,
         chunks: Sequence[RetrievedChunk],
+        history: Sequence[StoredMessage],
     ) -> AsyncIterator[str]:
-        del message, chunks
+        del message, chunks, history
         return _stub_tokens()
 
 
@@ -38,6 +42,7 @@ class OpenAILLM:
         self,
         message: str,
         chunks: Sequence[RetrievedChunk],
+        history: Sequence[StoredMessage],
     ) -> AsyncIterator[str]:
         if not self.api_key:
             raise LLMConfigurationError(
@@ -48,6 +53,15 @@ class OpenAILLM:
         sources = "\n\n".join(
             f"Source {index}: {chunk.text}" for index, chunk in enumerate(chunks, start=1)
         )
+        input_messages: ResponseInputParam = [
+            {"role": item.role, "content": item.text} for item in history
+        ]
+        input_messages.append(
+            {
+                "role": "user",
+                "content": f"Question: {message}\n\nSources:\n{sources}",
+            }
+        )
         client = AsyncOpenAI(api_key=self.api_key)
         stream = await client.responses.create(
             model=self.model,
@@ -55,7 +69,7 @@ class OpenAILLM:
                 "Answer the researcher's question using only the supplied sources. "
                 "State uncertainty plainly and do not invent findings."
             ),
-            input=f"Question: {message}\n\nSources:\n{sources}",
+            input=input_messages,
             reasoning={"effort": "high"},
             stream=True,
         )

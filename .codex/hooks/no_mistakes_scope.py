@@ -102,10 +102,20 @@ def changed_files(root: Path) -> list[str]:
     return output.splitlines() if output else []
 
 
-def project_root() -> Path | None:
+def project_root(tool_input: dict[str, object], command: str) -> Path | None:
     configured = os.environ.get("CLAUDE_PROJECT_DIR")
     if configured:
         return Path(configured)
+    for tokens in command_segments(command):
+        for token in tokens:
+            name, separator, value = token.partition("=")
+            if name == "CLAUDE_PROJECT_DIR" and separator and value:
+                return Path(value)
+    workdir = tool_input.get("workdir")
+    if isinstance(workdir, str):
+        output = git_output(Path(workdir), "rev-parse", "--show-toplevel")
+        if output:
+            return Path(output)
     output = git_output(Path.cwd(), "rev-parse", "--show-toplevel")
     return Path(output) if output else None
 
@@ -141,7 +151,7 @@ def main() -> int:
     if not starts_no_mistakes(command):
         return 0
 
-    root = project_root()
+    root = project_root(tool_input, command)
     if root is None or has_code_changes(changed_files(root)):
         return 0
     return deny(

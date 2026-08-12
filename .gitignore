@@ -1,6 +1,8 @@
 # Parsed intermediates and built indexes — all reproducible from the corpus.
 data/parsed/
 data/index/
+data/state/
+data/conversations.db*
 storage/
 
 # Python

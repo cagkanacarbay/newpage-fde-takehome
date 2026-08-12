@@ -41,17 +41,25 @@ def make_repo(tmp_path: Path) -> Path:
     return tmp_path
 
 
-def hook_event(command: str) -> str:
-    return json.dumps({"tool_name": "Bash", "tool_input": {"command": command}})
+def hook_event(command: str, *, workdir: Path | None = None) -> str:
+    tool_input: dict[str, str] = {"command": command}
+    if workdir is not None:
+        tool_input["workdir"] = str(workdir)
+    return json.dumps({"tool_name": "Bash", "tool_input": tool_input})
 
 
 def run_hook(
-    repo: Path, command: str, *, env: dict[str, str] | None = None
+    repo: Path,
+    command: str,
+    *,
+    env: dict[str, str] | None = None,
+    process_workdir: Path | None = None,
+    tool_workdir: Path | None = None,
 ) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [sys.executable, str(HOOK)],
-        cwd=repo,
-        input=hook_event(command),
+        cwd=process_workdir or repo,
+        input=hook_event(command, workdir=tool_workdir),
         capture_output=True,
         text=True,
         check=False,
@@ -75,6 +83,45 @@ def test_src_change_allows_no_mistakes(tmp_path: Path) -> None:
     commit_file(repo, "src/app.py", "print('ready')")
 
     result = run_hook(repo, "no-mistakes axi run --intent test")
+
+    assert result.returncode == 0
+    assert result.stdout == ""
+
+
+def test_tool_workdir_selects_a_feature_worktree(tmp_path: Path) -> None:
+    feature_repo = tmp_path / "feature"
+    feature_repo.mkdir()
+    make_repo(feature_repo)
+    commit_file(feature_repo, "src/app.py", "print('ready')")
+    launcher_repo = tmp_path / "launcher"
+    launcher_repo.mkdir()
+    make_repo(launcher_repo)
+
+    result = run_hook(
+        feature_repo,
+        "no-mistakes axi run --intent test",
+        process_workdir=launcher_repo,
+        tool_workdir=feature_repo,
+    )
+
+    assert result.returncode == 0
+    assert result.stdout == ""
+
+
+def test_command_project_dir_selects_a_feature_worktree(tmp_path: Path) -> None:
+    feature_repo = tmp_path / "feature"
+    feature_repo.mkdir()
+    make_repo(feature_repo)
+    commit_file(feature_repo, "web/app.ts", "export const ready = true")
+    launcher_repo = tmp_path / "launcher"
+    launcher_repo.mkdir()
+    make_repo(launcher_repo)
+
+    result = run_hook(
+        feature_repo,
+        (f"env CLAUDE_PROJECT_DIR={feature_repo} no-mistakes axi run --intent test"),
+        process_workdir=launcher_repo,
+    )
 
     assert result.returncode == 0
     assert result.stdout == ""
