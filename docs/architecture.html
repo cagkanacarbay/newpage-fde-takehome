@@ -41,9 +41,8 @@
         <h2><span class="idx">01</span> Read the views together</h2>
         <p class="lead">Each diagram answers one question. Together they show the full RAG system without collapsing it into one crowded chart.</p>
         <div class="callout note">
-          <span class="lbl">Status boundary</span>
-          <p>Teal nodes are in the implemented retrieval path.</p>
-          <p>Yellow nodes are decided architecture that still needs its application slice.</p>
+          <span class="lbl">System boundary</span>
+          <p>Teal nodes are implemented application components.</p>
           <p>Orange nodes mark a system boundary, such as OpenAI or host-persisted SQLite.</p>
         </div>
       </section>
@@ -55,7 +54,6 @@
         <figure class="architecture-figure">
           <ul class="architecture-key" aria-label="Diagram key">
             <li><i class="live"></i> implemented</li>
-            <li><i class="decided"></i> decided next slice</li>
             <li><i class="boundary"></i> boundary</li>
           </ul>
           <div class="architecture-surface system-map">
@@ -74,7 +72,7 @@
             <span class="architecture-arrow down" aria-hidden="true"></span>
             <div class="architecture-band"><strong>One Docker image</strong> - application, index, reranker, UI, and source PDFs</div>
             <div class="container-row">
-              <div class="architecture-node decided">
+              <div class="architecture-node live">
                 <h3>FastAPI</h3>
                 <p>Serves conversations, document access, and SSE responses.</p>
               </div>
@@ -89,7 +87,7 @@
             </div>
             <span class="architecture-arrow down" aria-hidden="true"></span>
             <div class="host-row">
-              <div class="architecture-node decided">
+              <div class="architecture-node live">
                 <h3>SQLite bind mount</h3>
                 <p>Stores conversations outside the container so they survive replacement.</p>
               </div>
@@ -171,13 +169,8 @@
             <div class="retrieval-tail" aria-label="Evidence selection and answer flow">
               <div class="retrieval-selection">
                 <div class="architecture-node live">
-                  <h3>Document diversity</h3>
-                  <p>Applies the 0.15 repeated-document penalty.</p>
-                </div>
-                <span class="architecture-arrow right" aria-hidden="true"></span>
-                <div class="architecture-node live">
                   <h3>MiniLM reranking</h3>
-                  <p>Ranks the 20 selected candidates with a cross-encoder.</p>
+                  <p>Ranks the selected candidates with a cross-encoder.</p>
                 </div>
                 <span class="architecture-arrow right" aria-hidden="true"></span>
                 <div class="architecture-node live">
@@ -187,19 +180,19 @@
               </div>
               <span class="architecture-arrow down" aria-hidden="true"></span>
               <div class="retrieval-generation">
-                <div class="architecture-node decided">
+                <div class="architecture-node live">
                   <h3>GPT-5.6 Luna answer</h3>
                   <p>Streams grounded prose with per-claim citation markers.</p>
                 </div>
                 <span class="architecture-arrow right" aria-hidden="true"></span>
-                <div class="architecture-node decided">
+                <div class="architecture-node live">
                   <h3>Claim verifier</h3>
                   <p>Rejects unsupported claims before the answer is final.</p>
                 </div>
               </div>
             </div>
           </div>
-          <figcaption>The implemented retriever includes planning, dense and BM25 search, RRF, diversity selection, MiniLM, and 12,000-token packing. History persistence and the claim verifier are decided next slices.</figcaption>
+          <figcaption>The implemented path includes planning, dense and BM25 search, RRF, MiniLM, 12,000-token packing, answer generation, and claim verification.</figcaption>
         </figure>
       </section>
 
@@ -222,7 +215,7 @@
                 <h3>Retrieved chunk</h3>
                 <p>Original text and source metadata survive ranking.</p>
               </div>
-              <div class="architecture-node decided">
+              <div class="architecture-node live">
                 <h3>Citation marker</h3>
                 <p>Each answer claim points to a chunk payload.</p>
               </div>

@@ -1028,7 +1028,6 @@ details.why .body p { font-size: 1rem; max-width: var(--measure); }
   background: var(--surface);
 }
 .architecture-key i.live { background: var(--teal); }
-.architecture-key i.decided { background: var(--yellow); }
 .architecture-key i.boundary { background: var(--orange); }
 
 .architecture-surface {
@@ -1068,8 +1067,6 @@ details.why .body p { font-size: 1rem; max-width: var(--measure); }
 }
 .architecture-node.live { background: var(--teal-bg); }
 .architecture-node.live h3 { color: var(--teal-ink); }
-.architecture-node.decided { background: var(--yellow-bg); }
-.architecture-node.decided h3 { color: var(--yellow-ink); }
 .architecture-node.boundary { background: var(--orange-bg); }
 .architecture-node.boundary h3 { color: var(--orange-ink); }
 .architecture-node.external { background: var(--surface); }
@@ -1147,7 +1144,9 @@ details.why .body p { font-size: 1rem; max-width: var(--measure); }
   gap: var(--s2);
 }
 .retrieval-selection {
-  grid-template-columns: minmax(135px, 1fr) auto minmax(145px, 1fr) auto minmax(155px, 1fr);
+  grid-template-columns: minmax(145px, 1fr) auto minmax(155px, 1fr);
+  width: min(100%, 32rem);
+  justify-self: end;
 }
 .retrieval-generation {
   grid-template-columns: minmax(145px, 1fr) auto minmax(155px, 1fr);
