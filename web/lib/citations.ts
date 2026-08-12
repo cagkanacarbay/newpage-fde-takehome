@@ -37,6 +37,14 @@ export function linkCitationMarkers(text: string): string {
   return text.replace(/\[(\d+)]/g, "[[$1]](#citation-$1)");
 }
 
+/** Keep citations from older stored answers reachable when their text has no markers. */
+export function fallbackCitations(
+  text: string,
+  citations: Citation[],
+): NumberedCitation[] {
+  return /\[\d+]/.test(text) ? [] : numberCitations(citations);
+}
+
 export type CssRect = {
   left: number;
   top: number;

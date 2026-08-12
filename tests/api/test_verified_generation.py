@@ -13,6 +13,7 @@ from live_long_rnd.api.generation import (
     ClaimVerification,
     EvidenceQuote,
     StubClaimVerifier,
+    personal_medical_refusal,
     verify_draft,
 )
 from live_long_rnd.api.retrieval import RetrievedChunk, StubRetriever
@@ -83,6 +84,10 @@ class RecordingLLM(CitedDraftLLM):
     ) -> AsyncIterator[str]:
         self.calls += 1
         return super().stream_answer(message, chunks, history)
+
+
+def test_personal_health_context_allows_corpus_research_questions() -> None:
+    assert personal_medical_refusal("I take metformin. What trials studied it?") is None
 
 
 def _events(response: httpx.Response) -> list[dict[str, object]]:
@@ -364,6 +369,42 @@ def test_personal_dosing_question_is_declined_without_generation(tmp_path: Path)
             "treatment, or dosing advice."
         ),
     }
+    assert events[2] == {"type": "citations", "citations": []}
+
+
+@pytest.mark.e2e
+def test_personal_condition_and_safety_question_is_declined_without_generation(
+    tmp_path: Path,
+) -> None:
+    llm = RecordingLLM("Creatine is safe for you [1].")
+
+    async def exercise() -> list[dict[str, object]]:
+        transport = httpx.ASGITransport(
+            app=create_app(
+                retriever=StubRetriever(),
+                llm_client=llm,
+                verifier=ExactEvidenceVerifier(),
+                config=ApplicationConfig(database_path=tmp_path / "conversations.db"),
+            )
+        )
+        async with httpx.AsyncClient(
+            transport=transport,
+            base_url="http://testserver",
+        ) as client:
+            return _events(
+                await client.post(
+                    "/api/chat",
+                    json={"message": "I have kidney disease. Is creatine safe?"},
+                )
+            )
+
+    events = asyncio.run(exercise())
+
+    assert llm.calls == 0
+    assert events[1]["text"] == (
+        "I can summarize study evidence, but I cannot provide personal diagnosis, "
+        "treatment, or dosing advice."
+    )
     assert events[2] == {"type": "citations", "citations": []}
 
 

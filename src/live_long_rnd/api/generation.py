@@ -34,6 +34,16 @@ _PERSONAL_MEDICAL_PATTERNS = (
     re.compile(r"\b(?:hurt|harm)\s+me\b", re.I),
 )
 
+_PERSONAL_HEALTH_CONTEXT = re.compile(
+    r"\b(?:i\s+(?:have|am|was|take|use)|my)\b",
+    re.I,
+)
+_PERSONAL_MEDICAL_REQUEST = re.compile(
+    r"\b(?:safe|safety|contraindicat\w*|interact\w*|risk\w*|side effects?|"
+    r"okay|advisable|dose|dosing|treat\w*|diagnos\w*)\b",
+    re.I,
+)
+
 
 @dataclass(frozen=True)
 class CitedEvidence:
@@ -85,7 +95,11 @@ class VerifiedAnswer:
 
 
 def personal_medical_refusal(message: str) -> str | None:
-    if any(pattern.search(message) for pattern in _PERSONAL_MEDICAL_PATTERNS):
+    direct_request = any(pattern.search(message) for pattern in _PERSONAL_MEDICAL_PATTERNS)
+    contextual_request = bool(
+        _PERSONAL_HEALTH_CONTEXT.search(message) and _PERSONAL_MEDICAL_REQUEST.search(message)
+    )
+    if direct_request or contextual_request:
         return PERSONAL_MEDICAL_REFUSAL
     return None
 

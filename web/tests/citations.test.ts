@@ -4,6 +4,7 @@ import { describe, it } from "node:test";
 import {
   bboxToCssRect,
   citationKey,
+  fallbackCitations,
   linkCitationMarkers,
   numberCitations,
   prettifySlug,
@@ -84,6 +85,21 @@ describe("linkCitationMarkers", () => {
       linkCitationMarkers("One finding [1]. A conflict [2][3]."),
       "One finding [[1]](#citation-1). A conflict [[2]](#citation-2)[[3]](#citation-3).",
     );
+  });
+});
+
+describe("fallbackCitations", () => {
+  it("keeps markerless stored citations reachable", () => {
+    const citations = [makeCitation(), makeCitation({ page: 3 })];
+
+    assert.deepEqual(fallbackCitations("A legacy saved answer.", citations), [
+      { citation: citations[0], index: 1 },
+      { citation: citations[1], index: 2 },
+    ]);
+  });
+
+  it("does not duplicate controls when inline markers are present", () => {
+    assert.deepEqual(fallbackCitations("A verified answer [1].", [makeCitation()]), []);
   });
 });
 

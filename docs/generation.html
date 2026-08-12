@@ -74,7 +74,7 @@
           <li><span><b>Validate</b><span class="d">Code rejects unknown citation IDs, missing provenance, and supporting text that is not an exact substring of the cited chunk.</span></span></li>
           <li><span><b>Emit</b><span class="d">Code keeps only accepted claims and renumbers their markers for the used citation payload. It never adds facts, changes values, or changes citations.</span></span></li>
         </ol>
-        <p>The substring check proves the evidence text exists; the verifier judges whether it supports the claim. Uncertainty stated by a source is kept, not smoothed over.</p>
+        <p>The substring check proves the evidence text exists; the verifier judges whether it supports the claim. Claim verification does not judge whether the draft covered every retrieved result. The generation contract requires the main model to account for all material packed evidence and cite both sides of each conflict. Uncertainty stated by a source is kept, not smoothed over.</p>
         <div class="accordion">
           <details>
             <summary>Production implementation</summary>

@@ -4,6 +4,7 @@ import { RotateCcw } from "lucide-react";
 import { useEffect, useRef } from "react";
 
 import { Button } from "@/components/ui/button";
+import { fallbackCitations } from "@/lib/citations";
 import type { Citation } from "@/lib/sse";
 
 import { Markdown } from "./markdown";
@@ -71,6 +72,7 @@ export function MessageList({ messages, streaming, onOpenCitation, onRetry }: Me
             );
           }
 
+          const legacyCitations = fallbackCitations(message.text, message.citations);
           return (
             <article key={message.id} className="max-w-full rounded-3xl bg-surface px-5 py-4">
               {message.text ? (
@@ -103,6 +105,23 @@ export function MessageList({ messages, streaming, onOpenCitation, onRetry }: Me
                 </div>
               ) : null}
 
+              {legacyCitations.length > 0 ? (
+                <div className="mt-3 flex flex-wrap items-center gap-2" aria-label="Sources">
+                  <span className="text-xs font-medium text-faint">Sources</span>
+                  {legacyCitations.map(({ citation, index }) => (
+                    <button
+                      key={`${citation.document_id}-${citation.page}-${index}`}
+                      type="button"
+                      aria-label={`Open citation ${index}: ${citation.snippet}`}
+                      title={citation.snippet}
+                      onClick={() => onOpenCitation(message.id, citation, index)}
+                      className="inline-flex rounded-full bg-teal-bg px-2 py-1 text-xs font-semibold text-teal-ink transition-colors hover:bg-teal hover:text-on-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+                    >
+                      [{index}]
+                    </button>
+                  ))}
+                </div>
+              ) : null}
             </article>
           );
         })}
