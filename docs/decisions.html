@@ -353,23 +353,23 @@
             <summary>Verify every factual claim through structured evidence</summary>
             <div class="body">
               <ol class="numbered">
-                <li><span><b>Generate structured claims</b><span class="d">The main model returns atomic factual claims with citation IDs from the retrieved set.</span></span></li>
+                <li><span><b>Generate cited claims</b><span class="d">The main model drafts atomic factual claims with citation markers from the retrieved set.</span></span></li>
                 <li><span><b>Read the answer and cited chunks</b><span class="d">A smaller verifier reads the complete answer, then checks each claim only against its cited chunks.</span></span></li>
                 <li><span><b>Return exact evidence</b><span class="d">For each claim, the verifier returns a structured status, chunk ID, and exact supporting text from that chunk.</span></span></li>
                 <li><span><b>Validate deterministically</b><span class="d">Code rejects unknown IDs, missing provenance, and evidence text that is not an exact substring of the cited chunk.</span></span></li>
-                <li><span><b>Clean without changing meaning</b><span class="d">The reviewer removes rejected claims and adjusts connective text only. It cannot add facts, change values, or change citations.</span></span></li>
+                <li><span><b>Emit verified claims</b><span class="d">Code keeps only accepted claims and renumbers their markers for the used citation payload. It cannot add facts, change values, or change citations.</span></span></li>
               </ol>
               <p>The substring check proves that the evidence text exists. The smaller verifier still decides whether that text supports the claim.</p>
               <p>Keep uncertainty stated by a source. Remove a claim when the verifier cannot confirm that its cited text supports it.</p>
-              <p>Do not run another model review after cleanup. Run the response schema and deterministic citation checks before returning the answer.</p>
+              <p>Do not run another model review after validation. Run the response schema and deterministic citation checks before returning the answer.</p>
             </div>
           </details>
 
           <details>
             <summary>Fail closed without hiding what happened</summary>
             <div class="body">
-              <p>If some requested parts lack support, return the supported answer and identify the specific gaps in the retrieved evidence.</p>
-              <p>If cleanup removes every factual claim, return that the retrieved evidence did not provide a supported answer.</p>
+              <p>If some requested parts lack support, return only the factual claims that verification accepts.</p>
+              <p>If verification rejects every factual claim, return that the retrieved evidence did not provide a supported answer.</p>
               <p>If the verifier times out or returns invalid output, return a verification error. Never return the unverified draft.</p>
             </div>
           </details>

@@ -13,8 +13,8 @@
   <a class="backlink" href="index.html">← System documentation</a>
   <header class="page">
     <h1>Generation, prompt, and citation-to-page</h1>
-    <p class="standfirst">How the assistant turns packed evidence into a streamed, checkable answer: per-claim citation markers, a deterministic parse, and a small verifier model.</p>
-    <div class="header-meta"><span><b>Status</b> decided</span><span><b>Date</b> 2026-08-11</span><span><b>Ticket</b> <a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/23">issue 23</a></span><span><b>Policy input</b> <a href="decisions.html#guardrails">guardrails</a></span></div>
+    <p class="standfirst">How the assistant turns packed evidence into a verified, checkable answer: per-claim citation markers, deterministic validation, and structured claim verification.</p>
+    <div class="header-meta"><span><b>Status</b> implemented</span><span><b>Date</b> 2026-08-12</span><span><b>Ticket</b> <a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/35">issue 35</a></span><span><b>Policy input</b> <a href="decisions.html#guardrails">guardrails</a></span></div>
   </header>
   <div class="shell">
     <nav class="toc" aria-label="On this page"><p class="toc-title">Contents</p><ol>
@@ -30,15 +30,14 @@
 
       <section id="decision">
         <h2><span class="idx">01</span> Decision</h2>
-        <p class="lead">The answer streams as ordinary prose with an inline citation marker per claim. A deterministic parser links markers to sources. A small verifier model checks every claim against its cited chunk.</p>
+        <p class="lead">The model drafts ordinary prose with an inline citation marker per claim. The API verifies the complete draft before it emits any SSE text.</p>
         <div class="rec">
           <div class="rec-head">TL;DR</div>
           <div class="rec-body">
-            <p><strong>Citations:</strong> every claim ends with inline <code>[n]</code> markers. Each marker indexes the citation payload of one retrieved chunk, which carries document, page, heading path, bounding box, and snippet.</p>
-            <p><strong>Format:</strong> streamed prose, no JSON schema. A deterministic parser extracts claim-marker pairs. An unknown or out-of-range marker is a fail-closed reject.</p>
-            <p><strong>Shape:</strong> a 2-4 sentence direct answer first, then optional detail. Structured sections only when the question calls for them.</p>
+            <p><strong>Citations:</strong> every factual claim ends with inline <code>[n]</code> markers. The final answer numbers only verified, used chunks. Each marker indexes one citation payload with document, page, heading path, bounding box, and snippet.</p>
+            <p><strong>Format:</strong> prose draft, no generation JSON schema. A deterministic parser extracts claim-marker pairs. An unknown or out-of-range marker rejects that claim.</p>
             <p><strong>Conflicts:</strong> natural prose covering both sides, each side cited, no synthesized verdict.</p>
-            <p><strong>Verifier:</strong> <code>gpt-5.6-luna</code> at low reasoning effort. It returns a strict support result and exact evidence text for deterministic validation.</p>
+            <p><strong>Verifier:</strong> <code>gpt-5.6-luna</code> at low reasoning effort. It returns a strict structured support result and exact evidence text for deterministic validation.</p>
             <p><strong>Boundary:</strong> strictly corpus-only. No model knowledge, marked or otherwise. Refusals follow the <a href="decisions.html#guardrails">guardrails policy</a> exactly.</p>
           </div>
         </div>
@@ -47,9 +46,9 @@
       <section id="contract">
         <h2><span class="idx">02</span> Answer contract</h2>
         <p class="lead">The unit of the answer is the claim: one atomic factual statement, carrying the citation markers it depends on.</p>
-        <p>The model streams prose. Every factual claim ends with one or more inline markers, <code>[1]</code>, <code>[2]</code>, and so on, numbered into the retrieved evidence set it was given. Connective text - framing, transitions, the direct-answer lead - carries no marker and makes no factual assertion of its own.</p>
-        <p>After the stream, deterministic code parses the answer into claims and marker references. A marker that does not resolve to a retrieved citation fails closed: the claim is rejected, not silently kept.</p>
-        <div class="callout note"><span class="lbl">Why not structured JSON output</span><p>A JSON schema of atomic claims and citation IDs is cleaner to verify, but streaming JSON makes the token-by-token chat experience awkward, and streaming is core to the demo. Inline markers keep the stream readable while staying deterministically parseable. If markers prove unreliable in practice, this is the first decision to revisit - see <a href="#reopen">what reopens this</a>.</p></div>
+        <p>The model drafts prose. Every factual claim ends with one or more inline markers, <code>[1]</code>, <code>[2]</code>, and so on, numbered into the retrieved evidence set it received. Connective text - framing and transitions - carries no marker and makes no factual assertion of its own.</p>
+        <p>After generation completes, deterministic code parses the draft into claims and marker references. A marker that does not resolve to retrieved evidence rejects that claim. The API sends no draft text through SSE. It emits the verified answer and its used citations only.</p>
+        <div class="callout note"><span class="lbl">Why not structured generation output</span><p>A JSON schema of atomic claims and citation IDs is easier to verify, but it conflicts with the readable prose draft used here. Inline markers keep that draft readable and deterministically parseable. If markers prove unreliable in practice, this is the first decision to revisit - see <a href="#reopen">what reopens this</a>.</p></div>
       </section>
 
       <section id="prompt">
@@ -60,7 +59,6 @@
         <ol class="numbered">
           <li><span><b>Corpus-only</b><span class="d">Answer using only the supplied evidence. Preserve exact values, units, cohorts, and conditions. Never fill gaps with model knowledge.</span></span></li>
           <li><span><b>Cite every claim</b><span class="d">End each factual claim with the marker of its source. Claims without support are not written.</span></span></li>
-          <li><span><b>Direct answer first</b><span class="d">Open with 2-4 sentences that answer the question. Detail follows only where it helps.</span></span></li>
           <li><span><b>Disclose conflicts</b><span class="d">When sources disagree, report what each side says with its conditions and uncertainty. Do not resolve the disagreement with a verdict.</span></span></li>
           <li><span><b>Medical boundary</b><span class="d">Personal diagnosis, treatment, or dosing questions are declined; study evidence may be reported in study context without personalizing it.</span></span></li>
         </ol>
@@ -71,10 +69,10 @@
         <h2><span class="idx">04</span> Verification</h2>
         <p class="lead">Every claim is checked against its cited chunk before the answer is final. The pipeline is the one the guardrails policy defines.</p>
         <ol class="numbered">
-          <li><span><b>Parse</b><span class="d">Deterministic code extracts claims and their citation markers from the streamed answer. Unknown markers are rejected outright.</span></span></li>
-          <li><span><b>Verify</b><span class="d">A Luna-class small model at low reasoning effort reads each claim with only its cited chunks and returns a status plus the exact supporting text.</span></span></li>
+          <li><span><b>Parse</b><span class="d">Deterministic code extracts claims and their citation markers from the completed draft. Unknown markers are rejected outright.</span></span></li>
+          <li><span><b>Verify</b><span class="d"><code>gpt-5.6-luna</code> at low reasoning effort reads each claim with only its cited chunks and returns a status plus exact supporting text.</span></span></li>
           <li><span><b>Validate</b><span class="d">Code rejects unknown citation IDs, missing provenance, and supporting text that is not an exact substring of the cited chunk.</span></span></li>
-          <li><span><b>Clean</b><span class="d">The reviewer removes rejected claims and adjusts connective text only. It never adds facts, changes values, or changes citations. No further model review runs after cleanup.</span></span></li>
+          <li><span><b>Emit</b><span class="d">Code keeps only accepted claims and renumbers their markers for the used citation payload. It never adds facts, changes values, or changes citations.</span></span></li>
         </ol>
         <p>The substring check proves the evidence text exists; the verifier judges whether it supports the claim. Uncertainty stated by a source is kept, not smoothed over.</p>
         <div class="accordion">
@@ -96,8 +94,8 @@
         <p><strong>Conflicts:</strong> when the packed evidence disagrees - the corpus plants six such pairs - the answer covers both sides in natural prose. Each side's claims carry their own citations, with conditions and uncertainty preserved. The assistant never synthesizes a verdict on contested evidence.</p>
         <p><strong>Refusals</strong> follow the guardrails policy verbatim:</p>
         <ol class="numbered">
-          <li><span><b>Partial support</b><span class="d">Return the supported part and name the specific gaps in the retrieved evidence.</span></span></li>
-          <li><span><b>No supported answer</b><span class="d">If cleanup removes every claim, say the retrieved evidence gave no supported answer.</span></span></li>
+          <li><span><b>Partial support</b><span class="d">Return only the claims that verification accepts.</span></span></li>
+          <li><span><b>No supported answer</b><span class="d">If verification rejects every claim, say the retrieved evidence gave no supported answer.</span></span></li>
           <li><span><b>Verifier failure</b><span class="d">If the verifier times out or returns invalid output, return a verification error. Never return the unverified draft.</span></span></li>
           <li><span><b>No relevant evidence</b><span class="d">If no chunks pass the retrieval gate, the main model is never called; the answer states that no sufficiently relevant evidence was found in the corpus.</span></span></li>
         </ol>
@@ -105,9 +103,9 @@
 
       <section id="citation-to-page">
         <h2><span class="idx">06</span> Citation-to-page, end to end</h2>
-        <p class="lead">A marker in the answer text resolves to an exact spot in a source PDF. The data for this already flows through the whole pipeline.</p>
+        <p class="lead">A marker in verified answer text resolves to an exact spot in a source PDF. The data flows through the full pipeline.</p>
         <ol class="numbered">
-          <li><span><b>Marker</b><span class="d">A claim in the streamed answer ends with <code>[n]</code>.</span></span></li>
+          <li><span><b>Marker</b><span class="d">A factual claim in the verified answer ends with <code>[n]</code>.</span></span></li>
           <li><span><b>Payload</b><span class="d"><code>n</code> indexes the citation payload of one retrieved chunk: document ID, page, heading path, bounding box, snippet.</span></span></li>
           <li><span><b>UI</b><span class="d">The marker renders clickable. Activating it opens the source PDF at that page with the bounding box highlighted.</span></span></li>
         </ol>
@@ -120,8 +118,8 @@
           <details>
             <summary>Conditions that would change the decision</summary>
             <div class="body">
-              <p><strong>Unreliable markers:</strong> if the model drops, duplicates, or misnumbers inline markers at a rate the deterministic parser cannot absorb, switch the generation format to a strict JSON schema of claims and citation IDs and accept the streaming cost.</p>
-              <p><strong>Verifier too weak:</strong> if calibration on the 24-item suite shows the Luna-class verifier cannot judge support, move the verifier up a tier before relaxing the claim-per-citation rule.</p>
+              <p><strong>Unreliable markers:</strong> if the model drops, duplicates, or misnumbers inline markers at a rate the deterministic parser cannot absorb, switch the generation format to a strict JSON schema of claims and citation IDs.</p>
+              <p><strong>Verifier too weak:</strong> if calibration on the 24-item suite shows <code>gpt-5.6-luna</code> cannot judge support, move the verifier up a tier before relaxing the claim-per-citation rule.</p>
               <p><strong>Conflict prose hides disagreement:</strong> if natural-prose conflict reporting lets answers quietly favor one side, move to a structured both-sides block. This was the alternative considered and set aside.</p>
             </div>
           </details>

@@ -26,7 +26,8 @@ _PERSONAL_MEDICAL_PATTERNS = (
         re.I,
     ),
     re.compile(
-        r"\b(?:is|would|will|can|could)\b.*\b(?:safe|harmful|dangerous)\b.*\b(?:for me|for myself|personally)\b",
+        r"\b(?:is|would|will|can|could)\b.*\b(?:safe|harmful|dangerous)\b.*"
+        r"\b(?:for me|for myself|personally)\b",
         re.I,
     ),
     re.compile(r"\b(?:do|could|can)\s+i\s+have\b", re.I),
