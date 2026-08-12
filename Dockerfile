@@ -40,6 +40,7 @@ ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 \
     LIVE_LONG_RETRIEVER=lancedb \
     LIVE_LONG_LLM=openai \
+    LIVE_LONG_VERIFIER=openai \
     LIVE_LONG_WEB_DIR=/app/web \
     LIVE_LONG_CORPUS_DIR=/app/data/corpus/longevity \
     LIVE_LONG_CONVERSATIONS_DB=/app/state/conversations.db

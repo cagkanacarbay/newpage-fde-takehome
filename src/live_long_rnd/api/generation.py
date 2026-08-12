@@ -43,6 +43,7 @@ class ClaimVerification:
 class ClaimVerifier(Protocol):
     async def verify_claim(
         self,
+        question: str,
         claim: str,
         evidence: Sequence[CitedEvidence],
     ) -> ClaimVerification: ...
@@ -51,10 +52,11 @@ class ClaimVerifier(Protocol):
 class StubClaimVerifier:
     async def verify_claim(
         self,
+        question: str,
         claim: str,
         evidence: Sequence[CitedEvidence],
     ) -> ClaimVerification:
-        del claim
+        del question, claim
         return ClaimVerification(
             supported=True,
             evidence=tuple(
@@ -76,6 +78,7 @@ def personal_medical_refusal(message: str) -> str | None:
 
 
 async def verify_draft(
+    question: str,
     draft: str,
     chunks: Sequence[RetrievedChunk],
     verifier: ClaimVerifier,
@@ -88,7 +91,7 @@ async def verify_draft(
         cited = tuple(CitedEvidence(marker=marker, chunk=chunks[marker - 1]) for marker in markers)
         if any(not _has_provenance(item.chunk) for item in cited):
             continue
-        verification = await verifier.verify_claim(claim, cited)
+        verification = await verifier.verify_claim(question, claim, cited)
         if not _valid_verification(verification, cited):
             continue
         accepted.append((claim, markers))

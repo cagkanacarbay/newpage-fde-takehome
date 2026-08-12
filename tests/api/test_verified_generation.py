@@ -44,9 +44,11 @@ class ExactEvidenceVerifier:
 
     async def verify_claim(
         self,
+        question: str,
         claim: str,
         evidence: Sequence[CitedEvidence],
     ) -> ClaimVerification:
+        del question
         self.claims.append(claim)
         if self.fail:
             raise RuntimeError("Verifier service failed.")
@@ -235,6 +237,46 @@ def test_verifier_failure_returns_error_without_draft_text(tmp_path: Path) -> No
 
 
 @pytest.mark.e2e
+def test_openai_verifier_missing_key_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("LIVE_LONG_VERIFIER", "openai")
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+    async def exercise() -> list[dict[str, object]]:
+        transport = httpx.ASGITransport(
+            app=create_app(
+                retriever=StubRetriever(),
+                llm_client=CitedDraftLLM("Private draft [1]."),
+                config=ApplicationConfig(database_path=tmp_path / "conversations.db"),
+            )
+        )
+        async with httpx.AsyncClient(
+            transport=transport,
+            base_url="http://testserver",
+        ) as client:
+            return _events(
+                await client.post(
+                    "/api/chat",
+                    json={"message": "What do senolytics target?"},
+                )
+            )
+
+    events = asyncio.run(exercise())
+
+    assert [event["type"] for event in events] == ["conversation", "error"]
+    assert events[-1] == {
+        "type": "error",
+        "message": (
+            "OpenAI verification is selected but OPENAI_API_KEY is not set. "
+            "Set OPENAI_API_KEY and restart the server."
+        ),
+    }
+    assert "Private draft" not in json.dumps(events)
+
+
+@pytest.mark.e2e
 def test_conflict_answer_preserves_and_cites_both_sides(tmp_path: Path) -> None:
     events = asyncio.run(
         _chat(
@@ -337,7 +379,9 @@ def test_missing_provenance_rejects_claim_before_model_verification() -> None:
         },
     )
 
-    answer = asyncio.run(verify_draft("A result [1].", [chunk], StubClaimVerifier()))
+    answer = asyncio.run(
+        verify_draft("What was the result?", "A result [1].", [chunk], StubClaimVerifier())
+    )
 
     assert answer.text == "The retrieved evidence did not provide a supported answer."
     assert answer.citations == ()
@@ -347,10 +391,11 @@ def test_evidence_text_absent_from_cited_chunk_rejects_claim() -> None:
     class InventedQuoteVerifier:
         async def verify_claim(
             self,
+            question: str,
             claim: str,
             evidence: Sequence[CitedEvidence],
         ) -> ClaimVerification:
-            del claim, evidence
+            del question, claim, evidence
             return ClaimVerification(
                 supported=True,
                 evidence=(EvidenceQuote(marker=1, exact_text="Invented quote."),),
@@ -359,6 +404,7 @@ def test_evidence_text_absent_from_cited_chunk_rejects_claim() -> None:
     async def exercise() -> str:
         chunk = (await StubRetriever().retrieve("question"))[0]
         answer = await verify_draft(
+            "What do senolytics target?",
             "Senolytics target senescent cells [1].",
             [chunk],
             InventedQuoteVerifier(),
@@ -366,3 +412,41 @@ def test_evidence_text_absent_from_cited_chunk_rejects_claim() -> None:
         return answer.text
 
     assert asyncio.run(exercise()) == ("The retrieved evidence did not provide a supported answer.")
+
+
+def test_verifier_receives_the_user_question_with_each_claim() -> None:
+    received: list[tuple[str, str]] = []
+
+    class RecordingVerifier:
+        async def verify_claim(
+            self,
+            question: str,
+            claim: str,
+            evidence: Sequence[CitedEvidence],
+        ) -> ClaimVerification:
+            received.append((question, claim))
+            return ClaimVerification(
+                supported=True,
+                evidence=tuple(
+                    EvidenceQuote(marker=item.marker, exact_text=item.chunk.text)
+                    for item in evidence
+                ),
+            )
+
+    async def exercise() -> None:
+        chunk = (await StubRetriever().retrieve("question"))[0]
+        await verify_draft(
+            "What do senolytics target?",
+            "Senolytics target senescent cells [1].",
+            [chunk],
+            RecordingVerifier(),
+        )
+
+    asyncio.run(exercise())
+
+    assert received == [
+        (
+            "What do senolytics target?",
+            "Senolytics target senescent cells [1].",
+        )
+    ]

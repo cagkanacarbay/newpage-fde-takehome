@@ -21,7 +21,6 @@ from live_long_rnd.api.documents import DEFAULT_CORPUS_DIR, DocumentStore
 from live_long_rnd.api.generation import (
     NO_RELEVANT_EVIDENCE,
     ClaimVerifier,
-    StubClaimVerifier,
     VerifiedAnswer,
     personal_medical_refusal,
     verify_draft,
@@ -29,6 +28,8 @@ from live_long_rnd.api.generation import (
 from live_long_rnd.api.llm import LLMClient, create_llm_client
 from live_long_rnd.api.retrieval import RetrievedChunk, Retriever, create_retriever
 from live_long_rnd.api.sse import encode_sse
+from live_long_rnd.api.verifier import create_claim_verifier
+from live_long_rnd.query_planning import ConversationMessage
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +65,7 @@ def create_app(
     settings = config or ApplicationConfig()
     selected_retriever = create_retriever() if retriever is None else retriever
     selected_llm = create_llm_client() if llm_client is None else llm_client
-    selected_verifier = StubClaimVerifier() if verifier is None else verifier
+    selected_verifier = create_claim_verifier() if verifier is None else verifier
     selected_database_path = settings.database_path or Path(
         os.environ.get("LIVE_LONG_CONVERSATIONS_DB", DEFAULT_DATABASE_PATH)
     )
@@ -185,17 +186,27 @@ async def _stream_chat(
             }
         )
         history = runtime.conversations.history_window(conversation.id).messages
+        retrieval_history: list[ConversationMessage] = [
+            {"role": item.role, "content": item.text}
+            for item in history
+            if item.role in ("user", "assistant")
+        ]
         refusal = personal_medical_refusal(message)
         chunks: Sequence[RetrievedChunk] = ()
         if refusal:
             answer = VerifiedAnswer(text=refusal, citations=())
         else:
-            chunks = await runtime.retriever.retrieve(message, history)
+            chunks = await runtime.retriever.retrieve(message, retrieval_history)
         if not refusal and chunks:
             draft_parts = [
                 token async for token in runtime.llm_client.stream_answer(message, chunks, history)
             ]
-            answer = await verify_draft("".join(draft_parts), chunks, runtime.verifier)
+            answer = await verify_draft(
+                message,
+                "".join(draft_parts),
+                chunks,
+                runtime.verifier,
+            )
         elif not refusal:
             answer = VerifiedAnswer(text=NO_RELEVANT_EVIDENCE, citations=())
         yield encode_sse({"type": "token", "text": answer.text})

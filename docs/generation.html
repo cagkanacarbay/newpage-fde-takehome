@@ -38,7 +38,7 @@
             <p><strong>Format:</strong> streamed prose, no JSON schema. A deterministic parser extracts claim-marker pairs. An unknown or out-of-range marker is a fail-closed reject.</p>
             <p><strong>Shape:</strong> a 2-4 sentence direct answer first, then optional detail. Structured sections only when the question calls for them.</p>
             <p><strong>Conflicts:</strong> natural prose covering both sides, each side cited, no synthesized verdict.</p>
-            <p><strong>Verifier:</strong> a Luna-class small model at low reasoning effort. The support threshold is calibrated on the 24-item corpus suite, not picked in advance.</p>
+            <p><strong>Verifier:</strong> <code>gpt-5.6-luna</code> at low reasoning effort. It returns a strict support result and exact evidence text for deterministic validation.</p>
             <p><strong>Boundary:</strong> strictly corpus-only. No model knowledge, marked or otherwise. Refusals follow the <a href="decisions.html#guardrails">guardrails policy</a> exactly.</p>
           </div>
         </div>
@@ -79,10 +79,12 @@
         <p>The substring check proves the evidence text exists; the verifier judges whether it supports the claim. Uncertainty stated by a source is kept, not smoothed over.</p>
         <div class="accordion">
           <details>
-            <summary>Open implementation values</summary>
+            <summary>Production implementation</summary>
             <div class="body">
-              <p><strong>Verifier model:</strong> the Luna-class tier at low reasoning effort is the starting choice. If calibration shows it cannot judge support reliably, move the verifier up one tier before changing anything else.</p>
-              <p><strong>Support threshold:</strong> calibrated on the 24-item corpus suite during the retrieval evaluation runs (<a href="research/evaluation.html">evaluation research</a>), not fixed in advance.</p>
+              <p><strong>Verifier model:</strong> <code>gpt-5.6-luna</code> at low reasoning effort, selected with <code>LIVE_LONG_VERIFIER=openai</code>.</p>
+              <p><strong>Input boundary:</strong> each request contains only the user question, one generated claim, and the chunks cited by that claim.</p>
+              <p><strong>Output contract:</strong> strict structured output gives a support decision and the shortest exact supporting text for each cited marker.</p>
+              <p><strong>Failure policy:</strong> missing configuration, timeout, malformed output, and provider errors fail closed before any draft text reaches SSE.</p>
             </div>
           </details>
         </div>

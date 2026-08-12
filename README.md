@@ -7,7 +7,7 @@ A chat with your docs assistant based on a hypothetical customer "Live Long R&D"
 <!-- Maintained by the agent: keep accurate and updated with every change that affects setup -->
 
 Prerequisites: `uv` (Python 3.12), Node 22 with `pnpm` 10, and an OpenAI API
-key. The same key serves embedding and live answer generation.
+key. The same key serves embedding, live answer generation, and claim verification.
 
 1. `uv sync` - install the Python stack.
 2. Put `OPENAI_API_KEY=...` in `.env` (gitignored). The index build and live
@@ -44,7 +44,7 @@ key. The same key serves embedding and live answer generation.
    ```
 
    Open http://localhost:8000.
-   The runtime key serves query embeddings and answer generation.
+   The runtime key serves query embeddings, answer generation, and claim verification.
    The bind mount keeps conversations in `data/state/conversations.db` after the
    container stops.
 

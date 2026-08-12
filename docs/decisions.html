@@ -302,7 +302,7 @@
             <p><strong>What:</strong> Gate retrieved chunks before generation, require a citation for every factual claim, and verify each claim against its cited text.</p>
             <p><strong>Why:</strong> Live Long R&amp;D needs a research assistant, not a general chatbot. A fluent answer without paper support is a product failure.</p>
             <p><strong>Boundary:</strong> User prompts control the answer form. They cannot override retrieval, evidence, citation, conflict, medical, or prompt-injection guardrails.</p>
-            <p><strong>Status:</strong> Policy decided. The calibrated score and smaller verifier model remain implementation choices.</p>
+            <p><strong>Status:</strong> Implemented. <code>gpt-5.6-luna</code> verifies each claim at low reasoning effort, and deterministic code validates its exact evidence text.</p>
             <p><strong>GitHub:</strong> <a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/21">Issue 21 - define assistant guardrails</a> records the agreed policy. The <a href="technical-choices.html#c12">technical-choice analysis</a> preserves the alternatives and implementation limits.</p>
           </div>
         </div>
