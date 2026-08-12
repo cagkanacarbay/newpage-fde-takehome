@@ -31,7 +31,10 @@ class OpenAIHandler(BaseHTTPRequestHandler):
         payload = json.loads(self.rfile.read(body_size))
         self.requests.append(payload)
         if self.path == "/v1/responses":
-            self._send_json(_query_plan_response(payload))
+            if "Decide whether the cited corpus evidence" in payload.get("instructions", ""):
+                self._send_json(_verifier_response(payload))
+            else:
+                self._send_json(_query_plan_response(payload))
             return
 
         inputs = payload["input"]
@@ -97,6 +100,50 @@ def _query_plan_response(payload: dict[str, Any]) -> dict[str, Any]:
                     {
                         "type": "output_text",
                         "text": plan,
+                        "annotations": [],
+                        "logprobs": [],
+                    }
+                ],
+            }
+        ],
+        "usage": {
+            "input_tokens": 1,
+            "output_tokens": 1,
+            "total_tokens": 2,
+            "input_tokens_details": {"cached_tokens": 0},
+            "output_tokens_details": {"reasoning_tokens": 0},
+        },
+    }
+
+
+def _verifier_response(payload: dict[str, Any]) -> dict[str, Any]:
+    verification = json.dumps(
+        {
+            "supported": True,
+            "evidence": [
+                {
+                    "marker": 1,
+                    "exact_text": "Senolytics selectively remove senescent cells.",
+                }
+            ],
+        }
+    )
+    return {
+        "id": "resp_verifier_container_test",
+        "object": "response",
+        "created_at": 0,
+        "status": "completed",
+        "model": payload["model"],
+        "output": [
+            {
+                "id": "msg_verifier_container_test",
+                "type": "message",
+                "status": "completed",
+                "role": "assistant",
+                "content": [
+                    {
+                        "type": "output_text",
+                        "text": verification,
                         "annotations": [],
                         "logprobs": [],
                     }
@@ -308,10 +355,24 @@ def test_api_image_serves_citations_from_its_baked_index(tmp_path: Path) -> None
             home_page = response.read().decode()
         events = _chat_events(port, "What do senolytics do?")
         citation_event = _citation_event(events)
+        token_events = [event for event in events if event["type"] == "token"]
         assert "<title>Live Long R&amp;D</title>" in home_page
+        assert token_events == [
+            {
+                "type": "token",
+                "text": (
+                    "Senolytics are drugs designed to selectively target senescent cells [1]."
+                ),
+            }
+        ]
         assert citation_event["citations"][0]["document_id"] == "docker-paper"
+        assert len(citation_event["citations"]) == 1
         assert events[-1] == {"type": "done"}
         assert OpenAIHandler.requests
+        assert any(
+            "Decide whether the cited corpus evidence" in request.get("instructions", "")
+            for request in OpenAIHandler.requests
+        )
         assert (state_dir / "conversations.db").is_file()
 
         conversation_id = events[0]["id"]
@@ -330,7 +391,7 @@ def test_api_image_serves_citations_from_its_baked_index(tmp_path: Path) -> None
         restarted_citations = _citation_event(restarted_events)
         assert restarted_citations["citations"][0]["document_id"] == "docker-paper"
         _assert_baked_document_access(port)
-        assert len(OpenAIHandler.requests) == 4
+        assert len(OpenAIHandler.requests) == 6
     finally:
         if container_id:
             subprocess.run(

@@ -302,7 +302,7 @@
             <p><strong>What:</strong> Gate retrieved chunks before generation, require a citation for every factual claim, and verify each claim against its cited text.</p>
             <p><strong>Why:</strong> Live Long R&amp;D needs a research assistant, not a general chatbot. A fluent answer without paper support is a product failure.</p>
             <p><strong>Boundary:</strong> User prompts control the answer form. They cannot override retrieval, evidence, citation, conflict, medical, or prompt-injection guardrails.</p>
-            <p><strong>Status:</strong> Policy decided. The calibrated score and smaller verifier model remain implementation choices.</p>
+            <p><strong>Status:</strong> Implemented. <code>gpt-5.6-luna</code> verifies each claim at low reasoning effort, and deterministic code validates its exact evidence text.</p>
             <p><strong>GitHub:</strong> <a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/21">Issue 21 - define assistant guardrails</a> records the agreed policy. The <a href="technical-choices.html#c12">technical-choice analysis</a> preserves the alternatives and implementation limits.</p>
           </div>
         </div>
@@ -353,23 +353,23 @@
             <summary>Verify every factual claim through structured evidence</summary>
             <div class="body">
               <ol class="numbered">
-                <li><span><b>Generate structured claims</b><span class="d">The main model returns atomic factual claims with citation IDs from the retrieved set.</span></span></li>
-                <li><span><b>Read the answer and cited chunks</b><span class="d">A smaller verifier reads the complete answer, then checks each claim only against its cited chunks.</span></span></li>
+                <li><span><b>Generate cited claims</b><span class="d">The main model drafts atomic factual claims with citation markers from the retrieved set.</span></span></li>
+                <li><span><b>Verify each cited claim</b><span class="d">A verifier checks each claim only against its cited chunks. The <a href="generation.html#verification">generation contract</a> defines the request boundary and failure policy.</span></span></li>
                 <li><span><b>Return exact evidence</b><span class="d">For each claim, the verifier returns a structured status, chunk ID, and exact supporting text from that chunk.</span></span></li>
                 <li><span><b>Validate deterministically</b><span class="d">Code rejects unknown IDs, missing provenance, and evidence text that is not an exact substring of the cited chunk.</span></span></li>
-                <li><span><b>Clean without changing meaning</b><span class="d">The reviewer removes rejected claims and adjusts connective text only. It cannot add facts, change values, or change citations.</span></span></li>
+                <li><span><b>Emit verified claims</b><span class="d">Code keeps only accepted claims and renumbers their markers for the used citation payload. It cannot add facts, change values, or change citations.</span></span></li>
               </ol>
-              <p>The substring check proves that the evidence text exists. The smaller verifier still decides whether that text supports the claim.</p>
+              <p>The substring check proves that the evidence text exists. The verifier still decides whether that text supports the claim. It does not judge whether the draft covered every retrieved result; the generation prompt requires coverage of all material packed evidence and both sides of each conflict.</p>
               <p>Keep uncertainty stated by a source. Remove a claim when the verifier cannot confirm that its cited text supports it.</p>
-              <p>Do not run another model review after cleanup. Run the response schema and deterministic citation checks before returning the answer.</p>
+              <p>Do not run another model review after validation. Run the response schema and deterministic citation checks before returning the answer.</p>
             </div>
           </details>
 
           <details>
             <summary>Fail closed without hiding what happened</summary>
             <div class="body">
-              <p>If some requested parts lack support, return the supported answer and identify the specific gaps in the retrieved evidence.</p>
-              <p>If cleanup removes every factual claim, return that the retrieved evidence did not provide a supported answer.</p>
+              <p>If some requested parts lack support, return only the factual claims that verification accepts.</p>
+              <p>If verification rejects every factual claim, return that the retrieved evidence did not provide a supported answer.</p>
               <p>If the verifier times out or returns invalid output, return a verification error. Never return the unverified draft.</p>
             </div>
           </details>
