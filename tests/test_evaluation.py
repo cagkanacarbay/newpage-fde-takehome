@@ -180,6 +180,16 @@ def test_selected_runtime_quality_requires_citations_and_answer_evidence() -> No
         CitationScores(13, 24),
         AnswerQualityScores(48, 60, 18, 24, 48 / 60, {}),
     )
+    assert not selected_runtime_quality_passes(
+        ranking_scores,
+        CitationScores(13, 24),
+        AnswerQualityScores(49, 60, 17, 24, 49 / 60, {}),
+    )
+    assert not selected_runtime_quality_passes(
+        GateScores(6, 6, 12, True, False),
+        CitationScores(13, 24),
+        answer_scores,
+    )
 
 
 @pytest.mark.e2e
