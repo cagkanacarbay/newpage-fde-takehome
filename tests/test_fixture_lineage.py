@@ -106,3 +106,40 @@ def test_fixture_lineage_discovers_qualified_and_aliased_dynamic_imports(tmp_pat
 
     assert "src/live_long_rnd/provenance.py" in hashes
     assert "src/live_long_rnd/metadata.py" in hashes
+
+
+# Brief: importing a nested module must include each package initializer it executes.
+def test_fixture_lineage_includes_intermediate_package_initializers(tmp_path: Path) -> None:
+    _write_minimal_indexing_repo(tmp_path)
+    indexing_dir = tmp_path / "src/live_long_rnd/indexing"
+    indexing_dir.mkdir()
+    (indexing_dir / "__init__.py").write_text("FORMAT = 'citation-v1'\n", encoding="utf-8")
+    (indexing_dir / "writer.py").write_text("def write():\n    return None\n", encoding="utf-8")
+    ingest_path = tmp_path / "src/live_long_rnd/ingest.py"
+    ingest_path.write_text(
+        "from live_long_rnd.indexing.writer import write\n",
+        encoding="utf-8",
+    )
+
+    hashes = production_index_input_hashes(tmp_path)
+
+    assert "src/live_long_rnd/indexing/__init__.py" in hashes
+    assert "src/live_long_rnd/indexing/writer.py" in hashes
+
+
+# Brief: a literal relative dynamic import must resolve through its package.
+def test_fixture_lineage_discovers_relative_dynamic_import(tmp_path: Path) -> None:
+    _write_minimal_indexing_repo(tmp_path)
+    (tmp_path / "src/live_long_rnd/provenance.py").write_text(
+        "FIELD = 'page_numbers'\n", encoding="utf-8"
+    )
+    ingest_path = tmp_path / "src/live_long_rnd/ingest.py"
+    ingest_path.write_text(
+        "from importlib import import_module\n"
+        "import_module('.provenance', package='live_long_rnd')\n",
+        encoding="utf-8",
+    )
+
+    hashes = production_index_input_hashes(tmp_path)
+
+    assert "src/live_long_rnd/provenance.py" in hashes

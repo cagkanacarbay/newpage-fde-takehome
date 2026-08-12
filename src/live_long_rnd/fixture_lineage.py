@@ -184,13 +184,14 @@ def _literal_dynamic_import(
     importlib_modules: set[str],
     builtins_modules: set[str],
 ) -> str | None:
-    if not _is_dynamic_import_call(
+    import_kind = _dynamic_import_kind(
         node,
         import_module_names=import_module_names,
         builtin_import_names=builtin_import_names,
         importlib_modules=importlib_modules,
         builtins_modules=builtins_modules,
-    ):
+    )
+    if import_kind is None:
         return None
     if not node.args:
         raise LineageDiscoveryError(
@@ -198,37 +199,71 @@ def _literal_dynamic_import(
         )
     module = node.args[0]
     if isinstance(module, ast.Constant) and isinstance(module.value, str):
-        return module.value
+        if not module.value.startswith("."):
+            return module.value
+        if import_kind != "import_module":
+            raise LineageDiscoveryError("Production indexing uses an unsupported relative import")
+        return _resolve_relative_dynamic_import(module.value, node)
     raise LineageDiscoveryError("Production indexing uses a non-literal dynamic import")
 
 
-def _is_dynamic_import_call(
+def _dynamic_import_kind(
     node: ast.Call,
     *,
     import_module_names: set[str],
     builtin_import_names: set[str],
     importlib_modules: set[str],
     builtins_modules: set[str],
-) -> bool:
+) -> str | None:
+    import_kind: str | None = None
     if isinstance(node.func, ast.Name):
-        return node.func.id in import_module_names | builtin_import_names
-    if not isinstance(node.func, ast.Attribute):
-        return False
-    if node.func.attr == "import_module":
+        if node.func.id in import_module_names:
+            import_kind = "import_module"
+        elif node.func.id in builtin_import_names:
+            import_kind = "__import__"
+    elif isinstance(node.func, ast.Attribute) and node.func.attr == "import_module":
         if isinstance(node.func.value, ast.Name) and node.func.value.id in importlib_modules:
-            return True
-        raise LineageDiscoveryError("Production indexing uses an unsupported dynamic import")
-    if node.func.attr == "__import__":
+            import_kind = "import_module"
+        else:
+            raise LineageDiscoveryError("Production indexing uses an unsupported dynamic import")
+    elif isinstance(node.func, ast.Attribute) and node.func.attr == "__import__":
         if isinstance(node.func.value, ast.Name) and node.func.value.id in builtins_modules:
-            return True
-        raise LineageDiscoveryError("Production indexing uses an unsupported dynamic import")
-    return False
+            import_kind = "__import__"
+        else:
+            raise LineageDiscoveryError("Production indexing uses an unsupported dynamic import")
+    return import_kind
+
+
+def _resolve_relative_dynamic_import(module_name: str, node: ast.Call) -> str:
+    package_nodes = [*node.args[1:2], *(kw.value for kw in node.keywords if kw.arg == "package")]
+    if len(package_nodes) != 1:
+        raise LineageDiscoveryError(
+            "Production indexing uses a relative dynamic import without one literal package"
+        )
+    package = package_nodes[0]
+    if not isinstance(package, ast.Constant) or not isinstance(package.value, str):
+        raise LineageDiscoveryError(
+            "Production indexing uses a relative dynamic import without one literal package"
+        )
+    level = len(module_name) - len(module_name.lstrip("."))
+    package_parts = package.value.split(".")
+    keep = len(package_parts) - level + 1
+    if keep <= 0:
+        raise LineageDiscoveryError(
+            f"Relative dynamic import escapes declared package {package.value}"
+        )
+    suffix = module_name[level:]
+    resolved = package_parts[:keep]
+    if suffix:
+        resolved.extend(suffix.split("."))
+    return ".".join(resolved)
 
 
 def _local_module_paths(root: Path, module_name: str) -> Iterable[Path]:
     if not module_name.startswith("live_long_rnd"):
         return ()
-    module_path = Path("src", *module_name.split("."))
+    module_parts = module_name.split(".")
+    module_path = Path("src", *module_parts)
     source_file = module_path.with_suffix(".py")
     package_init = module_path / "__init__.py"
     resolved: list[Path] = []
@@ -236,9 +271,10 @@ def _local_module_paths(root: Path, module_name: str) -> Iterable[Path]:
         resolved.append(source_file)
     elif (root / package_init).is_file():
         resolved.append(package_init)
-    package_root = Path("src/live_long_rnd/__init__.py")
-    if (root / package_root).is_file() and package_root not in resolved:
-        resolved.append(package_root)
+    for part_count in range(1, len(module_parts)):
+        initializer = Path("src", *module_parts[:part_count], "__init__.py")
+        if (root / initializer).is_file() and initializer not in resolved:
+            resolved.append(initializer)
     return resolved
 
 
