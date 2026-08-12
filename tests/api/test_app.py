@@ -101,15 +101,14 @@ def test_new_chat_streams_verified_answer_with_configured_application_adapters(
 
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/event-stream")
-    assert [event["type"] for event in events] == [
-        "conversation",
-        "token",
-        "citations",
-        "done",
-    ]
+    event_types = [event["type"] for event in events]
+    assert event_types[0] == "conversation"
+    assert all(event_type == "token" for event_type in event_types[1:-3])
+    assert event_types[-3:] == ["verification", "verification", "done"]
     assert events[0]["title"] == "What do senolytics target?"
     assert isinstance(events[0]["id"], str)
     assert events[0]["id"]
+    assert events[-2]["status"] == "complete"
     citations = events[-2]["citations"]
     assert len(citations) == 3
     assert citations[0] == {

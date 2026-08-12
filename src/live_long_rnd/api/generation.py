@@ -51,6 +51,12 @@ class CitedEvidence:
 
 
 @dataclass(frozen=True)
+class CitedClaim:
+    text: str
+    evidence: tuple[CitedEvidence, ...]
+
+
+@dataclass(frozen=True)
 class EvidenceQuote:
     marker: int
     exact_text: str
@@ -63,27 +69,29 @@ class ClaimVerification:
 
 
 class ClaimVerifier(Protocol):
-    async def verify_claim(
+    async def verify_claims(
         self,
         question: str,
-        claim: str,
-        evidence: Sequence[CitedEvidence],
-    ) -> ClaimVerification: ...
+        claims: Sequence[CitedClaim],
+    ) -> Sequence[ClaimVerification]: ...
 
 
 class StubClaimVerifier:
-    async def verify_claim(
+    async def verify_claims(
         self,
         question: str,
-        claim: str,
-        evidence: Sequence[CitedEvidence],
-    ) -> ClaimVerification:
-        del question, claim
-        return ClaimVerification(
-            supported=True,
-            evidence=tuple(
-                EvidenceQuote(marker=item.marker, exact_text=item.chunk.text) for item in evidence
-            ),
+        claims: Sequence[CitedClaim],
+    ) -> Sequence[ClaimVerification]:
+        del question
+        return tuple(
+            ClaimVerification(
+                supported=True,
+                evidence=tuple(
+                    EvidenceQuote(marker=item.marker, exact_text=item.chunk.text)
+                    for item in claim.evidence
+                ),
+            )
+            for claim in claims
         )
 
 
@@ -111,7 +119,7 @@ async def verify_draft(
     chunks: Sequence[RetrievedChunk],
     verifier: ClaimVerifier,
 ) -> VerifiedAnswer:
-    accepted: list[tuple[str, tuple[int, ...]]] = []
+    candidates: list[tuple[str, tuple[int, ...], CitedClaim]] = []
     for claim in _split_claims(draft):
         markers = tuple(dict.fromkeys(int(match) for match in _CITATION_MARKER.findall(claim)))
         if not markers or any(marker < 1 or marker > len(chunks) for marker in markers):
@@ -119,7 +127,25 @@ async def verify_draft(
         cited = tuple(CitedEvidence(marker=marker, chunk=chunks[marker - 1]) for marker in markers)
         if any(not _has_provenance(item.chunk) for item in cited):
             continue
-        verification = await verifier.verify_claim(question, claim, cited)
+        candidates.append((claim, markers, CitedClaim(text=claim, evidence=cited)))
+
+    if not candidates:
+        return VerifiedAnswer(text=NO_SUPPORTED_ANSWER, citations=())
+
+    verifications = await verifier.verify_claims(
+        question,
+        [candidate for _claim, _markers, candidate in candidates],
+    )
+    if len(verifications) != len(candidates):
+        return VerifiedAnswer(text=NO_SUPPORTED_ANSWER, citations=())
+
+    accepted: list[tuple[str, tuple[int, ...]]] = []
+    for (claim, markers, candidate), verification in zip(
+        candidates,
+        verifications,
+        strict=True,
+    ):
+        cited = candidate.evidence
         if not _valid_verification(verification, cited):
             continue
         accepted.append((claim, markers))

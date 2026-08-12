@@ -1,7 +1,7 @@
 "use client";
 
-import { RotateCcw } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { CircleCheck, LoaderCircle, RotateCcw, ShieldAlert } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { fallbackCitations } from "@/lib/citations";
@@ -11,6 +11,74 @@ import { Markdown } from "./markdown";
 import type { UiMessage } from "./types";
 
 const SCROLL_PIN_THRESHOLD_PX = 96;
+
+function FirstTokenTiming({ message }: { message: UiMessage }) {
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+
+  useEffect(() => {
+    if (message.responseStartedAtMs === undefined || message.firstTokenSeconds !== undefined) {
+      return;
+    }
+    const update = () => {
+      setElapsedSeconds(
+        Math.max(0, (performance.now() - message.responseStartedAtMs!) / 1_000),
+      );
+    };
+    update();
+    const interval = window.setInterval(update, 100);
+    return () => window.clearInterval(interval);
+  }, [message.firstTokenSeconds, message.responseStartedAtMs]);
+
+  if (message.responseStartedAtMs === undefined) {
+    return null;
+  }
+  const text =
+    message.firstTokenSeconds === undefined
+      ? `Waiting for first token · ${elapsedSeconds.toFixed(1)} s`
+      : `First token in ${message.firstTokenSeconds.toFixed(2)} s`;
+  return (
+    <p className="mt-3 text-xs font-medium tabular-nums text-faint" aria-live="polite">
+      {text}
+    </p>
+  );
+}
+
+function VerificationStatus({ state }: { state: UiMessage["verification"] }) {
+  if (state === undefined) {
+    return null;
+  }
+  const content = {
+    verifying: {
+      icon: <LoaderCircle className="size-3.5 animate-spin" aria-hidden="true" />,
+      text: "Verifying claims",
+      className: "bg-teal-bg text-teal-ink",
+    },
+    verified: {
+      icon: <CircleCheck className="size-3.5" aria-hidden="true" />,
+      text: "Claims verified",
+      className: "bg-teal-bg text-teal-ink",
+    },
+    updated: {
+      icon: <CircleCheck className="size-3.5" aria-hidden="true" />,
+      text: "Claims verified · Answer updated",
+      className: "bg-yellow-bg text-yellow-ink",
+    },
+    failed: {
+      icon: <ShieldAlert className="size-3.5" aria-hidden="true" />,
+      text: "Claim verification failed",
+      className: "bg-orange-bg text-orange-ink",
+    },
+  }[state];
+  return (
+    <p
+      role="status"
+      className={`mt-3 flex w-fit items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${content.className}`}
+    >
+      {content.icon}
+      {content.text}
+    </p>
+  );
+}
 
 function SystemDivider({ text }: { text: string }) {
   return (
@@ -74,7 +142,12 @@ export function MessageList({ messages, streaming, onOpenCitation, onRetry }: Me
 
           const legacyCitations = fallbackCitations(message.text, message.citations);
           return (
-            <article key={message.id} className="max-w-full rounded-3xl bg-surface px-5 py-4">
+            <article
+              key={message.id}
+              className={`max-w-full rounded-3xl bg-surface px-5 py-4 ${
+                message.verification === "updated" ? "verification-update" : ""
+              }`}
+            >
               {message.text ? (
                 <Markdown
                   text={message.text}
@@ -91,6 +164,9 @@ export function MessageList({ messages, streaming, onOpenCitation, onRetry }: Me
                   <span className="sr-only">Thinking</span>
                 </p>
               ) : null}
+
+              <FirstTokenTiming message={message} />
+              <VerificationStatus state={message.verification} />
 
               {message.error ? (
                 <div

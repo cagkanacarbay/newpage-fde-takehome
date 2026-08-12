@@ -198,19 +198,34 @@ async def _stream_chat(
         else:
             chunks = await runtime.retriever.retrieve(message, retrieval_history)
         if not refusal and chunks:
-            draft_parts = [
-                token async for token in runtime.llm_client.stream_answer(message, chunks, history)
-            ]
+            draft_parts: list[str] = []
+            async for token in runtime.llm_client.stream_answer(message, chunks, history):
+                draft_parts.append(token)
+                yield encode_sse({"type": "token", "text": token})
+            draft = "".join(draft_parts)
+            yield encode_sse({"type": "verification", "status": "started"})
             answer = await verify_draft(
                 message,
-                "".join(draft_parts),
+                draft,
                 chunks,
                 runtime.verifier,
             )
         elif not refusal:
             answer = VerifiedAnswer(text=NO_RELEVANT_EVIDENCE, citations=())
-        yield encode_sse({"type": "token", "text": answer.text})
         citations = [chunk.citation for chunk in answer.citations]
+        if not refusal and chunks:
+            yield encode_sse(
+                {
+                    "type": "verification",
+                    "status": "complete",
+                    "text": answer.text,
+                    "citations": citations,
+                    "changed": answer.text != draft,
+                }
+            )
+        else:
+            yield encode_sse({"type": "token", "text": answer.text})
+            yield encode_sse({"type": "citations", "citations": citations})
         runtime.conversations.save_turn(
             conversation.id,
             message,
@@ -225,12 +240,6 @@ async def _stream_chat(
                     "text": HISTORY_NOTICE,
                 }
             )
-        yield encode_sse(
-            {
-                "type": "citations",
-                "citations": citations,
-            }
-        )
         yield encode_sse({"type": "done"})
     except Exception as error:
         logger.error(  # noqa: TRY400 - traceback details can expose provider input

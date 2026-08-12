@@ -14,6 +14,14 @@ export type Citation = {
 export type ChatEvent =
   | { type: "conversation"; id: string; title: string }
   | { type: "token"; text: string }
+  | { type: "verification"; status: "started" }
+  | {
+      type: "verification";
+      status: "complete";
+      text: string;
+      citations: Citation[];
+      changed: boolean;
+    }
   | { type: "citations"; citations: Citation[] }
   | { type: "history_notice"; text: string }
   | { type: "done" }
@@ -27,6 +35,7 @@ function isChatEvent(value: unknown): value is ChatEvent {
   return [
     "conversation",
     "token",
+    "verification",
     "citations",
     "history_notice",
     "done",

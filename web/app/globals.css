@@ -111,3 +111,26 @@ textarea {
   animation: highlight-pulse 1.2s ease-out 1;
   pointer-events: none;
 }
+
+@keyframes verification-update {
+  0% {
+    background-color: var(--color-yellow-bg);
+    opacity: 0.55;
+    transform: translateY(2px);
+  }
+  100% {
+    background-color: var(--color-surface);
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.verification-update {
+  animation: verification-update 500ms ease-out 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .verification-update {
+    animation: none;
+  }
+}

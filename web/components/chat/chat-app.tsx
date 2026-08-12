@@ -18,7 +18,7 @@ import {
 import { DraftStore } from "@/lib/drafts";
 import type { Citation } from "@/lib/sse";
 
-import { retryFailedTurn, withHistoryNotice } from "./chat-turns";
+import { applyAssistantEvent, retryFailedTurn, withHistoryNotice } from "./chat-turns";
 import { Composer } from "./composer";
 import { EmptyState } from "./empty-state";
 import { MessageList } from "./message-list";
@@ -127,6 +127,7 @@ export function ChatApp() {
     }
 
     selectionRef.current.select(activeId);
+    const responseStartedAtMs = performance.now();
     const assistantId = crypto.randomUUID();
     const userId = crypto.randomUUID();
     setMessages((current) => [
@@ -139,6 +140,7 @@ export function ChatApp() {
         citations: [],
         replyTo: userId,
         retryMessage: message,
+        responseStartedAtMs,
       },
     ]);
     setComposer("");
@@ -167,16 +169,7 @@ export function ChatApp() {
           if (item.id !== assistantId) {
             return item;
           }
-          if (event.type === "token") {
-            return { ...item, text: item.text + event.text };
-          }
-          if (event.type === "citations") {
-            return { ...item, citations: [...item.citations, ...event.citations] };
-          }
-          if (event.type === "error") {
-            return { ...item, error: event.message };
-          }
-          return item;
+          return applyAssistantEvent(item, event, performance.now());
         }),
       );
 

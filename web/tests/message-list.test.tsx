@@ -31,6 +31,17 @@ function renderAssistant(text: string, citations: Citation[]): string {
   );
 }
 
+function renderLiveAssistant(message: UiMessage): string {
+  return renderToStaticMarkup(
+    <MessageList
+      messages={[message]}
+      streaming
+      onOpenCitation={() => undefined}
+      onRetry={() => undefined}
+    />,
+  );
+}
+
 describe("MessageList citation controls", () => {
   it("renders fallback controls for markerless stored answers", () => {
     const html = renderAssistant("A saved answer without markers.", [citation("Legacy source")]);
@@ -60,5 +71,41 @@ describe("MessageList citation controls", () => {
     assert.match(html, /<\/button><button/);
     assert.doesNotMatch(html, /<\/button>\s+\./);
     assert.doesNotMatch(html, /mx-0\.5/);
+  });
+});
+
+describe("MessageList response progress", () => {
+  it("shows first-token timing and verification progress below the answer", () => {
+    const waiting = renderLiveAssistant({
+      id: "answer",
+      role: "assistant",
+      text: "",
+      citations: [],
+      responseStartedAtMs: 1_000,
+    });
+    const verifying = renderLiveAssistant({
+      id: "answer",
+      role: "assistant",
+      text: "Draft claim [1].",
+      citations: [],
+      responseStartedAtMs: 1_000,
+      firstTokenSeconds: 2.34,
+      verification: "verifying",
+    });
+    const updated = renderLiveAssistant({
+      id: "answer",
+      role: "assistant",
+      text: "Supported claim [1].",
+      citations: [],
+      responseStartedAtMs: 1_000,
+      firstTokenSeconds: 2.34,
+      verification: "updated",
+    });
+
+    assert.match(waiting, /Waiting for first token · 0\.0 s/);
+    assert.match(verifying, /First token in 2\.34 s/);
+    assert.match(verifying, /Verifying claims/);
+    assert.match(updated, /Claims verified · Answer updated/);
+    assert.match(updated, /verification-update/);
   });
 });

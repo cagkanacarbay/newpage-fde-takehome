@@ -8,6 +8,9 @@ export type UiMessage = {
   error?: string;
   replyTo?: string;
   retryMessage?: string;
+  responseStartedAtMs?: number;
+  firstTokenSeconds?: number;
+  verification?: "verifying" | "verified" | "updated" | "failed";
 };
 
 /** The PDF panel target: which citation of which turn is open. */

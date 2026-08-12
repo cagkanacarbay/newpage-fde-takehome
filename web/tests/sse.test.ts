@@ -23,6 +23,8 @@ test("reads contract events when JSON and event separators span chunks", async (
     streamFrom([
       'data: {"type":"token","text":"A lon',
       'gevity finding"}\n\ndata: {"type":"history_notice","text":"Earlier messages were dropped to fit the context window"}',
+      '\n\ndata: {"type":"verification","status":"started"}',
+      '\n\ndata: {"type":"verification","status":"complete","text":"A verified finding","citations":[],"changed":true}',
       '\n\ndata: {"type":"done"}',
       "\n\n",
     ]),
@@ -34,6 +36,14 @@ test("reads contract events when JSON and event separators span chunks", async (
     {
       type: "history_notice",
       text: "Earlier messages were dropped to fit the context window",
+    },
+    { type: "verification", status: "started" },
+    {
+      type: "verification",
+      status: "complete",
+      text: "A verified finding",
+      citations: [],
+      changed: true,
     },
     { type: "done" },
   ]);
