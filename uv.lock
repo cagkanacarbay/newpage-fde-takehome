@@ -968,6 +968,7 @@ dependencies = [
     { name = "flashrank" },
     { name = "lancedb" },
     { name = "openai" },
+    { name = "python-dotenv" },
     { name = "tiktoken" },
     { name = "uvicorn" },
 ]
@@ -993,6 +994,7 @@ requires-dist = [
     { name = "flashrank", specifier = ">=0.2.10,<0.3" },
     { name = "lancedb", specifier = ">=0.36.0,<1" },
     { name = "openai", specifier = ">=2.53.0" },
+    { name = "python-dotenv", specifier = ">=1.2.1,<2" },
     { name = "tiktoken", specifier = ">=0.13.0,<1" },
     { name = "uvicorn", specifier = ">=0.52.1" },
 ]

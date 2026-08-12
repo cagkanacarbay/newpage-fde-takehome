@@ -14,6 +14,7 @@ from docling_core.transforms.chunker.hierarchical_chunker import ChunkingDocSeri
 from docling_core.transforms.chunker.hybrid_chunker import HybridChunker
 from docling_core.transforms.chunker.tokenizer.openai import OpenAITokenizer
 from docling_core.types.doc.document import DoclingDocument
+from dotenv import load_dotenv
 from lancedb.index import FTS
 from llama_index.core.schema import BaseNode, NodeRelationship, RelatedNodeInfo
 from llama_index.node_parser.docling import DoclingNodeParser
@@ -269,6 +270,7 @@ def ingest_pdf(source: Path, dependencies: IngestDependencies | None = None) -> 
 
 def main(argv: Sequence[str] | None = None) -> int:
     """CLI entry: ingest one PDF or every PDF in a directory into the index."""
+    load_dotenv(Path.cwd() / ".env")
     argument_parser = argparse.ArgumentParser(
         prog="live_long_rnd.ingest",
         description="Ingest corpus PDFs into the LanceDB hybrid index.",

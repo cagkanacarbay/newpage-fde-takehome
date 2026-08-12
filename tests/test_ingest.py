@@ -404,12 +404,18 @@ def test_directory_ingestion_finalizes_the_fts_index_once(
 @pytest.mark.integration
 @pytest.mark.e2e
 def test_cli_ingests_one_corpus_pdf_with_openai_into_lancedb(tmp_path: Path) -> None:
-    source = Path("data/corpus/longevity/011-maleszka-2025-no-epigenetic-clock-in-insect.pdf")
+    source = Path(
+        "data/corpus/longevity/011-maleszka-2025-no-epigenetic-clock-in-insect.pdf"
+    ).resolve()
     index_dir = tmp_path / "index"
     OpenAIEmbeddingsHandler.requests = []
     server = ThreadingHTTPServer(("127.0.0.1", 0), OpenAIEmbeddingsHandler)
     thread = Thread(target=server.serve_forever, daemon=True)
     thread.start()
+    (tmp_path / ".env").write_text(
+        f"OPENAI_API_KEY=test-key\nOPENAI_BASE_URL=http://127.0.0.1:{server.server_port}/v1\n",
+        encoding="utf-8",
+    )
 
     try:
         result = subprocess.run(
@@ -424,10 +430,11 @@ def test_cli_ingests_one_corpus_pdf_with_openai_into_lancedb(tmp_path: Path) -> 
             check=False,
             capture_output=True,
             text=True,
+            cwd=tmp_path,
             env={
-                **os.environ,
-                "OPENAI_API_KEY": "test-key",
-                "OPENAI_BASE_URL": f"http://127.0.0.1:{server.server_port}/v1",
+                key: value
+                for key, value in os.environ.items()
+                if key not in {"OPENAI_API_KEY", "OPENAI_BASE_URL"}
             },
         )
     finally:

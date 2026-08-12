@@ -15,6 +15,7 @@ dependencies = [
     "flashrank>=0.2.10,<0.3",
     "lancedb>=0.36.0,<1",
     "openai>=2.53.0",
+    "python-dotenv>=1.2.1,<2",
     "tiktoken>=0.13.0,<1",
     "uvicorn>=0.52.1",
 ]
