@@ -1,4 +1,4 @@
-"""The fixed 24-item retrieval suite and document-level quality gates."""
+"""The fixed 24-item retrieval suite and deterministic quality gates."""
 
 from __future__ import annotations
 
