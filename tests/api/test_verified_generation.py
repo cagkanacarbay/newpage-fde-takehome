@@ -237,7 +237,7 @@ def test_verifier_failure_returns_error_without_draft_text(tmp_path: Path) -> No
     )
 
     assert [event["type"] for event in events] == ["conversation", "error"]
-    assert events[-1] == {"type": "error", "message": "Verifier service failed."}
+    assert events[-1] == {"type": "error", "message": "The chat request failed."}
     assert "unverified draft" not in json.dumps(events)
 
 

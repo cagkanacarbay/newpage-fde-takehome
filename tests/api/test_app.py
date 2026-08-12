@@ -541,10 +541,7 @@ def test_chat_emits_setup_error_when_openai_key_is_missing(
 
     assert events[-1] == {
         "type": "error",
-        "message": (
-            "OpenAI is selected but OPENAI_API_KEY is not set. "
-            "Set OPENAI_API_KEY and restart the server."
-        ),
+        "message": "The chat request failed.",
     }
     assert conversation["messages"] == []
     assert conversation["title"] == "New conversation"

@@ -232,13 +232,12 @@ async def _stream_chat(
             }
         )
         yield encode_sse({"type": "done"})
-    except Exception as error:
+    except Exception:
         logger.exception(
             "Chat turn failed for conversation %s.",
             conversation.id,
         )
-        message = str(error) or "The chat request failed."
-        yield encode_sse({"type": "error", "message": message})
+        yield encode_sse({"type": "error", "message": "The chat request failed."})
 
 
 configured_web_dir = os.environ.get("LIVE_LONG_WEB_DIR")

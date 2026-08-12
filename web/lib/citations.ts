@@ -42,7 +42,12 @@ export function fallbackCitations(
   text: string,
   citations: Citation[],
 ): NumberedCitation[] {
-  return /\[\d+]/.test(text) ? [] : numberCitations(citations);
+  const numbered = numberCitations(citations);
+  const availableMarkers = new Set(numbered.map(({ index }) => String(index)));
+  const hasResolvableMarker = [...text.matchAll(/\[(\d+)]/g)].some(
+    (match) => match[1] !== undefined && availableMarkers.has(match[1]),
+  );
+  return hasResolvableMarker ? [] : numbered;
 }
 
 export type CssRect = {

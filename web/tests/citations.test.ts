@@ -101,6 +101,15 @@ describe("fallbackCitations", () => {
   it("does not duplicate controls when inline markers are present", () => {
     assert.deepEqual(fallbackCitations("A verified answer [1].", [makeCitation()]), []);
   });
+
+  it("keeps controls when bracketed numbers do not match a citation", () => {
+    const citations = [makeCitation(), makeCitation({ page: 3 })];
+
+    assert.deepEqual(fallbackCitations("The 2024 result [2024].", citations), [
+      { citation: citations[0], index: 1 },
+      { citation: citations[1], index: 2 },
+    ]);
+  });
 });
 
 describe("bboxToCssRect", () => {
