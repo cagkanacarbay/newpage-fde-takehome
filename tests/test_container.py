@@ -21,8 +21,8 @@ from llama_index.core.schema import NodeRelationship, RelatedNodeInfo, TextNode
 from live_long_rnd.ingest import LanceDBNodeStore
 
 
-class OpenAIHandler(BaseHTTPRequestHandler):
-    """OpenAI-compatible planning and embedding endpoint reachable from Docker."""
+class ProviderHandler(BaseHTTPRequestHandler):
+    """OpenAI-compatible Gemini and embedding endpoint reachable from Docker."""
 
     requests: ClassVar[list[dict[str, Any]]] = []
 
@@ -30,8 +30,9 @@ class OpenAIHandler(BaseHTTPRequestHandler):
         body_size = int(self.headers["Content-Length"])
         payload = json.loads(self.rfile.read(body_size))
         self.requests.append(payload)
-        if self.path == "/v1/responses":
-            if "Decide whether the cited corpus evidence" in payload.get("instructions", ""):
+        if self.path == "/v1/chat/completions":
+            instructions = payload["messages"][0]["content"]
+            if "Check each factual claim" in instructions:
                 self._send_json(_verifier_response(payload))
             else:
                 self._send_json(_query_plan_response(payload))
@@ -70,8 +71,7 @@ class OpenAIHandler(BaseHTTPRequestHandler):
 
 
 def _query_plan_response(payload: dict[str, Any]) -> dict[str, Any]:
-    messages = payload["input"]
-    message = messages[-1]["content"]
+    message = payload["messages"][-1]["content"]
     plan = json.dumps(
         {
             "action": "retrieve",
@@ -84,78 +84,53 @@ def _query_plan_response(payload: dict[str, Any]) -> dict[str, Any]:
             ],
         }
     )
-    return {
-        "id": "resp_container_test",
-        "object": "response",
-        "created_at": 0,
-        "status": "completed",
-        "model": payload["model"],
-        "output": [
-            {
-                "id": "msg_container_test",
-                "type": "message",
-                "status": "completed",
-                "role": "assistant",
-                "content": [
-                    {
-                        "type": "output_text",
-                        "text": plan,
-                        "annotations": [],
-                        "logprobs": [],
-                    }
-                ],
-            }
-        ],
-        "usage": {
-            "input_tokens": 1,
-            "output_tokens": 1,
-            "total_tokens": 2,
-            "input_tokens_details": {"cached_tokens": 0},
-            "output_tokens_details": {"reasoning_tokens": 0},
-        },
-    }
+    return _chat_completion_response(payload, plan)
 
 
 def _verifier_response(payload: dict[str, Any]) -> dict[str, Any]:
     verification = json.dumps(
         {
-            "supported": True,
-            "evidence": [
+            "claims": [
                 {
-                    "marker": 1,
-                    "exact_text": "Senolytics selectively remove senescent cells.",
+                    "claim_index": 1,
+                    "supported": True,
+                    "evidence": [
+                        {
+                            "marker": 1,
+                            "exact_text": "Senolytics selectively remove senescent cells.",
+                        }
+                    ],
                 }
             ],
         }
     )
+    return _chat_completion_response(payload, verification)
+
+
+def _chat_completion_response(
+    payload: dict[str, Any],
+    content: str,
+) -> dict[str, Any]:
     return {
-        "id": "resp_verifier_container_test",
-        "object": "response",
-        "created_at": 0,
-        "status": "completed",
+        "id": "chatcmpl_container_test",
+        "object": "chat.completion",
+        "created": 0,
         "model": payload["model"],
-        "output": [
+        "choices": [
             {
-                "id": "msg_verifier_container_test",
-                "type": "message",
-                "status": "completed",
-                "role": "assistant",
-                "content": [
-                    {
-                        "type": "output_text",
-                        "text": verification,
-                        "annotations": [],
-                        "logprobs": [],
-                    }
-                ],
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "content": content,
+                    "refusal": None,
+                },
+                "finish_reason": "stop",
             }
         ],
         "usage": {
-            "input_tokens": 1,
-            "output_tokens": 1,
+            "prompt_tokens": 1,
+            "completion_tokens": 1,
             "total_tokens": 2,
-            "input_tokens_details": {"cached_tokens": 0},
-            "output_tokens_details": {"reasoning_tokens": 0},
         },
     }
 
@@ -247,6 +222,10 @@ def _run_api_container(
             "--env",
             f"OPENAI_BASE_URL=http://host.docker.internal:{embedding_server_port}/v1",
             "--env",
+            "GEMINI_API_KEY=test-key",
+            "--env",
+            f"GEMINI_BASE_URL=http://host.docker.internal:{embedding_server_port}/v1",
+            "--env",
             "LIVE_LONG_LLM=stub",
             image_tag,
         ],
@@ -288,13 +267,15 @@ def _assert_persisted_conversation(port: int, conversation_id: str) -> None:
     assert messages[1]["text"].startswith("Senolytics are drugs")
 
 
-def _citation_event(events: list[dict[str, Any]]) -> dict[str, Any]:
-    event = next(
-        (item for item in events if item["type"] == "citations"),
-        None,
-    )
-    assert event is not None, events
-    return event
+def _verified_completion(events: list[dict[str, Any]]) -> dict[str, Any]:
+    completions = [
+        item
+        for item in events
+        if item["type"] == "verification" and item.get("status") == "complete"
+    ]
+    if not completions:
+        pytest.fail(f"Chat returned no verified completion. Events: {events!r}")
+    return completions[0]
 
 
 def _assert_baked_document_access(port: int) -> None:
@@ -333,8 +314,8 @@ def test_api_image_serves_citations_from_its_baked_index(tmp_path: Path) -> None
     state_dir.mkdir()
     state_dir.chmod(0o770)
     image_tag = f"live-long-rnd-e2e:{os.getpid()}"
-    OpenAIHandler.requests = []
-    server = ThreadingHTTPServer(("0.0.0.0", 0), OpenAIHandler)
+    ProviderHandler.requests = []
+    server = ThreadingHTTPServer(("0.0.0.0", 0), ProviderHandler)
     thread = Thread(target=server.serve_forever, daemon=True)
     thread.start()
     container_id = ""
@@ -362,24 +343,27 @@ def test_api_image_serves_citations_from_its_baked_index(tmp_path: Path) -> None
         with urllib.request.urlopen(f"http://127.0.0.1:{port}/", timeout=10) as response:
             home_page = response.read().decode()
         events = _chat_events(port, "What do senolytics do?")
-        citation_event = _citation_event(events)
+        completion = _verified_completion(events)
         token_events = [event for event in events if event["type"] == "token"]
         assert "<title>Live Long R&amp;D</title>" in home_page
-        assert token_events == [
-            {
-                "type": "token",
-                "text": (
-                    "Senolytics are drugs designed to selectively target senescent cells [1]."
-                ),
-            }
-        ]
-        assert citation_event["citations"][0]["document_id"] == "docker-paper"
-        assert len(citation_event["citations"]) == 1
+        assert "".join(str(event["text"]) for event in token_events) == (
+            "Senolytics are drugs designed to selectively target senescent cells [1]. "
+            "Early human studies suggest possible physical-function benefits, while "
+            "newer evidence shows they may not reverse established DNA methylation "
+            "signatures of senescence [2][3]."
+        )
+        assert completion["text"] == (
+            "Senolytics are drugs designed to selectively target senescent cells [1]."
+        )
+        assert completion["citations"][0]["document_id"] == "docker-paper"
+        assert len(completion["citations"]) == 1
         assert events[-1] == {"type": "done"}
-        assert OpenAIHandler.requests
+        assert ProviderHandler.requests
         assert any(
-            "Decide whether the cited corpus evidence" in request.get("instructions", "")
-            for request in OpenAIHandler.requests
+            request.get("messages", [{}])[0]
+            .get("content", "")
+            .startswith("<instructions>\nCheck each factual claim")
+            for request in ProviderHandler.requests
         )
         assert (state_dir / "conversations.db").is_file()
 
@@ -396,11 +380,11 @@ def test_api_image_serves_citations_from_its_baked_index(tmp_path: Path) -> None
         )
         _assert_persisted_conversation(port, conversation_id)
         restarted_events = _chat_events(port, "What do senolytics do after restart?")
-        restarted_citations = _citation_event(restarted_events)
-        assert restarted_citations["citations"][0]["document_id"] == "docker-paper"
+        restarted_completion = _verified_completion(restarted_events)
+        assert restarted_completion["citations"][0]["document_id"] == "docker-paper"
         _assert_pdf_worker_access(port)
         _assert_baked_document_access(port)
-        assert len(OpenAIHandler.requests) == 6
+        assert len(ProviderHandler.requests) == 6
     finally:
         if container_id:
             subprocess.run(

@@ -11,7 +11,7 @@ from typing import Any, Literal, Protocol, TypedDict, cast
 from openai import OpenAI
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from live_long_rnd.providers import DEFAULT_GEMINI_MODEL, GEMINI_OPENAI_BASE_URL
+from live_long_rnd.providers import DEFAULT_GEMINI_MODEL, gemini_base_url
 
 QUERY_PLANNER_MODEL = DEFAULT_GEMINI_MODEL
 
@@ -136,6 +136,7 @@ class GeminiQueryPlanner:
         *,
         api_key: str | None = None,
         model: str = QUERY_PLANNER_MODEL,
+        base_url: str | None = None,
         client: GeminiClient | None = None,
         max_intents: int = 3,
     ) -> None:
@@ -143,6 +144,7 @@ class GeminiQueryPlanner:
             raise ValueError("max_intents must be between 1 and 3")
         self._api_key = api_key if api_key is not None else os.environ.get("GEMINI_API_KEY")
         self._model = model
+        self._base_url = base_url or gemini_base_url()
         self._client = client
         self._max_intents = max_intents
         self._usage = PlannerUsage()
@@ -168,7 +170,7 @@ class GeminiQueryPlanner:
                 )
             client = cast(
                 GeminiClient,
-                OpenAI(api_key=self._api_key, base_url=GEMINI_OPENAI_BASE_URL),
+                OpenAI(api_key=self._api_key, base_url=self._base_url),
             )
             self._client = client
 
