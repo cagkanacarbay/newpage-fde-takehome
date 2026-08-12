@@ -13,3 +13,4 @@
 !web/app/**
 !web/components/**
 !web/lib/**
+!web/public/**

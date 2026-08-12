@@ -312,6 +312,14 @@ def _assert_baked_document_access(port: int) -> None:
         assert pdf_response.read().startswith(b"%PDF-")
 
 
+def _assert_pdf_worker_access(port: int) -> None:
+    worker_url = f"http://127.0.0.1:{port}/pdf.worker.min.mjs"
+    with urllib.request.urlopen(worker_url, timeout=10) as worker_response:
+        assert worker_response.status == 200
+        assert "javascript" in worker_response.headers["Content-Type"]
+        assert len(worker_response.read()) > 100_000
+
+
 @pytest.mark.e2e
 def test_api_image_serves_citations_from_its_baked_index(tmp_path: Path) -> None:
     if os.environ.get("RUN_DOCKER_E2E") != "1":
@@ -390,6 +398,7 @@ def test_api_image_serves_citations_from_its_baked_index(tmp_path: Path) -> None
         restarted_events = _chat_events(port, "What do senolytics do after restart?")
         restarted_citations = _citation_event(restarted_events)
         assert restarted_citations["citations"][0]["document_id"] == "docker-paper"
+        _assert_pdf_worker_access(port)
         _assert_baked_document_access(port)
         assert len(OpenAIHandler.requests) == 6
     finally:
