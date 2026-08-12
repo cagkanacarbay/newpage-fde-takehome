@@ -96,9 +96,7 @@ def test_dual_query_plan_rejects_case_and_whitespace_only_differences() -> None:
 
 
 def test_search_intent_rejects_whitespace_only_query_forms() -> None:
-    with pytest.raises(
-        ValidationError, match="query forms must contain non-whitespace content"
-    ):
+    with pytest.raises(ValidationError, match="query forms must contain non-whitespace content"):
         SearchIntent(dense_query="metformin", sparse_query=" \t ")
 
 
