@@ -62,14 +62,29 @@ its public sources.
 
 <!-- Cha writes this section himself. Leave empty. He may ask the agent for specific parts. -->
 
-### Chunking
+The entire system is self contained within the docker app. Of course this is only for this demo to make it easy to run it. 
+
+For productionizing it, we would need to update a few things:
+1. The database is currently a sqlite. It would need to be migrated to a Postgres and hosted on a managed database provider. 
+2. Parsing and embedding will need to be queued and moved in the background jobs. This would allow us to add retries, idempotency, dedpulication and index versioning, which are critical to maintaining this system long term.
+3. We need a file storage system such as Amazon S3. Currently files are simply a part of the Docker image. We would serve these with signed URLs.
+4. The current LanceDB would be replaced with a managed store. LanceDB Cloud or Qdrant Cloud, or an a VPC alternative if the customer requires data to be in their own cloud.
+5. Authentication and authroization would need to be added through the identity provider of the customer. Currently no auth implemented.
+6. The current eval set is relatively simple. I would develop with the customer a gold retrieval set and run it before each release to prevent regressions. Another improvement here would be to build in user feedback so users can provide guidance on how the system is failing, so we can use that info to improve LLM and retrieval performance.
+
 
 ## Key technical decisions and why
 
 ### Assignment
-1. Chose to build a longevity research paper corpus, as it might be an actual customer use case, building assinstants that help researchers do their work in fields such as longevity.
+Chose to build a longevity research paper corpus, as it might be an actual customer use case, building assinstants that help researchers do their work in fields such as longevity.
 
-### RAG pipeline
+### LLM Choice
+GPT 5.6 Luna handles all parts of the workflow. It is relatively cheap and very performant. It handles:
+- query planning, answer generation, claim verification
+
+Main generation uses high reasoning. High reasoning is generally where the benefits of reasoning are best vs the cost of more reasoning. Although in a production environment I would test this as our specific use case might benefit from extensive reasoning effort to handle highly specific scientific information and data.
+
+Verifier uses low reasoning simply checking chunks vs the result.
 
 ### RAG/LLM approach and decisions
 
@@ -78,8 +93,6 @@ its public sources.
      prompt & context management, guardrails, quality, observability. -->
 
 There are many RAG options that provide end to end RAG capabilities such as RAG Anything. I chose not to use such read frameworks to show my thinking and approach to each of the parts of a RAG pipeline separately. 
-
-
 
 #### Framework
 
@@ -100,13 +113,60 @@ Researched and tested multiple solutions for parsing. Chose Docling as it:
 My chunking strategy is the widely accepted strategy the broader RAG engineering community is converging upon for production systems:
 1. Structural chunking to preserve meaning across the structure of the document, since fixed size chunking messes up the chunks and removes all meaning. 
 2. Metadata enrichment of chunks so we can both filter out retrieval chunks by identifiers, and receive useful information in the chunks themselves.
-3. Contextual chunks: We add context to each chunk so the LLM can understand the chunk as part of a larger document and place it within that context as it analyzes.
+3. Contextual chunks: We add context to each chunk so the LLM can understand the chunk as part of a larger document and place it within that context as it analyzes. At this stage the added context is deterministic. We add paper, page number, section, etc. A natural improvement would be to run a model to write contextual chunks for each chunk that place the context in prose. 
 
+#### Vector DB
+For our vector database I chose LanceDB as it allowed me to use locally and ship it as part of our Docker image. 
 
 #### Embedding
 Using text-embedding-3-large from GPT since it is available through the same API key I have for GPT. For a production system I would use a stronger model, either host it on the customer systems, or through a trusted provided.
 
 Qwen3-Embedding-8B would be a good upgrade in production.
+
+#### Retrieval
+The corpus, while small, is very difficult corpus with a lot of highly scientific papers, close semantic meanings, a lot of specific keywords that are only available through sparse vectors. 
+
+The general approach of course is to apply BM25 + Dense Vector search + RRF but the way I have implemented this is through a query planning approach where each user query is turned into semantic and sparse vector search items. So user queries get turned into proper search terms even if the user query is not very clear. See below this structure.
+
+```json
+  "search_intents": [
+    {
+      "dense_query": "What doses and adverse events were reported in the Hickson senolytic trial?",
+      "sparse_query": "Hickson senolytic dose adverse events",
+      "filters": {}
+    }
+```
+
+Another benefit is that these items can be stored, tracked on performance if retrieval succeeeds or not, cached later on in a production system to improve. This is not implemented but it's a natural improvement.
+
+I've also added MiniLM cross-encoder reranker as a final step to rerank each candidate against the question itself. This was added to improve the retrieval quality after my evals returned weaker results.
+
+#### Context Management
+This has been kept simple as other areas have taken more focus for the initial system. 
+
+A simple approach, I chose a rolling 100k input token window for the chat. Longer chats will simply not include the previous parts. 
+
+An extensive discussion of how this could be productionized, extended, and made more functional is provided in the section What I'd do with more time.
+
+#### Guardrails 
+The main guardrail that I implemented is a verifier check with a GPT 5.6 Luna model, that reads the main models response, checks the retrieved chunks, identifies exactly what the main model took from the chunk and returns that. This is what allows us to return highlighted citations. So each and every one of the returned items is reliably from a source material. 
+
+#### Quality
+I created an eval set from the corpus that runs 24 questions against the corpus set against the LanceDB index. 
+1. 6 questions test both sides of a scientific disagreement are captured
+2. 6 test similar entity names and distractions
+3. 12 tests require a known paper in top retrieved results. 
+
+Quality tests run on CI so any change touching retrieval must not regress the reesults.
+
+Also running on CI:
+  - Python formatting, Ruff, strict mypy, unit tests, E2E tests, and
+    the Docker smoke test.
+  - A path-scoped 24-item retrieval-quality gate.
+  - Web tests, ESLint, and the production Next.js build.
+
+### Observability
+Originally I wished to set up Arize Phoenix with the repository to build in observabillity right into the system. Time did not allow it. 
 
 ## Engineering standards followed (and skipped)
 
@@ -150,6 +210,10 @@ Coding agents are my primary work surface.
 
 First we scope the work, discuss options, and architecture on HTML docs. See the docs for some artifacts.
 
+See docs/index.html. It includes the technical choices I evaluated, the research I made to make the choices, and decisions I made. I use the HTML surface as both an alignment surface with AI agents, and to communicate to teammates/customers. 
+
+After work is scoped, the agents handle implementation through the TDD system, and other agents run to verify and validate. My work is at the beginning when scoping the work, and at the end when validating and verifying.
+
 Agents run automatically for verification, review, and after code changes break tests, as described above. 
 The coding agents' coding capabilities are constrained by the myriad of tests, lints, rules, deterministic checks that force it to work in a certain way. 
 
@@ -169,8 +233,10 @@ Given this scenario I would:
 5. Authentication has not been considered as part of this work. In a real scenario we would deploy within the authentication paradigm of the customer.
 6. Work with the actual corpus, which would likely be thousands of papers, as well as other sorts of documents, to select each part of the pipeline. I'd run tests similar to the ones I've ran at a smaller scope in this repo, understand the corpus' nature, which chunking methodology provides better results in retrieveal and other tests. 
 7. Parent-child retrieval. A likely addition I would make to this system. This improves the general reliability of the system. It would require another data store to store the parents and add a level of complexity that is overengineering for the purposes of this simple demo, but a production system would benefit from this.
-8. Conversation management is kept very simple. It's a simple session system. User can start a new conversation or continue older one. There is no compaction. No context management within and beyond sessions. This would be an area of improvement in any production system. For long chats only the last 100k tokens are used as input.
+8. Conversation management is kept very simple. It's a simple session system. User can start a new conversation or continue older one. There is no compaction. No context management within and beyond sessions. This would be an area of improvement in any production system. For long chats only the last 100k tokens are used as input. Easy wins here are compaction, session summaries, memory system that stores user queries, and findings when the user specifically asks, or makes what seems to be important connections. This I would develop after understanding actual user patterns, as memory could easily be a negative rather than a positive.
 9. For simplicity sake the corpus raw PDFs are part of the docker image and served directly through there. We use that to directly cite the papers in the chat. In a production system we would need to serve them through a filesystem. 
+10. Build in observability. Each and every chat with the LLM, as well as each retrieval event should be observed and tracked. I was looking to build it in with Arize Phoenix this functionality. I would if I had more time.
+11. 
 
 
 ## Screenshots
