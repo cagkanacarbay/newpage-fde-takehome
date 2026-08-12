@@ -212,11 +212,8 @@
 
         <div class="callout note">
           <span class="lbl">Deterministic answer-quality measure</span>
-          <p>The suite defines 60 required answer facts from its exact corpus-backed reference passages.</p>
-          <p>It normalizes punctuation and case, then checks whether the packed original text contains each required fact.</p>
-          <p>The report records fact coverage for each item, total facts found, and items with every required fact.</p>
-          <p>Runtime selection uses complete items and total facts after recall and citation support, but before latency and API cost.</p>
-          <p>The bundled selected-runtime fixture found 49/60 facts and made 18/24 items fully answerable.</p>
+          <p>The selected-runtime fixture must pass document gates, exact-page support, and answer-evidence checks.</p>
+          <p><a href="research/evaluation.html">Evaluation research records the scoring method and enforced floors.</a></p>
           <p>The earlier live variant run did not capture this field, so no historical answer-quality values are inferred.</p>
         </div>
 
