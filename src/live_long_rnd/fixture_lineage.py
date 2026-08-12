@@ -193,7 +193,9 @@ def _literal_dynamic_import(
     ):
         return None
     if not node.args:
-        raise LineageDiscoveryError("Production indexing uses a dynamic import without a module name")
+        raise LineageDiscoveryError(
+            "Production indexing uses a dynamic import without a module name"
+        )
     module = node.args[0]
     if isinstance(module, ast.Constant) and isinstance(module.value, str):
         return module.value

@@ -92,9 +92,7 @@ def test_fixture_lineage_discovers_qualified_and_aliased_dynamic_imports(tmp_pat
     (tmp_path / "src/live_long_rnd/provenance.py").write_text(
         "FIELD = 'page_numbers'\n", encoding="utf-8"
     )
-    (tmp_path / "src/live_long_rnd/metadata.py").write_text(
-        "FIELD = 'bboxes'\n", encoding="utf-8"
-    )
+    (tmp_path / "src/live_long_rnd/metadata.py").write_text("FIELD = 'bboxes'\n", encoding="utf-8")
     ingest_path = tmp_path / "src/live_long_rnd/ingest.py"
     ingest_path.write_text(
         "import importlib as loader\n"
