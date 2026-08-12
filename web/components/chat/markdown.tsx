@@ -3,8 +3,19 @@
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
+import { linkCitationMarkers } from "@/lib/citations";
+import type { Citation } from "@/lib/sse";
+
 /** Assistant text rendered as markdown on the design-system typography. */
-export function Markdown({ text }: { text: string }) {
+export function Markdown({
+  text,
+  citations,
+  onOpenCitation,
+}: {
+  text: string;
+  citations: Citation[];
+  onOpenCitation: (citation: Citation, index: number) => void;
+}) {
   return (
     <div className="text-sm leading-6 text-body">
       <ReactMarkdown
@@ -23,14 +34,32 @@ export function Markdown({ text }: { text: string }) {
           strong: ({ children }) => (
             <strong className="font-semibold text-ink">{children}</strong>
           ),
-          a: ({ children, href }) => (
-            <a
-              href={href}
-              className="font-medium text-teal underline decoration-teal-mid underline-offset-2 hover:text-orange"
-            >
-              {children}
-            </a>
-          ),
+          a: ({ children, href }) => {
+            const match = href?.match(/^#citation-(\d+)$/);
+            const index = match ? Number(match[1]) : 0;
+            const citation = citations[index - 1];
+            if (citation) {
+              return (
+                <button
+                  type="button"
+                  aria-label={`Open citation ${index}: ${citation.snippet}`}
+                  title={citation.snippet}
+                  onClick={() => onOpenCitation(citation, index)}
+                  className="mx-0.5 inline-flex rounded-full bg-teal-bg px-1.5 py-0.5 align-baseline text-xs font-semibold text-teal-ink transition-colors hover:bg-teal hover:text-on-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
+                >
+                  {children}
+                </button>
+              );
+            }
+            return (
+              <a
+                href={href}
+                className="font-medium text-teal underline decoration-teal-mid underline-offset-2 hover:text-orange"
+              >
+                {children}
+              </a>
+            );
+          },
           ul: ({ children }) => (
             <ul className="my-2 list-disc space-y-1 pl-5">{children}</ul>
           ),
@@ -66,7 +95,7 @@ export function Markdown({ text }: { text: string }) {
           td: ({ children }) => <td className="px-3 py-2 align-top">{children}</td>,
         }}
       >
-        {text}
+        {linkCitationMarkers(text)}
       </ReactMarkdown>
     </div>
   );

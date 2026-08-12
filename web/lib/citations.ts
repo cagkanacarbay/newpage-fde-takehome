@@ -32,6 +32,11 @@ export function numberCitations(citations: Citation[]): NumberedCitation[] {
   return numbered;
 }
 
+/** Make generated `[n]` markers actionable without changing their visible text. */
+export function linkCitationMarkers(text: string): string {
+  return text.replace(/\[(\d+)]/g, "[[$1]](#citation-$1)");
+}
+
 export type CssRect = {
   left: number;
   top: number;

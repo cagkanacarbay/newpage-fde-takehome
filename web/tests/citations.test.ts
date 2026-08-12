@@ -4,6 +4,7 @@ import { describe, it } from "node:test";
 import {
   bboxToCssRect,
   citationKey,
+  linkCitationMarkers,
   numberCitations,
   prettifySlug,
 } from "../lib/citations";
@@ -74,6 +75,15 @@ describe("numberCitations", () => {
 describe("citationKey", () => {
   it("is stable for identical citations", () => {
     assert.equal(citationKey(makeCitation()), citationKey(makeCitation()));
+  });
+});
+
+describe("linkCitationMarkers", () => {
+  it("turns answer markers into links that preserve their citation number", () => {
+    assert.equal(
+      linkCitationMarkers("One finding [1]. A conflict [2][3]."),
+      "One finding [[1]](#citation-1). A conflict [[2]](#citation-2)[[3]](#citation-3).",
+    );
   });
 });
 

@@ -1,0 +1,146 @@
+import re
+from collections.abc import Sequence
+from dataclasses import dataclass
+from typing import Protocol
+
+from live_long_rnd.api.retrieval import RetrievedChunk
+
+_CITATION_MARKER = re.compile(r"\[(\d+)]")
+_CLAIM_BOUNDARY = re.compile(r"(?<=[.!?])(?:\s+|\n+)(?!\[\d+])")
+
+NO_SUPPORTED_ANSWER = "The retrieved evidence did not provide a supported answer."
+NO_RELEVANT_EVIDENCE = "No sufficiently relevant evidence was found in the corpus."
+PERSONAL_MEDICAL_REFUSAL = (
+    "I can summarize study evidence, but I cannot provide personal diagnosis, "
+    "treatment, or dosing advice."
+)
+
+_PERSONAL_MEDICAL_PATTERNS = (
+    re.compile(r"\b(?:should|can|could|do)\s+i\s+(?:take|use|start|stop|change)\b", re.I),
+    re.compile(r"\b(?:diagnos\w*|treat\w*)\s+me\b", re.I),
+    re.compile(r"\bmy\s+(?:dose|dosing|diagnos\w*|treatment|medication)\b", re.I),
+)
+
+
+@dataclass(frozen=True)
+class CitedEvidence:
+    marker: int
+    chunk: RetrievedChunk
+
+
+@dataclass(frozen=True)
+class EvidenceQuote:
+    marker: int
+    exact_text: str
+
+
+@dataclass(frozen=True)
+class ClaimVerification:
+    supported: bool
+    evidence: tuple[EvidenceQuote, ...]
+
+
+class ClaimVerifier(Protocol):
+    async def verify_claim(
+        self,
+        claim: str,
+        evidence: Sequence[CitedEvidence],
+    ) -> ClaimVerification: ...
+
+
+class StubClaimVerifier:
+    async def verify_claim(
+        self,
+        claim: str,
+        evidence: Sequence[CitedEvidence],
+    ) -> ClaimVerification:
+        del claim
+        return ClaimVerification(
+            supported=True,
+            evidence=tuple(
+                EvidenceQuote(marker=item.marker, exact_text=item.chunk.text) for item in evidence
+            ),
+        )
+
+
+@dataclass(frozen=True)
+class VerifiedAnswer:
+    text: str
+    citations: tuple[RetrievedChunk, ...]
+
+
+def personal_medical_refusal(message: str) -> str | None:
+    if any(pattern.search(message) for pattern in _PERSONAL_MEDICAL_PATTERNS):
+        return PERSONAL_MEDICAL_REFUSAL
+    return None
+
+
+async def verify_draft(
+    draft: str,
+    chunks: Sequence[RetrievedChunk],
+    verifier: ClaimVerifier,
+) -> VerifiedAnswer:
+    accepted: list[tuple[str, tuple[int, ...]]] = []
+    for claim in _split_claims(draft):
+        markers = tuple(dict.fromkeys(int(match) for match in _CITATION_MARKER.findall(claim)))
+        if not markers or any(marker < 1 or marker > len(chunks) for marker in markers):
+            continue
+        cited = tuple(CitedEvidence(marker=marker, chunk=chunks[marker - 1]) for marker in markers)
+        if any(not _has_provenance(item.chunk) for item in cited):
+            continue
+        verification = await verifier.verify_claim(claim, cited)
+        if not _valid_verification(verification, cited):
+            continue
+        accepted.append((claim, markers))
+
+    if not accepted:
+        return VerifiedAnswer(text=NO_SUPPORTED_ANSWER, citations=())
+
+    used_markers = tuple(
+        dict.fromkeys(marker for _claim, markers in accepted for marker in markers)
+    )
+    compact_markers = {original: compact for compact, original in enumerate(used_markers, start=1)}
+    text = " ".join(
+        _CITATION_MARKER.sub(
+            lambda match: f"[{compact_markers[int(match.group(1))]}]",
+            claim,
+        )
+        for claim, _markers in accepted
+    )
+    return VerifiedAnswer(
+        text=text,
+        citations=tuple(chunks[marker - 1] for marker in used_markers),
+    )
+
+
+def _split_claims(draft: str) -> tuple[str, ...]:
+    return tuple(part.strip() for part in _CLAIM_BOUNDARY.split(draft.strip()) if part.strip())
+
+
+def _has_provenance(chunk: RetrievedChunk) -> bool:
+    citation = chunk.citation
+    bbox = citation.get("bbox")
+    return bool(
+        chunk.text.strip()
+        and citation.get("document_id")
+        and citation.get("page")
+        and citation.get("snippet")
+        and isinstance(bbox, dict)
+        and set(bbox) == {"l", "t", "r", "b"}
+    )
+
+
+def _valid_verification(
+    verification: ClaimVerification,
+    cited: Sequence[CitedEvidence],
+) -> bool:
+    if not verification.supported or not verification.evidence:
+        return False
+    evidence_by_marker = {item.marker: item.exact_text for item in verification.evidence}
+    if set(evidence_by_marker) != {item.marker for item in cited}:
+        return False
+    return all(
+        evidence_by_marker[item.marker] in item.chunk.text
+        and bool(evidence_by_marker[item.marker].strip())
+        for item in cited
+    )

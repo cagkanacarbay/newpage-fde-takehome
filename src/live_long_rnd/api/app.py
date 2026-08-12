@@ -1,6 +1,6 @@
 import logging
 import os
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -18,8 +18,16 @@ from live_long_rnd.api.conversations import (
     ConversationSummary,
 )
 from live_long_rnd.api.documents import DEFAULT_CORPUS_DIR, DocumentStore
+from live_long_rnd.api.generation import (
+    NO_RELEVANT_EVIDENCE,
+    ClaimVerifier,
+    StubClaimVerifier,
+    VerifiedAnswer,
+    personal_medical_refusal,
+    verify_draft,
+)
 from live_long_rnd.api.llm import LLMClient, create_llm_client
-from live_long_rnd.api.retrieval import Retriever, create_retriever
+from live_long_rnd.api.retrieval import RetrievedChunk, Retriever, create_retriever
 from live_long_rnd.api.sse import encode_sse
 
 logger = logging.getLogger(__name__)
@@ -42,6 +50,7 @@ class ApplicationConfig:
 class _ChatRuntime:
     retriever: Retriever
     llm_client: LLMClient
+    verifier: ClaimVerifier
     conversations: ConversationStore
 
 
@@ -49,11 +58,13 @@ def create_app(
     *,
     retriever: Retriever | None = None,
     llm_client: LLMClient | None = None,
+    verifier: ClaimVerifier | None = None,
     config: ApplicationConfig | None = None,
 ) -> FastAPI:
     settings = config or ApplicationConfig()
     selected_retriever = create_retriever() if retriever is None else retriever
     selected_llm = create_llm_client() if llm_client is None else llm_client
+    selected_verifier = StubClaimVerifier() if verifier is None else verifier
     selected_database_path = settings.database_path or Path(
         os.environ.get("LIVE_LONG_CONVERSATIONS_DB", DEFAULT_DATABASE_PATH)
     )
@@ -62,7 +73,12 @@ def create_app(
         selected_database_path,
         history_token_budget=settings.history_token_budget,
     )
-    chat_runtime = _ChatRuntime(selected_retriever, selected_llm, conversations)
+    chat_runtime = _ChatRuntime(
+        selected_retriever,
+        selected_llm,
+        selected_verifier,
+        conversations,
+    )
     application = FastAPI(title="Live Long R&D assistant")
     application.add_middleware(
         CORSMiddleware,
@@ -168,17 +184,26 @@ async def _stream_chat(
                 "title": conversation.title,
             }
         )
-        chunks = await runtime.retriever.retrieve(message)
         history = runtime.conversations.history_window(conversation.id).messages
-        answer_parts: list[str] = []
-        async for token in runtime.llm_client.stream_answer(message, chunks, history):
-            answer_parts.append(token)
-            yield encode_sse({"type": "token", "text": token})
-        citations = [chunk.citation for chunk in chunks]
+        refusal = personal_medical_refusal(message)
+        chunks: Sequence[RetrievedChunk] = ()
+        if refusal:
+            answer = VerifiedAnswer(text=refusal, citations=())
+        else:
+            chunks = await runtime.retriever.retrieve(message, history)
+        if not refusal and chunks:
+            draft_parts = [
+                token async for token in runtime.llm_client.stream_answer(message, chunks, history)
+            ]
+            answer = await verify_draft("".join(draft_parts), chunks, runtime.verifier)
+        elif not refusal:
+            answer = VerifiedAnswer(text=NO_RELEVANT_EVIDENCE, citations=())
+        yield encode_sse({"type": "token", "text": answer.text})
+        citations = [chunk.citation for chunk in answer.citations]
         runtime.conversations.save_turn(
             conversation.id,
             message,
-            "".join(answer_parts),
+            answer.text,
             citations,
             conversation.title,
         )

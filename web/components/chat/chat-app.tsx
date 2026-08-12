@@ -276,7 +276,6 @@ export function ChatApp() {
           <MessageList
             messages={messages}
             streaming={streaming}
-            pdf={pdf}
             onOpenCitation={openCitation}
             onRetry={retry}
           />

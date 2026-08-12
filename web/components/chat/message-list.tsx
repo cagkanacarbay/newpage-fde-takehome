@@ -4,49 +4,13 @@ import { RotateCcw } from "lucide-react";
 import { useEffect, useRef } from "react";
 
 import { Button } from "@/components/ui/button";
-import { citationKey, numberCitations } from "@/lib/citations";
+import { numberCitations } from "@/lib/citations";
 import type { Citation } from "@/lib/sse";
 
 import { Markdown } from "./markdown";
-import type { PdfTarget, UiMessage } from "./types";
+import type { UiMessage } from "./types";
 
 const SCROLL_PIN_THRESHOLD_PX = 96;
-
-function CitationChip({
-  index,
-  citation,
-  active,
-  onOpen,
-}: {
-  index: number;
-  citation: Citation;
-  active: boolean;
-  onOpen: () => void;
-}) {
-  return (
-    <span className="group relative inline-flex">
-      <button
-        type="button"
-        onClick={onOpen}
-        aria-pressed={active}
-        aria-label={`Open citation ${index}: ${citation.snippet}`}
-        className={
-          active
-            ? "rounded-full bg-teal px-2.5 py-1 text-xs font-medium text-on-accent transition-colors"
-            : "rounded-full bg-surface px-2.5 py-1 text-xs font-medium text-teal-ink ring-1 ring-teal-mid transition-colors hover:bg-teal-bg"
-        }
-      >
-        [{index}]
-      </button>
-      <span
-        role="tooltip"
-        className="pointer-events-none absolute bottom-full left-0 z-10 mb-2 hidden w-64 rounded-xl bg-ink px-3 py-2 text-xs leading-5 text-surface group-hover:block"
-      >
-        {citation.snippet}
-      </span>
-    </span>
-  );
-}
 
 function SystemDivider({ text }: { text: string }) {
   return (
@@ -59,12 +23,11 @@ function SystemDivider({ text }: { text: string }) {
 type MessageListProps = {
   messages: UiMessage[];
   streaming: boolean;
-  pdf: PdfTarget | null;
   onOpenCitation: (messageId: string, citation: Citation, chipIndex: number) => void;
   onRetry: (assistantId: string) => void;
 };
 
-export function MessageList({ messages, streaming, pdf, onOpenCitation, onRetry }: MessageListProps) {
+export function MessageList({ messages, streaming, onOpenCitation, onRetry }: MessageListProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const pinnedRef = useRef(true);
 
@@ -110,10 +73,17 @@ export function MessageList({ messages, streaming, pdf, onOpenCitation, onRetry 
           }
 
           const numbered = numberCitations(message.citations);
+          const citations = numbered.map((item) => item.citation);
           return (
             <article key={message.id} className="max-w-full rounded-3xl bg-surface px-5 py-4">
               {message.text ? (
-                <Markdown text={message.text} />
+                <Markdown
+                  text={message.text}
+                  citations={citations}
+                  onOpenCitation={(citation, index) =>
+                    onOpenCitation(message.id, citation, index)
+                  }
+                />
               ) : streaming && !message.error ? (
                 <p className="flex items-center gap-1.5 py-1 text-sm text-faint" aria-live="polite">
                   <span className="size-1.5 animate-pulse rounded-full bg-teal" />
@@ -136,23 +106,6 @@ export function MessageList({ messages, streaming, pdf, onOpenCitation, onRetry 
                 </div>
               ) : null}
 
-              {numbered.length > 0 ? (
-                <div aria-label="Citations" className="mt-3 flex flex-wrap gap-2">
-                  {numbered.map(({ citation, index }) => (
-                    <CitationChip
-                      key={citationKey(citation)}
-                      index={index}
-                      citation={citation}
-                      active={
-                        pdf !== null &&
-                        pdf.messageId === message.id &&
-                        pdf.chipIndex === index
-                      }
-                      onOpen={() => onOpenCitation(message.id, citation, index)}
-                    />
-                  ))}
-                </div>
-              ) : null}
             </article>
           );
         })}

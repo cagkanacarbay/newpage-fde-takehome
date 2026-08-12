@@ -308,8 +308,19 @@ def test_api_image_serves_citations_from_its_baked_index(tmp_path: Path) -> None
             home_page = response.read().decode()
         events = _chat_events(port, "What do senolytics do?")
         citation_event = _citation_event(events)
+        token_events = [event for event in events if event["type"] == "token"]
         assert "<title>Live Long R&amp;D</title>" in home_page
+        assert token_events == [
+            {
+                "type": "token",
+                "text": (
+                    "Senolytics are drugs designed to selectively target "
+                    "senescent cells [1]."
+                ),
+            }
+        ]
         assert citation_event["citations"][0]["document_id"] == "docker-paper"
+        assert len(citation_event["citations"]) == 1
         assert events[-1] == {"type": "done"}
         assert OpenAIHandler.requests
         assert (state_dir / "conversations.db").is_file()

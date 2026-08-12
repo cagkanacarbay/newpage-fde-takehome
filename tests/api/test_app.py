@@ -24,7 +24,7 @@ class HistoryEchoLLM:
         del message, chunks
 
         async def tokens() -> AsyncIterator[str]:
-            yield history[0].text if history else "No prior history."
+            yield f"{history[0].text} [1]." if history else "No prior history [1]."
 
         return tokens()
 
@@ -43,7 +43,7 @@ class RecordingHistoryLLM:
         self.histories.append([item.text for item in history])
 
         async def tokens() -> AsyncIterator[str]:
-            yield "answer"
+            yield "answer [1]."
 
         return tokens()
 
@@ -67,7 +67,7 @@ class FirstTitleRaceLLM:
                 await self.allow_second_request.wait()
             else:
                 await self.second_request_started.wait()
-            yield "answer"
+            yield "answer [1]."
 
         return tokens()
 
@@ -107,9 +107,6 @@ def test_new_chat_streams_conversation_before_answer(
     assert response.headers["content-type"].startswith("text/event-stream")
     assert [event["type"] for event in events] == [
         "conversation",
-        "token",
-        "token",
-        "token",
         "token",
         "citations",
         "done",
@@ -369,7 +366,7 @@ def test_follow_up_answer_receives_the_completed_history(tmp_path: Path) -> None
     events = asyncio.run(exercise())
 
     answer = "".join(str(event["text"]) for event in events if event["type"] == "token")
-    assert answer == "What did the Hickson trial report?"
+    assert answer == "What did the Hickson trial report? [1]."
 
 
 @pytest.mark.e2e
@@ -383,7 +380,7 @@ def test_history_drops_whole_old_turns_with_visible_notice(tmp_path: Path) -> No
                 llm_client=llm,
                 config=ApplicationConfig(
                     database_path=tmp_path / "conversations.db",
-                    history_token_budget=3,
+                    history_token_budget=7,
                 ),
             )
         )
@@ -410,7 +407,7 @@ def test_history_drops_whole_old_turns_with_visible_notice(tmp_path: Path) -> No
 
     events, conversation = asyncio.run(exercise())
 
-    assert llm.histories == [[], ["one", "answer"], ["two", "answer"]]
+    assert llm.histories == [[], ["one", "answer [1]."], ["two", "answer [1]."]]
     assert {
         "type": "history_notice",
         "text": "Earlier messages were dropped to fit the context window",
