@@ -66,6 +66,28 @@ its public sources.
 
 <!-- Cha writes this section himself. Leave empty. He may ask the agent for specific parts. -->
 
+The system is a research assistant for longevity researches. The goal is to provide ready citations from the search corpus. 
+
+See docs/architecture.html for a visual of the architecture.
+
+The components:
+- Nextjs frontend: User facing system. Talks with the FastAPI server. 
+- FastAPI Server: Serves chat requests. Sits between NextJS and the backend: sqlite + retrieval pipeline
+- sqlite server to store user conversations
+- Ingestion Layer - Built in 27 PDF corpus already ingested.
+   - Parsing w/ Docling
+   - LlamaIndex HybridChunker 
+   - OpenAI Embeddings API
+   - LanceDB Vector database + BM25 search
+- Retrieval 
+   - Query planning: user queries turned into sparse and dense search terms/phrases
+   - Dense + BM25 search
+   - RRF fusion over search results
+   - MiniLM Reranking to match query terms to results
+- Verification
+   - Retrieved results verified by verifier agent
+   - Generation is checked so actual info from chunks correctly verified
+
 ## Productionizing, scaling, and hyperscaler deployment
 
 <!-- Cha writes this section himself. Leave empty. He may ask the agent for specific parts. -->
