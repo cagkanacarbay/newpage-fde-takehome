@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from live_long_rnd.fixture_lineage import (
+    LineageDiscoveryError,
     StaleGoldenFixtureError,
     production_index_input_hashes,
     validate_fixture_lineage,
@@ -106,6 +107,43 @@ def test_fixture_lineage_discovers_qualified_and_aliased_dynamic_imports(tmp_pat
 
     assert "src/live_long_rnd/provenance.py" in hashes
     assert "src/live_long_rnd/metadata.py" in hashes
+
+
+# Brief: indirect dynamic-import loaders must not let production inputs bypass lineage.
+def test_fixture_lineage_discovers_indirect_dynamic_import_loaders(tmp_path: Path) -> None:
+    _write_minimal_indexing_repo(tmp_path)
+    (tmp_path / "src/live_long_rnd/provenance.py").write_text(
+        "FIELD = 'page_numbers'\n", encoding="utf-8"
+    )
+    (tmp_path / "src/live_long_rnd/metadata.py").write_text("FIELD = 'bboxes'\n", encoding="utf-8")
+    ingest_path = tmp_path / "src/live_long_rnd/ingest.py"
+    ingest_path.write_text(
+        "import importlib\n"
+        "loader = importlib.import_module\n"
+        "loader('live_long_rnd.provenance')\n"
+        "getattr(importlib, 'import_module')('live_long_rnd.metadata')\n",
+        encoding="utf-8",
+    )
+
+    hashes = production_index_input_hashes(tmp_path)
+
+    assert "src/live_long_rnd/provenance.py" in hashes
+    assert "src/live_long_rnd/metadata.py" in hashes
+
+
+# Brief: unknown dynamic-import attributes must stop lineage validation.
+def test_fixture_lineage_rejects_unknown_indirect_dynamic_import(tmp_path: Path) -> None:
+    _write_minimal_indexing_repo(tmp_path)
+    ingest_path = tmp_path / "src/live_long_rnd/ingest.py"
+    ingest_path.write_text(
+        "import importlib\n"
+        "selector = 'import_module'\n"
+        "getattr(importlib, selector)('live_long_rnd.provenance')\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(LineageDiscoveryError, match="unsupported dynamic import"):
+        production_index_input_hashes(tmp_path)
 
 
 # Brief: importing a nested module must include each package initializer it executes.

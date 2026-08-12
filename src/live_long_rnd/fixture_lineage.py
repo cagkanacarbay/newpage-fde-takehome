@@ -173,7 +173,46 @@ def _dynamic_import_bindings(tree: ast.AST) -> tuple[set[str], set[str], set[str
                     import_module_names.add(alias.asname or alias.name)
                 elif node.module == "builtins" and alias.name == "__import__":
                     builtin_import_names.add(alias.asname or alias.name)
+    changed = True
+    while changed:
+        changed = False
+        for target, value in _assignment_values(tree):
+            import_kind = _dynamic_import_reference_kind(
+                value,
+                import_module_names=import_module_names,
+                builtin_import_names=builtin_import_names,
+                importlib_modules=importlib_modules,
+                builtins_modules=builtins_modules,
+            )
+            if import_kind == "import_module" and target not in import_module_names:
+                import_module_names.add(target)
+                changed = True
+            elif import_kind == "__import__" and target not in builtin_import_names:
+                builtin_import_names.add(target)
+                changed = True
+            elif isinstance(value, ast.Name) and value.id in importlib_modules:
+                if target not in importlib_modules:
+                    importlib_modules.add(target)
+                    changed = True
+            elif isinstance(value, ast.Name) and value.id in builtins_modules:
+                if target not in builtins_modules:
+                    builtins_modules.add(target)
+                    changed = True
     return import_module_names, builtin_import_names, importlib_modules, builtins_modules
+
+
+def _assignment_values(tree: ast.AST) -> Iterable[tuple[str, ast.expr]]:
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign):
+            yield from (
+                (target.id, node.value) for target in node.targets if isinstance(target, ast.Name)
+            )
+        elif (
+            isinstance(node, ast.AnnAssign)
+            and isinstance(node.target, ast.Name)
+            and node.value is not None
+        ):
+            yield node.target.id, node.value
 
 
 def _literal_dynamic_import(
@@ -215,23 +254,70 @@ def _dynamic_import_kind(
     importlib_modules: set[str],
     builtins_modules: set[str],
 ) -> str | None:
-    import_kind: str | None = None
-    if isinstance(node.func, ast.Name):
-        if node.func.id in import_module_names:
-            import_kind = "import_module"
-        elif node.func.id in builtin_import_names:
-            import_kind = "__import__"
-    elif isinstance(node.func, ast.Attribute) and node.func.attr == "import_module":
-        if isinstance(node.func.value, ast.Name) and node.func.value.id in importlib_modules:
-            import_kind = "import_module"
-        else:
+    return _dynamic_import_reference_kind(
+        node.func,
+        import_module_names=import_module_names,
+        builtin_import_names=builtin_import_names,
+        importlib_modules=importlib_modules,
+        builtins_modules=builtins_modules,
+    )
+
+
+def _dynamic_import_reference_kind(
+    value: ast.expr,
+    *,
+    import_module_names: set[str],
+    builtin_import_names: set[str],
+    importlib_modules: set[str],
+    builtins_modules: set[str],
+) -> str | None:
+    if isinstance(value, ast.Name):
+        if value.id in import_module_names:
+            return "import_module"
+        if value.id in builtin_import_names:
+            return "__import__"
+    elif isinstance(value, ast.Attribute) and value.attr == "import_module":
+        if isinstance(value.value, ast.Name) and value.value.id in importlib_modules:
+            return "import_module"
+        if isinstance(value.value, ast.Name) and value.value.id in builtins_modules:
             raise LineageDiscoveryError("Production indexing uses an unsupported dynamic import")
-    elif isinstance(node.func, ast.Attribute) and node.func.attr == "__import__":
-        if isinstance(node.func.value, ast.Name) and node.func.value.id in builtins_modules:
-            import_kind = "__import__"
-        else:
+    elif isinstance(value, ast.Attribute) and value.attr == "__import__":
+        if isinstance(value.value, ast.Name) and value.value.id in builtins_modules:
+            return "__import__"
+        if isinstance(value.value, ast.Name) and value.value.id in importlib_modules:
             raise LineageDiscoveryError("Production indexing uses an unsupported dynamic import")
-    return import_kind
+    elif isinstance(value, ast.Call):
+        return _getattr_dynamic_import_kind(
+            value,
+            importlib_modules=importlib_modules,
+            builtins_modules=builtins_modules,
+        )
+    return None
+
+
+def _getattr_dynamic_import_kind(
+    node: ast.Call,
+    *,
+    importlib_modules: set[str],
+    builtins_modules: set[str],
+) -> str | None:
+    if not (isinstance(node.func, ast.Name) and node.func.id == "getattr"):
+        return None
+    if not node.args or not isinstance(node.args[0], ast.Name):
+        return None
+    module_name = node.args[0].id
+    if module_name not in importlib_modules | builtins_modules:
+        return None
+    if len(node.args) != 2 or node.keywords:
+        raise LineageDiscoveryError("Production indexing uses an unsupported dynamic import")
+    attribute = node.args[1]
+    if not isinstance(attribute, ast.Constant) or not isinstance(attribute.value, str):
+        raise LineageDiscoveryError("Production indexing uses an unsupported dynamic import")
+    if module_name in importlib_modules and attribute.value == "import_module":
+        return "import_module"
+    if module_name in builtins_modules and attribute.value == "__import__":
+        return "__import__"
+    return None
 
 
 def _resolve_relative_dynamic_import(module_name: str, node: ast.Call) -> str:
