@@ -330,7 +330,7 @@ def test_api_image_serves_citations_from_its_baked_index(tmp_path: Path) -> None
         restarted_citations = _citation_event(restarted_events)
         assert restarted_citations["citations"][0]["document_id"] == "docker-paper"
         _assert_baked_document_access(port)
-        assert len(OpenAIHandler.requests) == 2
+        assert len(OpenAIHandler.requests) == 4
     finally:
         if container_id:
             subprocess.run(
