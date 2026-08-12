@@ -19,10 +19,10 @@
     <div class="header-meta">
       <span><b>GitHub issue</b> <a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/15">Issue 15</a></span>
       <span><b>Related</b> <a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/22">Issue 22</a></span>
-      <span><b>Date</b> 2026-08-10</span>
-      <span><b>Status</b> proposal to build and test</span>
+      <span><b>Date</b> 2026-08-11</span>
+      <span><b>Status</b> implemented and calibrated</span>
       <span><b>Evidence</b> 2026 research</span>
-      <span><b>Exact values</b> evaluation pending</span>
+      <span><b>Exact values</b> depth 20, MiniLM, 0.15, 12,000 tokens</span>
     </div>
   </header>
 
@@ -35,8 +35,9 @@
         <li><a href="#planning"><span class="n">03</span><span>Query planning</span></a></li>
         <li><a href="#path"><span class="n">04</span><span>Retrieval path</span></a></li>
         <li><a href="#packing"><span class="n">05</span><span>Evidence packing</span></a></li>
-        <li><a href="#research"><span class="n">06</span><span>2026 research</span></a></li>
-        <li><a href="#deferred"><span class="n">07</span><span>Deferred work</span></a></li>
+        <li><a href="#calibration"><span class="n">06</span><span>Measured calibration</span></a></li>
+        <li><a href="#research"><span class="n">07</span><span>2026 research</span></a></li>
+        <li><a href="#deferred"><span class="n">08</span><span>Deferred work</span></a></li>
       </ol>
     </nav>
 
@@ -51,7 +52,7 @@
             <p><strong>What:</strong> Retrieve a broad hybrid candidate pool, rerank it, then pack the strongest complete evidence into the source budget.</p>
             <p><strong>Why:</strong> A fact lookup and a multi-paper comparison need different amounts of evidence.</p>
             <p><strong>Context:</strong> Keep document, section, element, caption, and page labels through indexing and citation output.</p>
-            <p><strong>Status:</strong> This is the agreed direction. Candidate depth, reranker, diversity rule, and source budget need corpus evaluation.</p>
+            <p><strong>Status:</strong> Implemented. The 24-item run selected depth 20, MiniLM, penalty 0.15, and 12,000 source tokens.</p>
           </div>
         </div>
 
@@ -60,21 +61,21 @@
       </section>
 
       <section id="contract">
-        <h2><span class="idx">02</span> Proposed implementation contract</h2>
-        <p class="lead">Development should build and test this deterministic path before adding adaptive retrieval loops.</p>
+        <h2><span class="idx">02</span> Implementation contract</h2>
+        <p class="lead">The runtime uses this deterministic path before any adaptive retrieval loop.</p>
 
-        <pre><code>message + saved conversation history
+        <pre><code>message
   -&gt; QueryPlan with strict JSON output
   -&gt; one to three SearchIntents
-  -&gt; hybrid search for each intent
-  -&gt; RRF fusion, deduplication, and cross-encoder reranking
+  -&gt; dense and BM25 search for each intent
+  -&gt; RRF fusion, deduplication, diversity selection, and cross-encoder reranking
   -&gt; diversity-aware token packing
   -&gt; grounded answer with exact citations</code></pre>
 
         <div class="callout note">
           <span class="lbl">One SearchIntent</span>
           <p>A SearchIntent represents one distinct evidence need, not one user message.</p>
-          <p>A direct question and a context-resolved follow-up create one intent.</p>
+          <p>A direct question and a follow-up resolved from caller-supplied history create one intent.</p>
           <p>A comparison or request with separate aspects creates two or three intents.</p>
         </div>
 
@@ -84,7 +85,8 @@
     {
       "dense_query": "What doses and adverse events were reported in the Hickson senolytic trial?",
       "sparse_query": "Hickson senolytic dose adverse events",
-      "filters": {}
+      "variant": "dual-query",
+      "filters": {"document_id": null, "author": null}
     }
   ]
 }</code></pre>
@@ -98,19 +100,26 @@
           <li><b>Clarify absent intent</b><span class="d">If the user only supplies material, return <code>clarify</code> instead of searching without a stated task.</span></li>
         </ol>
 
+        <p><code>QueryPlan</code>, <code>SearchIntent</code>, and <code>filters</code> reject unknown fields.</p>
+        <p>A retrieve plan has one to three intents.</p>
+        <p>A clarify plan has no intents.</p>
+        <p>Production intents use <code>"variant": "dual-query"</code> and require different dense and sparse query strings.</p>
+        <p><code>"variant": "raw-only"</code> exists only for the controlled evaluation variant, where both strings match.</p>
+
         <h3>Retrieval for each SearchIntent</h3>
         <ol class="numbered">
           <li><b>Embed the dense query</b><span class="d">Search the vector index with the semantic query.</span></li>
           <li><b>Search the sparse query</b><span class="d">Search BM25 with the exact lexical terms.</span></li>
           <li><b>Fuse broad candidates</b><span class="d">Use RRF to combine the dense and BM25 candidate lists.</span></li>
           <li><b>Merge intent results</b><span class="d">Deduplicate the union from every SearchIntent before reranking.</span></li>
-          <li><b>Pack complete evidence</b><span class="d">Select diverse chunks and needed neighbors until the source-token budget is full.</span></li>
+          <li><b>Select and rerank candidates</b><span class="d">Apply the diversity penalty to the fused pool, then use MiniLM to rerank the selected candidates.</span></li>
+          <li><b>Pack complete evidence</b><span class="d">Select diverse reranked chunks until the source-token budget is full.</span></li>
         </ol>
 
         <div class="callout warn">
-          <span class="lbl">Test requirement</span>
-          <p>This is a research-backed proposal, not a proven corpus result.</p>
-          <p>Compare raw-only, dual-query, and aspect-decomposed variants on the 24-item suite before setting runtime values.</p>
+          <span class="lbl">Measured requirement</span>
+          <p>The calibration compared the PR 31 baseline, raw-only, dual-query, and aspect-decomposed variants.</p>
+          <p>The final depth-20 pipeline passes all three blocking document-level gates.</p>
         </div>
       </section>
 
@@ -120,18 +129,21 @@
 
         <div class="callout note">
           <span class="lbl">Query plan</span>
-          <p>A short model call reads the current message and relevant conversation history.</p>
+          <p>A short model call reads the current message and any history supplied by its caller.</p>
           <p>It returns query strings for semantic search, exact lexical anchors for BM25, and optional paper or author filters.</p>
         </div>
 
         <pre><code>{
   "action": "retrieve | clarify",
-  "dense_queries": ["full semantic question or aspect"],
-  "lexical_anchors": ["verbatim paper, author, drug, dose, year, phrase"],
-  "filters": {"paper_id": null, "author": null}
+  "search_intents": [{
+    "dense_query": "full semantic question or aspect",
+    "sparse_query": "verbatim paper, author, drug, dose, year, phrase",
+    "variant": "dual-query",
+    "filters": {"document_id": null, "author": null}
+  }]
 }</code></pre>
 
-        <p>Each dense query must resolve references such as “it” or “the other trial.”</p>
+        <p>Each dense query must resolve references such as “it” or “the other trial” when supplied history makes that possible.</p>
         <p>The plan can return multiple queries for a comparison or independent requests in one message.</p>
         <p>It must not add scientific facts, synonyms, or inferred entities.</p>
         <p>If a user only pastes material, it returns <code>clarify</code> instead of inventing a research task.</p>
@@ -143,8 +155,8 @@
           <li><b>Build searchable text</b><span class="d">Prepend paper, section, element, caption, and page labels to each original chunk.</span></li>
           <li><b>Index both signals</b><span class="d">Embed the searchable text and store the same text in the BM25 index.</span></li>
           <li><b>Plan retrieval</b><span class="d">Create zero, one, or several semantic queries and a lexical-anchor list.</span></li>
-          <li><b>Search broadly</b><span class="d">Run dense and BM25 search for the raw message and planned queries.</span></li>
-          <li><b>Fuse and rerank</b><span class="d">Deduplicate candidates, fuse ranks, and rerank the combined pool.</span></li>
+          <li><b>Search broadly</b><span class="d">Run dense and BM25 search with each intent's distinct query form.</span></li>
+          <li><b>Fuse and rerank</b><span class="d">Deduplicate candidates, fuse ranks, apply the diversity penalty, and rerank the selected pool.</span></li>
           <li><b>Pack evidence</b><span class="d">Add diverse, complete evidence units until the source-token budget is full.</span></li>
         </ol>
 
@@ -163,21 +175,104 @@
           <table class="matrix">
             <thead><tr><th>Control</th><th>Rule</th><th>Reason</th></tr></thead>
             <tbody>
-              <tr><td class="opt">Candidate depth</td><td>Broad, then measured</td><td>Recall must be high before reranking can help.</td></tr>
-              <tr><td class="opt">Document diversity</td><td>Soft rule, then measured</td><td>Prevent concentration without blocking one-paper answers.</td></tr>
-              <tr><td class="opt">Final evidence</td><td>Token-budget packing</td><td>Different question types need different evidence amounts.</td></tr>
-              <tr><td class="opt">Adjacent chunks</td><td>Keep when needed</td><td>Methods, results, and limits can span chunks.</td></tr>
+              <tr><td class="opt">Candidate depth</td><td>20 candidates after fusion and diversity selection</td><td>Depth 10 missed one contradiction pair. Depth 20 cleared every gate.</td></tr>
+              <tr><td class="opt">Document diversity</td><td>0.15 repeated-document penalty</td><td>Penalty 0 failed one contradiction pair. Penalty 0.15 passed.</td></tr>
+              <tr><td class="opt">Final evidence</td><td>12,000 source tokens</td><td>The 6,000-token control missed five exact-page targets.</td></tr>
+              <tr><td class="opt">Retrieved chunks</td><td>Keep each chunk complete</td><td>Methods, results, and limits can span chunk boundaries.</td></tr>
             </tbody>
           </table>
         </div>
 
-        <p>Use the 24-item suite to choose candidate depth, reranker, diversity, and source budget together.</p>
-        <p>Measure expected-paper recall, citation support, answer quality, latency, and cost.</p>
+        <p>The 24-item suite measures document recall, page support, answer-fact coverage, packed tokens, latency, and API cost.</p>
         <p>Do not use an RRF score threshold as a universal stop rule because RRF ranks are not calibrated relevance probabilities.</p>
       </section>
 
+      <section id="calibration">
+        <h2><span class="idx">06</span> The depth-20 pipeline clears every gate</h2>
+        <p class="lead">The final run reaches 6 of 6 contradiction pairs, 6 of 6 entity traps, and 12 of 12 gold documents.</p>
+
+        <div class="table-scroll">
+          <table class="matrix wide">
+            <thead><tr><th>Variant</th><th>Contradictions</th><th>Entities</th><th>Gold</th><th>Exact-page support</th><th>Median / p95</th><th>24-query API cost</th></tr></thead>
+            <tbody>
+              <tr><td class="opt">PR 31 baseline, k = 10</td><td>6/6</td><td>6/6</td><td>12/12</td><td>15/24</td><td>25.5 / 37.0 ms</td><td>$0.000046</td></tr>
+              <tr><td class="opt">Raw-only, depth 10</td><td>5/6</td><td>5/6</td><td>12/12</td><td>21/24</td><td>1,270.3 / 1,790.8 ms</td><td>$0.000046</td></tr>
+              <tr><td class="opt">Dual-query, depth 10</td><td>5/6</td><td>5/6</td><td>12/12</td><td>21/24</td><td>1,332.4 / 1,849.8 ms</td><td>$0.005212</td></tr>
+              <tr><td class="opt">Aspect-decomposed, depth 10</td><td>5/6</td><td>6/6</td><td>12/12</td><td>21/24</td><td>1,403.4 / 7,749.7 ms</td><td>$0.004670</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout note">
+          <span class="lbl">Final runtime</span>
+          <p>Use aspect-aware planning, candidate depth 20, <code>ms-marco-MiniLM-L-12-v2</code>, diversity penalty 0.15, and 12,000 source tokens.</p>
+          <p>At depth 20, RRF-only reached 22/24 exact-page support. MiniLM reached 24/24.</p>
+          <p>Both rerankers cleared 6/6, 6/6, and 12/12. MiniLM supplies the required cross-encoder stage and stronger page support.</p>
+        </div>
+
+        <div class="callout note">
+          <span class="lbl">Deterministic answer-quality measure</span>
+          <p>The suite defines 60 required answer facts from its exact corpus-backed reference passages.</p>
+          <p>It normalizes punctuation and case, then checks whether the packed original text contains each required fact.</p>
+          <p>The report records fact coverage for each item, total facts found, and items with every required fact.</p>
+          <p>Runtime selection uses complete items and total facts after recall and citation support, but before latency and API cost.</p>
+          <p>The bundled selected-runtime fixture found 49/60 facts and made 18/24 items fully answerable.</p>
+          <p>The earlier live variant run did not capture this field, so no historical answer-quality values are inferred.</p>
+        </div>
+
+        <div class="table-scroll">
+          <table class="matrix wide">
+            <thead><tr><th>Variant</th><th>Gate regressions</th><th>Top unique IDs for failed items</th><th>Page-support misses</th></tr></thead>
+            <tbody>
+              <tr><td class="opt">Raw-only</td><td>A4, B2</td><td>A4: 012 only. B2: 015, then 016.</td><td>A4, A5, B4</td></tr>
+              <tr><td class="opt">Dual-query</td><td>A4, B2</td><td>A4: 012 only. B2: 015, then 016.</td><td>A2, A3, A4</td></tr>
+              <tr><td class="opt">Aspect-decomposed</td><td>A4</td><td>A4: 012, then 019; 013 is absent.</td><td>A2, A4, B4</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout warn">
+          <span class="lbl">Why the planned variants regress</span>
+          <p>A4 asks for both metformin and rapamycin. The raw and dual top 10 repeat paper 012, so paper 013 never enters the document set. Aspect planning adds paper 019 but still omits 013.</p>
+          <p>B2 asks for D+Q doses in idiopathic pulmonary fibrosis. Raw and dual rank the lookalike diabetic-kidney paper 015 above the gold IPF paper 016. Aspect planning reverses that order and passes B2.</p>
+          <p>The 10-candidate controls show a recall and ranking failure, not a gold-document failure. Every variant still reaches 12/12 gold items and C1.</p>
+        </div>
+
+        <div class="table-scroll">
+          <table class="matrix">
+            <thead><tr><th>Control</th><th>Gate result</th><th>Exact-page support</th><th>Measured effect</th></tr></thead>
+            <tbody>
+              <tr><td class="opt">Depth 10</td><td>5/6, 5/6, 12/12</td><td>21/24</td><td>Missed A4 and mis-ranked B2.</td></tr>
+              <tr><td class="opt">Depth 20</td><td>6/6, 5/6, 12/12</td><td>22/24</td><td>Found A4 but still mis-ranked B2 before reranking.</td></tr>
+              <tr><td class="opt">Depth 40</td><td>6/6, 5/6, 12/12</td><td>21/24</td><td>Added candidates without fixing the entity rank.</td></tr>
+              <tr><td class="opt">RRF only</td><td>6/6, 5/6, 12/12</td><td>22/24</td><td>Did not fix the B2 entity order.</td></tr>
+              <tr><td class="opt">MiniLM</td><td>6/6, 6/6, 12/12</td><td>24/24</td><td>Added the cross-encoder ranking signal.</td></tr>
+              <tr><td class="opt">Penalty 0.15</td><td>6/6, 6/6, 12/12</td><td>24/24</td><td>Matched penalty 0 with a lower cached p95.</td></tr>
+              <tr><td class="opt">Budget 6,000</td><td>6/6, 6/6, 12/12</td><td>19/24</td><td>Packed less exact page evidence.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p>Variant latency uses prewarmed planner and embedding caches, so it isolates retrieval, reranking, and evidence packing.</p>
+        <p>The final MiniLM depth-20 control measured 1.62 seconds median and 10.59 seconds p95 on this Apple Silicon run.</p>
+        <p>The run used all 696 indexed chunks and an FTS index rebuilt with phrase positions.</p>
+        <p>API cost uses the published <a href="https://developers.openai.com/api/docs/models/gpt-5.6-luna">GPT-5.6 Luna</a> and <a href="https://developers.openai.com/api/docs/models/text-embedding-3-large">text-embedding-3-large</a> prices.</p>
+
+        <h3>Pin the reranker artifact</h3>
+        <p>The runtime downloads <code>ms-marco-MiniLM-L-12-v2</code> from FlashRank commit <code>858a1ac046a05663a35367eac852d7f76feeefdd</code>.</p>
+        <p>It verifies archive SHA-256 <code>bdd3772b651ffc34f70e414049285bb55ccc6d1b8e29d0640f836d44f70ec77a</code> before installation.</p>
+        <p>Docker preloads the verified artifact into the image.</p>
+        <p>At runtime, the loader rejects a cached model that lacks the matching verification marker.</p>
+        <p>For an empty shared cache, each process stages the verified artifact separately and accepts the verified installation completed by another process.</p>
+
+        <h3>Keep the quality fixture traceable</h3>
+        <p>The committed LanceDB fixture records the SHA-256 hash of every one of the 27 source PDFs in <code>tests/fixtures/golden_retrieval_index/manifest.json</code>.</p>
+        <p>The quality gate compares those hashes with the canonical corpus before it scores the 24 items.</p>
+        <p>Rebuild it only after explicit corpus approval with <code>ALLOW_CORPUS_REINDEX=1 uv run python scripts/reindex_golden_retrieval_fixture.py</code>.</p>
+      </section>
+
       <section id="research">
-        <h2><span class="idx">06</span> 2026 research supports the direction</h2>
+        <h2><span class="idx">07</span> 2026 research supports the direction</h2>
         <p class="lead">The strongest sources support separate lexical and semantic queries, plus multiple queries for multi-aspect messages.</p>
 
         <div class="table-scroll">
@@ -201,12 +296,13 @@
       </section>
 
       <section id="deferred">
-        <h2><span class="idx">07</span> Keep v1 deterministic</h2>
+        <h2><span class="idx">08</span> Keep v1 deterministic</h2>
         <div class="table-scroll">
           <table class="matrix wide">
             <thead><tr><th>Feature</th><th>v1</th><th>Reason</th></tr></thead>
             <tbody>
-              <tr><td class="opt">Model-based reranking</td><td><span class="tag">evaluate</span></td><td>Use it only if broad hybrid candidates contain the right evidence but rank it poorly.</td></tr>
+              <tr><td class="opt">Cross-encoder reranking</td><td><span class="tag ok">included</span></td><td>MiniLM reranks the fused candidate pool before token packing.</td></tr>
+              <tr><td class="opt">Conversation persistence and history selection</td><td><span class="tag">deferred</span></td><td>Issue 22 owns stored conversations and deciding which turns reach the planner. The current chat path sends only the current message.</td></tr>
               <tr><td class="opt">Adaptive second retrieval</td><td><span class="tag">deferred</span></td><td>It adds a quality-assessment loop that needs calibration and corpus evidence.</td></tr>
               <tr><td class="opt">LLM-generated chunk context</td><td><span class="tag">excluded</span></td><td>Deterministic labels provide context without generated text or ingestion calls.</td></tr>
             </tbody>
@@ -217,9 +313,9 @@
 
         <h3>Revisit triggers</h3>
         <ul>
-          <li>Add model reranking only when relevant chunks enter the candidate set but miss the final ten.</li>
+          <li>Replace MiniLM when another cross-encoder keeps 24/24 page support and cuts the 1.62-second median.</li>
           <li>Add query transformation only when follow-up questions fail a dedicated conversational evaluation.</li>
-          <li>Change the cap when Gate A and Gate C show a better shared value.</li>
+          <li>Change candidate depth when Gate A and Gate C show a better shared value.</li>
         </ul>
       </section>
     </div>

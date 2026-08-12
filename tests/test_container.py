@@ -21,8 +21,8 @@ from llama_index.core.schema import NodeRelationship, RelatedNodeInfo, TextNode
 from live_long_rnd.ingest import LanceDBNodeStore
 
 
-class OpenAIEmbeddingsHandler(BaseHTTPRequestHandler):
-    """OpenAI-compatible embedding endpoint reachable from Docker."""
+class OpenAIHandler(BaseHTTPRequestHandler):
+    """OpenAI-compatible planning and embedding endpoint reachable from Docker."""
 
     requests: ClassVar[list[dict[str, Any]]] = []
 
@@ -30,11 +30,15 @@ class OpenAIEmbeddingsHandler(BaseHTTPRequestHandler):
         body_size = int(self.headers["Content-Length"])
         payload = json.loads(self.rfile.read(body_size))
         self.requests.append(payload)
+        if self.path == "/v1/responses":
+            self._send_json(_query_plan_response(payload))
+            return
+
         inputs = payload["input"]
         if isinstance(inputs, str):
             inputs = [inputs]
         value = 1.0 / math.sqrt(3_072)
-        body = json.dumps(
+        self._send_json(
             {
                 "object": "list",
                 "data": [
@@ -48,7 +52,10 @@ class OpenAIEmbeddingsHandler(BaseHTTPRequestHandler):
                 "model": "text-embedding-3-large",
                 "usage": {"prompt_tokens": len(inputs), "total_tokens": len(inputs)},
             }
-        ).encode()
+        )
+
+    def _send_json(self, payload: dict[str, Any]) -> None:
+        body = json.dumps(payload).encode()
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
@@ -57,6 +64,53 @@ class OpenAIEmbeddingsHandler(BaseHTTPRequestHandler):
 
     def log_message(self, _format: str, *args: object) -> None:
         del args
+
+
+def _query_plan_response(payload: dict[str, Any]) -> dict[str, Any]:
+    messages = payload["input"]
+    message = messages[-1]["content"]
+    plan = json.dumps(
+        {
+            "action": "retrieve",
+            "search_intents": [
+                {
+                    "dense_query": f"Evidence needed to answer: {message}",
+                    "sparse_query": message,
+                    "filters": {"document_id": None, "author": None},
+                }
+            ],
+        }
+    )
+    return {
+        "id": "resp_container_test",
+        "object": "response",
+        "created_at": 0,
+        "status": "completed",
+        "model": payload["model"],
+        "output": [
+            {
+                "id": "msg_container_test",
+                "type": "message",
+                "status": "completed",
+                "role": "assistant",
+                "content": [
+                    {
+                        "type": "output_text",
+                        "text": plan,
+                        "annotations": [],
+                        "logprobs": [],
+                    }
+                ],
+            }
+        ],
+        "usage": {
+            "input_tokens": 1,
+            "output_tokens": 1,
+            "total_tokens": 2,
+            "input_tokens_details": {"cached_tokens": 0},
+            "output_tokens_details": {"reasoning_tokens": 0},
+        },
+    }
 
 
 def _create_fixture_index(index_dir: Path) -> None:
@@ -132,8 +186,8 @@ def test_api_image_serves_citations_from_its_baked_index(tmp_path: Path) -> None
     corpus_dir = tmp_path / "corpus"
     _create_fixture_corpus(corpus_dir)
     image_tag = f"live-long-rnd-e2e:{os.getpid()}"
-    OpenAIEmbeddingsHandler.requests = []
-    server = ThreadingHTTPServer(("0.0.0.0", 0), OpenAIEmbeddingsHandler)
+    OpenAIHandler.requests = []
+    server = ThreadingHTTPServer(("0.0.0.0", 0), OpenAIHandler)
     thread = Thread(target=server.serve_forever, daemon=True)
     thread.start()
     container_id = ""
@@ -199,8 +253,6 @@ def test_api_image_serves_citations_from_its_baked_index(tmp_path: Path) -> None
         assert response.status == 200
         assert citation_event["citations"][0]["document_id"] == "docker-paper"
         assert events[-1] == {"type": "done"}
-        assert OpenAIEmbeddingsHandler.requests
-
         metadata_url = f"http://127.0.0.1:{port}/api/documents/docker-paper"
         with urllib.request.urlopen(metadata_url, timeout=10) as metadata_response:
             metadata = json.loads(metadata_response.read().decode())
@@ -212,6 +264,7 @@ def test_api_image_serves_citations_from_its_baked_index(tmp_path: Path) -> None
         with urllib.request.urlopen(pdf_url, timeout=10) as pdf_response:
             assert pdf_response.headers["Content-Type"] == "application/pdf"
             assert pdf_response.read().startswith(b"%PDF-")
+        assert len(OpenAIHandler.requests) == 2
     finally:
         if container_id:
             subprocess.run(

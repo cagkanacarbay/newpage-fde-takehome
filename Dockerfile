@@ -9,6 +9,7 @@ WORKDIR /app
 COPY pyproject.toml uv.lock README.md ./
 COPY src ./src
 RUN uv sync --locked --no-default-groups --no-editable
+RUN uv run --no-sync python -c "from live_long_rnd.retrieve import prepare_flashrank_model; prepare_flashrank_model()"
 
 
 FROM node:22-bookworm-slim AS web-builder
@@ -28,6 +29,7 @@ RUN useradd --system --uid 10001 --create-home app
 WORKDIR /app
 
 COPY --from=builder --chown=app:app /app/.venv /app/.venv
+COPY --from=builder --chown=app:app /app/data/models/flashrank /app/data/models/flashrank
 COPY --from=index --chown=app:app / /app/data/index/
 COPY --from=corpus --chown=app:app / /app/data/corpus/longevity/
 COPY --from=web-builder --chown=app:app /web/out /app/web

@@ -1,23 +1,49 @@
 """Hybrid retrieval tests: ranked results, source diversity, and citations."""
 
+import hashlib
 import json
 import math
+import zipfile
 from collections.abc import Mapping, Sequence
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
+from io import BytesIO
 from pathlib import Path
+from threading import Barrier
 from typing import Any
 
 import httpx
+import lancedb
 import pytest
 from openai import OpenAI
 
 from live_long_rnd.embeddings import OpenAIEmbedder
 from live_long_rnd.ingest import IngestDependencies, LanceDBNodeStore, ingest_pdf
+from live_long_rnd.query_planning import MetadataFilters, QueryPlan, SearchIntent
 from live_long_rnd.retrieve import (
+    DEFAULT_RETRIEVAL_CONFIG,
+    FlashRankCrossEncoder,
+    IdentityReranker,
     LanceDBHybridStore,
+    RetrievalConfig,
+    RetrievalDependencies,
     RetrievalResult,
+    prepare_flashrank_model,
     retrieve,
+    retrieve_baseline,
     to_citation_payload,
 )
+
+
+def test_runtime_defaults_match_the_calibrated_configuration() -> None:
+    assert (
+        RetrievalConfig(
+            candidate_depth=20,
+            source_budget_tokens=12_000,
+            document_diversity_penalty=0.15,
+        )
+        == DEFAULT_RETRIEVAL_CONFIG
+    )
 
 
 class StubEmbedder:
@@ -25,6 +51,23 @@ class StubEmbedder:
 
     def embed(self, texts: Sequence[str]) -> list[list[float]]:
         return [[float(len(text)), 1.0] for text in texts]
+
+
+class RecordingEmbedder:
+    """Embedding boundary double that records the semantic inputs."""
+
+    def __init__(self) -> None:
+        self.texts: list[str] = []
+
+    def embed(self, texts: Sequence[str]) -> list[list[float]]:
+        self.texts.extend(texts)
+        return [[0.1, 0.2] for _ in texts]
+
+
+class NoOpReranker:
+    def rerank(self, query: str, candidates: Sequence[RetrievalResult]) -> list[RetrievalResult]:
+        del query
+        return list(candidates)
 
 
 class StubHybridStore:
@@ -40,17 +83,40 @@ class StubHybridStore:
         return self._rows[:limit]
 
 
-def _row(document_id: str, score: float) -> dict[str, Any]:
+def _row(
+    document_id: str,
+    score: float,
+    original_text: str = "Epigenetic age was measured in worker bees.",
+) -> dict[str, Any]:
     return {
         "metadata": {
             "document_id": document_id,
             "page_numbers": json.dumps([2]),
             "bboxes": json.dumps([{"page": 2, "l": 10.0, "t": 20.0, "r": 30.0, "b": 40.0}]),
             "heading_path": json.dumps(["Biomarkers", "Results"]),
-            "original_text": "Epigenetic age was measured in worker bees.",
+            "original_text": original_text,
         },
         "_relevance_score": score,
     }
+
+
+def _result(document_id: str, score: float) -> RetrievalResult:
+    return RetrievalResult(
+        document_id=document_id,
+        page_numbers=[2],
+        bboxes=[{"page": 2, "l": 10.0, "t": 20.0, "r": 30.0, "b": 40.0}],
+        heading_path=["Biomarkers", "Results"],
+        original_text="Epigenetic age was measured in worker bees.",
+        score=score,
+    )
+
+
+def test_identity_reranker_preserves_fused_candidate_order() -> None:
+    candidates = [_result("paper-a", 0.8), _result("paper-b", 0.4)]
+
+    results = IdentityReranker().rerank("query", candidates)
+
+    assert results == candidates
 
 
 def _openai_embedder() -> OpenAIEmbedder:
@@ -80,8 +146,434 @@ def _openai_embedder() -> OpenAIEmbedder:
     return OpenAIEmbedder(client=client)
 
 
-def test_retrieve_returns_ranked_chunks_with_complete_provenance() -> None:
+def test_planned_retrieval_uses_distinct_dense_and_sparse_queries() -> None:
+    calls: list[tuple[str, object]] = []
+
+    class Planner:
+        def plan(self, message: str, history: object = ()) -> QueryPlan:
+            del message, history
+            return QueryPlan(
+                action="retrieve",
+                search_intents=[
+                    SearchIntent(
+                        dense_query="What dose did the IPF senolytic pilot use?",
+                        sparse_query="IPF D 100 mg/day Q 1250 mg/day",
+                    )
+                ],
+            )
+
+    class Store:
+        def dense_search(
+            self, query_vector: Sequence[float], *, filters: object, limit: int
+        ) -> Sequence[Mapping[str, Any]]:
+            calls.append(("dense", list(query_vector)))
+            del filters, limit
+            return [_row("paper-dense", 0.8)]
+
+        def sparse_search(
+            self, query: str, *, filters: object, limit: int
+        ) -> Sequence[Mapping[str, Any]]:
+            calls.append(("sparse", query))
+            del filters, limit
+            return [_row("paper-sparse", 0.7)]
+
+    embedder = RecordingEmbedder()
+
     results = retrieve(
+        "What dose did it use?",
+        dependencies=RetrievalDependencies(
+            store=Store(),
+            embedder=embedder,
+            planner=Planner(),
+            reranker=NoOpReranker(),
+        ),
+    )
+
+    assert embedder.texts == ["What dose did the IPF senolytic pilot use?"]
+    assert calls == [
+        ("dense", [0.1, 0.2]),
+        ("sparse", "IPF D 100 mg/day Q 1250 mg/day"),
+    ]
+    assert {result.document_id for result in results} == {"paper-dense", "paper-sparse"}
+
+
+def test_multi_aspect_retrieval_deduplicates_shared_evidence() -> None:
+    class Planner:
+        def plan(self, message: str, history: object = ()) -> QueryPlan:
+            del message, history
+            return QueryPlan(
+                action="retrieve",
+                search_intents=[
+                    SearchIntent(dense_query="benefits", sparse_query="lifespan"),
+                    SearchIntent(dense_query="risks", sparse_query="toxicity"),
+                ],
+            )
+
+    class Store:
+        def dense_search(
+            self, query_vector: Sequence[float], *, filters: object, limit: int
+        ) -> Sequence[Mapping[str, Any]]:
+            del query_vector, filters, limit
+            return [_row("paper-shared", 0.8)]
+
+        def sparse_search(
+            self, query: str, *, filters: object, limit: int
+        ) -> Sequence[Mapping[str, Any]]:
+            del query, filters, limit
+            return [_row("paper-shared", 0.7)]
+
+    embedder = RecordingEmbedder()
+    results = retrieve(
+        "Compare benefits and risks",
+        dependencies=RetrievalDependencies(
+            store=Store(),
+            embedder=embedder,
+            planner=Planner(),
+            reranker=NoOpReranker(),
+        ),
+    )
+
+    assert embedder.texts == ["benefits", "risks"]
+    assert [result.document_id for result in results] == ["paper-shared"]
+
+
+def test_clarify_plan_stops_before_retrieval() -> None:
+    class Planner:
+        def plan(self, message: str, history: object = ()) -> QueryPlan:
+            del message, history
+            return QueryPlan(action="clarify", search_intents=[])
+
+    class UnusedAdapter:
+        def embed(self, texts: Sequence[str]) -> list[list[float]]:
+            raise AssertionError(f"unexpected embedding call: {texts}")
+
+        def dense_search(
+            self, query_vector: Sequence[float], *, filters: object, limit: int
+        ) -> Sequence[Mapping[str, Any]]:
+            raise AssertionError(f"unexpected dense search: {query_vector}, {filters}, {limit}")
+
+        def sparse_search(
+            self, query: str, *, filters: object, limit: int
+        ) -> Sequence[Mapping[str, Any]]:
+            raise AssertionError(f"unexpected sparse search: {query}, {filters}, {limit}")
+
+        def rerank(
+            self, query: str, candidates: Sequence[RetrievalResult]
+        ) -> list[RetrievalResult]:
+            raise AssertionError(f"unexpected reranking: {query}, {candidates}")
+
+    unused = UnusedAdapter()
+    results = retrieve(
+        "Here is a pasted abstract.",
+        dependencies=RetrievalDependencies(
+            store=unused,
+            embedder=unused,
+            planner=Planner(),
+            reranker=unused,
+        ),
+    )
+
+    assert results == []
+
+
+def test_planned_retrieval_returns_cross_encoder_order() -> None:
+    class Planner:
+        def plan(self, message: str, history: object = ()) -> QueryPlan:
+            del message, history
+            return QueryPlan(
+                action="retrieve",
+                search_intents=[
+                    SearchIntent(dense_query="semantic question", sparse_query="exact terms")
+                ],
+            )
+
+    class Store:
+        def dense_search(
+            self, query_vector: Sequence[float], *, filters: object, limit: int
+        ) -> Sequence[Mapping[str, Any]]:
+            del query_vector, filters, limit
+            return [_row("paper-a", 0.8), _row("paper-b", 0.7)]
+
+        def sparse_search(
+            self, query: str, *, filters: object, limit: int
+        ) -> Sequence[Mapping[str, Any]]:
+            del query, filters, limit
+            return []
+
+    class CrossEncoder:
+        def rerank(
+            self, query: str, candidates: Sequence[RetrievalResult]
+        ) -> list[RetrievalResult]:
+            assert query == "semantic question"
+            return [
+                replace(candidates[1], score=0.9),
+                replace(candidates[0], score=0.4),
+            ]
+
+    results = retrieve(
+        "raw message",
+        dependencies=RetrievalDependencies(
+            store=Store(),
+            embedder=StubEmbedder(),
+            planner=Planner(),
+            reranker=CrossEncoder(),
+        ),
+    )
+
+    assert [result.document_id for result in results] == ["paper-b", "paper-a"]
+
+
+def test_flashrank_adapter_preserves_provenance_while_replacing_scores() -> None:
+    candidates = [
+        _result("paper-a", 0.02),
+        _result("paper-b", 0.01),
+    ]
+
+    class Ranker:
+        def rerank(self, request: Any) -> list[dict[str, object]]:
+            passages = request.passages
+            return [
+                {**passages[1], "score": 0.9},
+                {**passages[0], "score": 0.4},
+            ]
+
+    reranked = FlashRankCrossEncoder(ranker=Ranker()).rerank("query", candidates)
+
+    assert [result.document_id for result in reranked] == ["paper-b", "paper-a"]
+    assert [result.score for result in reranked] == [0.9, 0.4]
+    assert reranked[0].page_numbers == candidates[1].page_numbers
+    assert reranked[0].bboxes == candidates[1].bboxes
+    assert reranked[0].original_text == candidates[1].original_text
+
+
+def test_flashrank_adapter_rejects_an_unverified_model() -> None:
+    with pytest.raises(ValueError, match="Unsupported FlashRank model"):
+        FlashRankCrossEncoder(model_name="unverified-model")
+
+
+def test_flashrank_checksum_mismatch_does_not_install_an_artifact(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    class CorruptDownload:
+        def __enter__(self) -> "CorruptDownload":
+            return self
+
+        def __exit__(self, *args: object) -> None:
+            return None
+
+        def raise_for_status(self) -> None:
+            return None
+
+        def iter_bytes(self) -> Sequence[bytes]:
+            return [b"corrupt artifact"]
+
+    monkeypatch.setattr(
+        "live_long_rnd.retrieve.httpx.stream",
+        lambda *_args, **_kwargs: CorruptDownload(),
+    )
+
+    with pytest.raises(ValueError, match="checksum does not match"):
+        prepare_flashrank_model(tmp_path)
+
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_flashrank_cold_start_is_safe_for_concurrent_installers(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    bundle = BytesIO()
+    with zipfile.ZipFile(bundle, "w") as archive:
+        archive.writestr("ms-marco-MiniLM-L-12-v2/config.json", "{}")
+    artifact = bundle.getvalue()
+    download_barrier = Barrier(2)
+
+    class ConcurrentDownload:
+        def __enter__(self) -> "ConcurrentDownload":
+            return self
+
+        def __exit__(self, *args: object) -> None:
+            return None
+
+        def raise_for_status(self) -> None:
+            return None
+
+        def iter_bytes(self) -> Sequence[bytes]:
+            download_barrier.wait(timeout=5)
+            return [artifact]
+
+    monkeypatch.setattr(
+        "live_long_rnd.retrieve.httpx.stream",
+        lambda *_args, **_kwargs: ConcurrentDownload(),
+    )
+    monkeypatch.setattr(
+        "live_long_rnd.retrieve.FLASHRANK_MODEL_SHA256",
+        hashlib.sha256(artifact).hexdigest(),
+    )
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(lambda _: prepare_flashrank_model(tmp_path), range(2)))
+
+    assert results == [None, None]
+    assert (tmp_path / "ms-marco-MiniLM-L-12-v2" / "config.json").is_file()
+
+
+def test_evidence_packing_keeps_only_complete_chunks_within_the_token_budget() -> None:
+    class Planner:
+        def plan(self, message: str, history: object = ()) -> QueryPlan:
+            del message, history
+            return QueryPlan(
+                action="retrieve",
+                search_intents=[SearchIntent(dense_query="question", sparse_query="terms")],
+            )
+
+    class Store:
+        def dense_search(
+            self, query_vector: Sequence[float], *, filters: object, limit: int
+        ) -> Sequence[Mapping[str, Any]]:
+            del query_vector, filters, limit
+            return [
+                _row("paper-a", 0.8, "alpha beta"),
+                _row("paper-b", 0.7, "gamma delta"),
+            ]
+
+        def sparse_search(
+            self, query: str, *, filters: object, limit: int
+        ) -> Sequence[Mapping[str, Any]]:
+            del query, filters, limit
+            return []
+
+    results = retrieve(
+        "question",
+        config=RetrievalConfig(source_budget_tokens=3),
+        dependencies=RetrievalDependencies(
+            store=Store(),
+            embedder=StubEmbedder(),
+            planner=Planner(),
+            reranker=NoOpReranker(),
+        ),
+    )
+
+    assert [result.original_text for result in results] == ["alpha beta"]
+    assert results[0].bboxes == [{"page": 2, "l": 10.0, "t": 20.0, "r": 30.0, "b": 40.0}]
+
+
+def test_evidence_packing_softly_prefers_document_diversity() -> None:
+    class Planner:
+        def plan(self, message: str, history: object = ()) -> QueryPlan:
+            del message, history
+            return QueryPlan(
+                action="retrieve",
+                search_intents=[SearchIntent(dense_query="question", sparse_query="terms")],
+            )
+
+    class Store:
+        def dense_search(
+            self, query_vector: Sequence[float], *, filters: object, limit: int
+        ) -> Sequence[Mapping[str, Any]]:
+            del query_vector, filters, limit
+            return [
+                _row("paper-a", 0.9, "first fact"),
+                _row("paper-a", 0.8, "second fact"),
+                _row("paper-b", 0.7, "other evidence"),
+            ]
+
+        def sparse_search(
+            self, query: str, *, filters: object, limit: int
+        ) -> Sequence[Mapping[str, Any]]:
+            del query, filters, limit
+            return []
+
+    results = retrieve(
+        "question",
+        config=RetrievalConfig(
+            source_budget_tokens=4,
+            document_diversity_penalty=0.15,
+        ),
+        dependencies=RetrievalDependencies(
+            store=Store(),
+            embedder=StubEmbedder(),
+            planner=Planner(),
+            reranker=NoOpReranker(),
+        ),
+    )
+
+    assert [result.document_id for result in results] == ["paper-a", "paper-b"]
+
+
+def test_evidence_packing_has_no_fixed_per_document_cap() -> None:
+    class Planner:
+        def plan(self, message: str, history: object = ()) -> QueryPlan:
+            del message, history
+            return QueryPlan(
+                action="retrieve",
+                search_intents=[SearchIntent(dense_query="question", sparse_query="terms")],
+            )
+
+    class Store:
+        def dense_search(
+            self, query_vector: Sequence[float], *, filters: object, limit: int
+        ) -> Sequence[Mapping[str, Any]]:
+            del query_vector, filters, limit
+            return [_row("paper-a", 0.9, f"fact {index}") for index in range(1, 5)]
+
+        def sparse_search(
+            self, query: str, *, filters: object, limit: int
+        ) -> Sequence[Mapping[str, Any]]:
+            del query, filters, limit
+            return []
+
+    results = retrieve(
+        "question",
+        config=RetrievalConfig(source_budget_tokens=20),
+        dependencies=RetrievalDependencies(
+            store=Store(),
+            embedder=StubEmbedder(),
+            planner=Planner(),
+            reranker=NoOpReranker(),
+        ),
+    )
+
+    assert [result.document_id for result in results] == ["paper-a"] * 4
+
+
+def test_evidence_packing_keeps_more_than_five_chunks_from_one_paper() -> None:
+    class Planner:
+        def plan(self, message: str, history: object = ()) -> QueryPlan:
+            del message, history
+            return QueryPlan(
+                action="retrieve",
+                search_intents=[SearchIntent(dense_query="question", sparse_query="terms")],
+            )
+
+    class Store:
+        def dense_search(
+            self, query_vector: Sequence[float], *, filters: object, limit: int
+        ) -> Sequence[Mapping[str, Any]]:
+            del query_vector, filters, limit
+            return [_row("paper-a", 0.9 - index / 100, f"fact {index}") for index in range(6)]
+
+        def sparse_search(
+            self, query: str, *, filters: object, limit: int
+        ) -> Sequence[Mapping[str, Any]]:
+            del query, filters, limit
+            return []
+
+    results = retrieve(
+        "question",
+        config=RetrievalConfig(source_budget_tokens=30),
+        dependencies=RetrievalDependencies(
+            store=Store(),
+            embedder=StubEmbedder(),
+            planner=Planner(),
+            reranker=NoOpReranker(),
+        ),
+    )
+
+    assert [result.document_id for result in results] == ["paper-a"] * 6
+
+
+def test_retrieve_returns_ranked_chunks_with_complete_provenance() -> None:
+    results = retrieve_baseline(
         "epigenetic age",
         k=2,
         store=StubHybridStore([_row("paper-a", 0.04), _row("paper-b", 0.03)]),
@@ -117,7 +609,7 @@ def test_retrieve_skips_overflow_chunks_and_keeps_later_documents() -> None:
         _row("paper-b", 0.01),
     ]
 
-    results = retrieve(
+    results = retrieve_baseline(
         "epigenetic age",
         k=4,
         store=StubHybridStore(rows),
@@ -140,7 +632,7 @@ def test_retrieve_keeps_every_chunk_when_documents_are_below_the_cap() -> None:
         _row("paper-b", 0.01),
     ]
 
-    results = retrieve(
+    results = retrieve_baseline(
         "epigenetic age",
         k=10,
         store=StubHybridStore(rows),
@@ -162,7 +654,7 @@ def test_retrieve_can_disable_the_per_document_cap() -> None:
         _row("paper-a", 0.01),
     ]
 
-    results = retrieve(
+    results = retrieve_baseline(
         "epigenetic age",
         k=4,
         per_document_cap=None,
@@ -209,16 +701,31 @@ def test_ingested_corpus_paper_is_retrievable_with_hybrid_search(tmp_path: Path)
             store=LanceDBNodeStore(index_dir),
         ),
     )
+
+    class Planner:
+        def plan(self, message: str, history: object = ()) -> QueryPlan:
+            del message, history
+            return QueryPlan(
+                action="retrieve",
+                search_intents=[
+                    SearchIntent(
+                        dense_query="Can epigenetic clocks generalize to insects?",
+                        sparse_query="epigenetic clock insects",
+                    )
+                ],
+            )
+
     results = retrieve(
         "epigenetic clock in insects",
-        k=10,
-        per_document_cap=1,
-        store=LanceDBHybridStore(index_dir),
-        embedder=embedder,
+        dependencies=RetrievalDependencies(
+            store=LanceDBHybridStore(index_dir),
+            embedder=embedder,
+            planner=Planner(),
+            reranker=NoOpReranker(),
+        ),
     )
 
     assert results
-    assert sum(result.document_id == source.stem for result in results) <= 1
     for result in results:
         assert result.document_id == source.stem
         assert result.page_numbers
@@ -229,3 +736,56 @@ def test_ingested_corpus_paper_is_retrievable_with_hybrid_search(tmp_path: Path)
         citation = to_citation_payload(result)
         assert citation["page"] >= 1
         assert citation["bbox"].keys() == {"l", "t", "r", "b"}
+
+
+@pytest.mark.e2e
+def test_lancedb_applies_document_filter_before_candidate_limit(tmp_path: Path) -> None:
+    index_dir = tmp_path / "index"
+    rows = [
+        {
+            "id": "other",
+            "vector": [1.0, 0.0],
+            "text": "other paper",
+            "metadata": _row("001-other-paper", 0.0)["metadata"],
+        },
+        {
+            "id": "target",
+            "vector": [0.0, 1.0],
+            "text": "target paper",
+            "metadata": _row("015-hickson-2019", 0.0)["metadata"],
+        },
+    ]
+    lancedb.connect(str(index_dir)).create_table("chunks", data=rows)
+    store = LanceDBHybridStore(index_dir)
+
+    results = store.dense_search(
+        [1.0, 0.0],
+        filters=MetadataFilters(document_id="015-hickson-2019"),
+        limit=1,
+    )
+
+    assert [row["id"] for row in results] == ["target"]
+
+
+@pytest.mark.e2e
+def test_lancedb_matches_an_accented_author_filter(tmp_path: Path) -> None:
+    index_dir = tmp_path / "index"
+    lancedb.connect(str(index_dir)).create_table(
+        "chunks",
+        data=[
+            {
+                "id": "target",
+                "vector": [1.0, 0.0],
+                "text": "target paper",
+                "metadata": _row("002-garcia-barranquero-2025", 0.0)["metadata"],
+            }
+        ],
+    )
+
+    results = LanceDBHybridStore(index_dir).dense_search(
+        [1.0, 0.0],
+        filters=MetadataFilters(author="García Barranquero"),
+        limit=1,
+    )
+
+    assert [row["id"] for row in results] == ["target"]

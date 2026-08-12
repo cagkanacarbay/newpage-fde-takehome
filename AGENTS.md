@@ -18,7 +18,7 @@ table tracks status; the reasoning is written up in the README, not here.
 | Embedding model | Decided - OpenAI text-embedding-3-large |
 | LLM selection | Decided — OpenAI, GPT 5.6 Luna default |
 | Vector database | Decided — LanceDB |
-| Retrieval approach | Open |
+| Retrieval approach | Decided - hybrid retrieval, MiniLM reranking, token packing |
 | Prompt engineering | Decided — per-claim citation markers + verifier (`docs/generation.html`) |
 | Context management | Decided |
 | Guardrails | Decided |
