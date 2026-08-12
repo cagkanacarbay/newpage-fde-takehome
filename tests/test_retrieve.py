@@ -1,10 +1,15 @@
 """Hybrid retrieval tests: ranked results, source diversity, and citations."""
 
+import hashlib
 import json
 import math
+import zipfile
 from collections.abc import Mapping, Sequence
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
+from io import BytesIO
 from pathlib import Path
+from threading import Barrier
 from typing import Any
 
 import httpx
@@ -366,6 +371,45 @@ def test_flashrank_checksum_mismatch_does_not_install_an_artifact(
         prepare_flashrank_model(tmp_path)
 
     assert list(tmp_path.iterdir()) == []
+
+
+def test_flashrank_cold_start_is_safe_for_concurrent_installers(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    bundle = BytesIO()
+    with zipfile.ZipFile(bundle, "w") as archive:
+        archive.writestr("ms-marco-MiniLM-L-12-v2/config.json", "{}")
+    artifact = bundle.getvalue()
+    download_barrier = Barrier(2)
+
+    class ConcurrentDownload:
+        def __enter__(self) -> "ConcurrentDownload":
+            return self
+
+        def __exit__(self, *args: object) -> None:
+            return None
+
+        def raise_for_status(self) -> None:
+            return None
+
+        def iter_bytes(self) -> Sequence[bytes]:
+            download_barrier.wait(timeout=5)
+            return [artifact]
+
+    monkeypatch.setattr(
+        "live_long_rnd.retrieve.httpx.stream",
+        lambda *_args, **_kwargs: ConcurrentDownload(),
+    )
+    monkeypatch.setattr(
+        "live_long_rnd.retrieve.FLASHRANK_MODEL_SHA256",
+        hashlib.sha256(artifact).hexdigest(),
+    )
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(lambda _: prepare_flashrank_model(tmp_path), range(2)))
+
+    assert results == [None, None]
+    assert (tmp_path / "ms-marco-MiniLM-L-12-v2" / "config.json").is_file()
 
 
 def test_evidence_packing_keeps_only_complete_chunks_within_the_token_budget() -> None:
