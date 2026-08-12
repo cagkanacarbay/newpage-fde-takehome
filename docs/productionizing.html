@@ -1,0 +1,402 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Productionizing - Live Long R&amp;D assistant</title>
+<!-- ds:css:start -->
+<link rel="stylesheet" href="_assets/docs.css">
+<!-- ds:css:end -->
+</head>
+<body>
+<div class="wrap">
+  <button class="theme-toggle" type="button" aria-label="Switch to dark">☾</button>
+  <a class="backlink" href="index.html">← System documentation</a>
+
+  <header class="page">
+    <h1>From one demo image to a production service</h1>
+    <p class="standfirst">The demo proves one complete RAG path. Production separates compute from durable state, adds controlled ingestion, and makes every answer operable.</p>
+    <div class="header-meta">
+      <span><b>Status</b> proposed production plan</span>
+      <span><b>Baseline</b> commit 026853fa</span>
+      <span><b>Date</b> 2026-08-12</span>
+      <span><b>GitHub</b> <a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/25">Issue 25</a></span>
+    </div>
+  </header>
+
+  <div class="shell">
+    <nav class="toc" aria-label="On this page">
+      <p class="toc-title">Contents</p>
+      <ol>
+        <li><a href="#boundary"><span class="n">01</span><span>The production boundary</span></a></li>
+        <li><a href="#runtime"><span class="n">02</span><span>Stateless API runtime</span></a></li>
+        <li><a href="#state"><span class="n">03</span><span>State and search</span></a></li>
+        <li><a href="#ingestion"><span class="n">04</span><span>Ingestion and auth</span></a></li>
+        <li><a href="#cost"><span class="n">05</span><span>Cost at volume</span></a></li>
+        <li><a href="#observability"><span class="n">06</span><span>Production observability</span></a></li>
+        <li><a href="#parent-expansion"><span class="n">07</span><span>Parent-section expansion</span></a></li>
+        <li><a href="#clouds"><span class="n">08</span><span>Four deployment sketches</span></a></li>
+        <li><a href="#delivery"><span class="n">09</span><span>Delivery and proof</span></a></li>
+      </ol>
+    </nav>
+
+    <div class="col">
+      <section id="boundary">
+        <h2><span class="idx">01</span> The production boundary</h2>
+        <p class="lead">Keep the proven retrieval and citation contracts. Replace every machine-local state boundary before adding replicas.</p>
+
+        <div class="pipeline">
+          <div class="pstage tested">
+            <span class="pn">Current</span>
+            <span class="pt">One image</span>
+            <span class="pd">Exported Next.js UI, FastAPI, the index, and source PDFs.</span>
+          </div>
+          <div class="pstage tested">
+            <span class="pn">Current</span>
+            <span class="pt">Local state</span>
+            <span class="pd">LanceDB in the image and SQLite on one mounted volume.</span>
+          </div>
+          <div class="pstage pending">
+            <span class="pn">Production</span>
+            <span class="pt">Shared services</span>
+            <span class="pd">PostgreSQL, object storage, managed search, and a job queue.</span>
+          </div>
+          <div class="pstage pending">
+            <span class="pn">Production</span>
+            <span class="pt">Controlled access</span>
+            <span class="pd">Customer identity, tenant filters, audit records, and trace policy.</span>
+          </div>
+        </div>
+
+        <div class="callout warn">
+          <span class="lbl">The image cannot scale unchanged</span>
+          <p>Two copies would have separate SQLite files, separate writable indexes, and separate PDF filesystems.</p>
+          <p>A load balancer could send one conversation to different copies and produce conflicting state.</p>
+        </div>
+
+        <p>The production target keeps the API contract, hybrid retrieval, MiniLM reranking, token packing, and exact citation geometry.</p>
+        <p>It moves conversations, papers, parent sections, and search indexes behind services that all API replicas can reach.</p>
+
+        <div class="status">
+          <div>
+            <span class="state done">Keep</span>
+            <span class="label">The verified application path</span>
+            <span class="note">FastAPI, server-sent events, OpenAI, query planning, hybrid retrieval, reranking, and citation-to-PDF.</span>
+          </div>
+          <div>
+            <span class="state open">Replace</span>
+            <span class="label">Machine-local ownership</span>
+            <span class="note">SQLite, embedded writable search, local PDF serving, manual ingestion, and unauthenticated access.</span>
+          </div>
+        </div>
+      </section>
+
+      <section id="runtime">
+        <h2><span class="idx">02</span> Stateless API runtime</h2>
+        <p class="lead">A FastAPI replica should own no durable user or corpus state. Any healthy replica should serve the next request.</p>
+
+        <ol class="numbered">
+          <li><span><b>Separate the static UI</b><span class="d">Put immutable web assets behind a CDN. Route only <code>/api/*</code> and protected PDF access to FastAPI.</span></span></li>
+          <li><span><b>Externalize all state</b><span class="d">Use PostgreSQL for conversations, object storage for papers and parent text, and a managed search service for chunks.</span></span></li>
+          <li><span><b>Preserve streaming</b><span class="d">Keep server-sent events unbuffered. Set gateway idle timeouts above the maximum answer time and drain connections during deployment.</span></span></li>
+          <li><span><b>Scale on useful signals</b><span class="d">Use active streams, time to first token, CPU, memory, and queue delay. Request count alone hides long-lived streams.</span></span></li>
+          <li><span><b>Protect dependencies</b><span class="d">Set per-tenant concurrency limits, bounded retries with jitter, provider timeouts, and circuit breakers around OpenAI and search.</span></span></li>
+          <li><span><b>Deploy safely</b><span class="d">Use readiness checks, graceful shutdown, a small warm pool, canary traffic, and automatic rollback on error or citation failures.</span></span></li>
+        </ol>
+
+        <div class="callout">
+          <span class="lbl">No session affinity</span>
+          <p>Shared state removes the need for sticky sessions.</p>
+          <p>One streaming request stays on one replica until completion, but its completed turn commits to PostgreSQL.</p>
+        </div>
+
+        <h3>Request path</h3>
+        <div class="steps">
+          <div class="card step"><span class="n">01</span><h4>Edge</h4><p>TLS, web application firewall, identity check, tenant context, and rate limit.</p></div>
+          <div class="card step"><span class="n">02</span><h4>FastAPI</h4><p>Read history, plan queries, retrieve evidence, stream the answer, and verify citations.</p></div>
+          <div class="card step"><span class="n">03</span><h4>Shared data</h4><p>PostgreSQL, object storage, managed hybrid search, and the OpenAI API.</p></div>
+          <div class="card step"><span class="n">04</span><h4>Telemetry</h4><p>Export traces asynchronously. A telemetry failure must never fail a user answer.</p></div>
+        </div>
+      </section>
+
+      <section id="state">
+        <h2><span class="idx">03</span> State and search</h2>
+        <p class="lead">SQLite and embedded LanceDB fit the local demo. They are not the shared write boundary for several API replicas.</p>
+
+        <h3>Move conversations from SQLite to PostgreSQL</h3>
+        <p>The current SQLite store uses WAL mode and one bind-mounted file.</p>
+        <p>That is simple and durable for one process, but it has one writer boundary and one volume failure domain.</p>
+        <div class="table-scroll">
+          <table class="opts wide">
+            <thead><tr><th>Step</th><th>What production gets</th><th>What must stay true</th></tr></thead>
+            <tbody>
+              <tr><td>Managed PostgreSQL<span class="sub">shared system of record</span></td><td>Concurrent replicas, backups, point-in-time recovery, failover, connection pooling, and standard migration tools.</td><td>Conversation ordering, 30 visible turns, the 100k-token history window, and all-or-nothing completed turns.</td></tr>
+              <tr><td>Tenant ownership<span class="sub">every durable row</span></td><td>Tenant and user IDs on conversations, messages, document versions, ingestion jobs, and audit events.</td><td>Authorization runs in the service and database policy. A prompt cannot change it.</td></tr>
+              <tr><td>Idempotent turns<span class="sub">safe retries</span></td><td>A client request key prevents a disconnected client from storing the same completed turn twice.</td><td>Failed streams store no assistant turn. Concurrent first turns claim one title.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>Choose a managed hybrid search path by measurement</h3>
+        <p>The storage adapter is already separate from query planning, diversity, reranking, and packing.</p>
+        <p>Keep that seam, then replay the same 24-item retrieval suite against each candidate.</p>
+
+        <div class="table-scroll">
+          <table class="matrix wide">
+            <thead><tr><th>Candidate</th><th>Fit</th><th>Required proof</th></tr></thead>
+            <tbody>
+              <tr><td class="opt">LanceDB Cloud or Enterprise<span class="sub">closest data model</span></td><td><span class="tag ok">shortest migration</span></td><td class="txt">Prove the direct cloud client supports the required explicit dense and text queries. Do not assume the current LlamaIndex adapter does.</td></tr>
+              <tr><td class="opt">Qdrant Managed Cloud<span class="sub">portable managed service</span></td><td><span class="tag ok">native hybrid path</span></td><td class="txt">Map dense and sparse data, metadata filters, fusion, backups, and tenant isolation. Recalibrate scores and latency.</td></tr>
+              <tr><td class="opt">Hyperscaler search<span class="sub">provider-native operations</span></td><td><span class="tag flag">larger adapter change</span></td><td class="txt">Use OpenSearch, Vertex AI Vector Search, or Azure AI Search only after the exact hybrid and filter contract passes.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p>Managed search does not remove MiniLM automatically.</p>
+        <p>Keep the application reranker until measured evidence shows that a managed semantic ranker meets the same answer and citation gates.</p>
+
+        <div class="callout note">
+          <span class="lbl">Source contract</span>
+          <p><a href="https://docs.lancedb.com/search/hybrid-search">LanceDB documents explicit vector and text hybrid queries</a>.</p>
+          <p><a href="https://qdrant.tech/documentation/cloud/">Qdrant documents managed scaling, backups, and failover</a>.</p>
+        </div>
+      </section>
+
+      <section id="ingestion">
+        <h2><span class="idx">04</span> Ingestion and auth</h2>
+        <p class="lead">Ingestion becomes an asynchronous control plane. Customer identity controls every document and retrieval boundary.</p>
+
+        <h3>Deferred ingestion pipeline</h3>
+        <ol class="numbered">
+          <li><span><b>Accept and quarantine</b><span class="d">An authenticated user uploads a supported PDF. Store it in a private quarantine bucket and record its content hash.</span></span></li>
+          <li><span><b>Validate</b><span class="d">Check size and type, scan for malware, reject encrypted or invalid files, and create an immutable document version.</span></span></li>
+          <li><span><b>Queue</b><span class="d">Publish an idempotent ingestion job. Return a job ID and status instead of holding an HTTP request through Docling.</span></span></li>
+          <li><span><b>Parse and index</b><span class="d">An isolated worker runs Docling, creates child chunks and parent sections, embeds in batches, and writes a staged index version.</span></span></li>
+          <li><span><b>Check and promote</b><span class="d">Validate citation geometry, chunk counts, and retrieval smoke cases. Promote the new index pointer only after all checks pass.</span></span></li>
+          <li><span><b>Operate the lifecycle</b><span class="d">Record retries, failures, model versions, costs, and audit events. Support deletion, reindexing, rollback, and dead-letter recovery.</span></span></li>
+        </ol>
+
+        <p>Use the content hash, parser version, chunker version, embedding model, and index schema as the idempotency key.</p>
+        <p>Never edit an active index in place when a versioned build and atomic pointer swap can make rollback safe.</p>
+
+        <h3>Customer auth boundary</h3>
+        <div class="grid grid-2">
+          <div class="card"><h4>Identity</h4><p>Validate the customer's OIDC token at the edge or API. Convert it into stable tenant, user, and role claims.</p></div>
+          <div class="card"><h4>Authorization</h4><p>Apply tenant filters to PostgreSQL, search, ingestion jobs, object keys, and citations before data leaves each service.</p></div>
+          <div class="card"><h4>Paper access</h4><p>Serve PDFs through an authorized API or short-lived signed URL. Never expose a public corpus bucket.</p></div>
+          <div class="card"><h4>Service identity</h4><p>Give API and worker roles separate least-privilege credentials. Keep keys in the provider secret manager and rotate them.</p></div>
+        </div>
+
+        <div class="callout warn">
+          <span class="lbl">External processing is a customer decision</span>
+          <p>Paper text, queries, conversation history, and generated answers reach OpenAI in the chosen design.</p>
+          <p>Confirm data residency, retention, contractual controls, and allowed content before production use.</p>
+        </div>
+      </section>
+
+      <section id="cost">
+        <h2><span class="idx">05</span> Cost at volume</h2>
+        <p class="lead">Track tokens by pipeline stage. The unit price matters less than repeated history, output length, and retries.</p>
+
+        <div class="facts">
+          <div><span class="v">$0.13</span><span class="k">embedding input per 1M tokens</span></div>
+          <div><span class="v">$1.00</span><span class="k">Luna input per 1M tokens</span></div>
+          <div><span class="v">$0.10</span><span class="k">Luna cached input per 1M tokens</span></div>
+          <div><span class="v">$6.00</span><span class="k">Luna output per 1M tokens</span></div>
+        </div>
+        <p class="footnote">OpenAI list prices checked on 2026-08-12. Prices and limits can change, so production uses provider billing data.</p>
+
+        <div class="table-scroll">
+          <table class="opts wide">
+            <thead><tr><th>Stage</th><th>Cost behavior</th><th>Control</th></tr></thead>
+            <tbody>
+              <tr><td>Document embeddings<span class="sub">write-time</span></td><td>One million new source tokens cost <code>1 x $0.13</code>. Reindexing repeats the cost for changed inputs.</td><td>Hash documents, embed only changed chunks, batch requests, and use the Batch API when a 24-hour completion window is acceptable.</td></tr>
+              <tr><td>Query embeddings<span class="sub">read-time</span></td><td>Cost grows with the number and length of planned dense queries. Ten million query tokens cost <code>10 x $0.13</code>.</td><td>Cap planned intents, cache identical permitted queries, and reject retry storms.</td></tr>
+              <tr><td>Answer generation<span class="sub">every turn</span></td><td>Input includes instructions, history, and up to 12,000 evidence tokens. Output tokens cost six times the Luna input rate.</td><td>Measure cost per successful answer, cap output, preserve prompt-cache prefixes, and shorten history only through tested policy.</td></tr>
+              <tr><td>Planner and verifier<span class="sub">extra model calls</span></td><td>The planner runs before retrieval. The planned verifier adds input and output for each claim or claim batch.</td><td>Record both calls separately, batch supported claims, and route only after evaluation proves quality.</td></tr>
+              <tr><td>Long context<span class="sub">price step</span></td><td>Luna prompts above 272,000 input tokens use higher input and output rates for the complete request.</td><td>The current 100k history budget stays below that step before evidence, but measure the complete assembled prompt.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p>The cost formula for one answer is direct:</p>
+        <pre><code>embedding query tokens x embedding rate
++ planner input and output tokens x Luna rates
++ answer input, cached input, and output tokens x Luna rates
++ verifier input and output tokens x Luna rates</code></pre>
+
+        <ul class="list-airy">
+          <li><b>Set budgets per tenant.</b> Alert before limits and reject abusive work with a clear response.</li>
+          <li><b>Keep quality gates fixed.</b> A cheaper model or smaller context ships only after the same retrieval and answer tests pass.</li>
+          <li><b>Measure retries as waste.</b> Provider retries, disconnected streams, and duplicate ingestion must appear as separate cost counters.</li>
+          <li><b>Forecast from distributions.</b> Use p50 and p95 history, evidence, output, and claims per turn. One average hides expensive research sessions.</li>
+        </ul>
+
+        <div class="callout note">
+          <span class="lbl">Current provider references</span>
+          <p><a href="https://developers.openai.com/api/docs/models/text-embedding-3-large">text-embedding-3-large pricing and limits</a> · <a href="https://developers.openai.com/api/docs/models/gpt-5.6-luna">GPT-5.6 Luna pricing and long-context rule</a> · <a href="https://platform.openai.com/docs/api-reference/batch/object?api-mode=responses">Batch API discount and limits</a></p>
+        </div>
+      </section>
+
+      <section id="observability">
+        <h2><span class="idx">06</span> Production observability</h2>
+        <p class="lead">Keep Phoenix as the RAG trace surface. Give it production storage, access control, retention, and a failure-independent export path.</p>
+
+        <h3>Trace one answer from edge to citation</h3>
+        <div class="pipeline">
+          <div class="pstage tested"><span class="pn">01</span><span class="pt">Request</span><span class="pd">Tenant, route, request ID, and time to first byte.</span></div>
+          <div class="pstage tested"><span class="pn">02</span><span class="pt">Retrieval</span><span class="pd">Plan, embedding, search, rerank, packed tokens, documents, and pages.</span></div>
+          <div class="pstage tested"><span class="pn">03</span><span class="pt">Generation</span><span class="pd">Model, token usage, cache usage, latency, refusal, and provider errors.</span></div>
+          <div class="pstage pending"><span class="pn">04</span><span class="pt">Verification</span><span class="pd">Claim counts, support results, removed claims, and citation validation.</span></div>
+        </div>
+
+        <ol class="numbered">
+          <li><span><b>Use portable instrumentation</b><span class="d">Emit OpenTelemetry and OpenInference spans from the API and workers. Export with asynchronous batching over OTLP gRPC.</span></span></li>
+          <li><span><b>Protect research data</b><span class="d">Redact prompt and response bodies by default. Use hashed user IDs and an explicit allowlist for source snippets.</span></span></li>
+          <li><span><b>Run Phoenix separately</b><span class="d">Pin its image version, enable authentication and TLS, and use managed PostgreSQL with backups and a tested restore.</span></span></li>
+          <li><span><b>Set retention</b><span class="d">Use separate development, staging, and production projects or instances. Set finite production retention from the customer policy.</span></span></li>
+          <li><span><b>Alert outside Phoenix</b><span class="d">Send service metrics to the cloud monitor. Page on error rate, first-token latency, invalid citations, rate limits, and cost spikes.</span></span></li>
+          <li><span><b>Keep telemetry non-blocking</b><span class="d">Drop or buffer telemetry under collector failure. Never delay or reject an otherwise valid answer because Phoenix is unavailable.</span></span></li>
+        </ol>
+
+        <div class="callout">
+          <span class="lbl">Production Phoenix baseline</span>
+          <p>Phoenix recommends PostgreSQL for production and supports several instances behind one load balancer.</p>
+          <p>Its production guide also requires batched export, backups, and capacity planning.</p>
+          <p><a href="https://arize.com/docs/phoenix/production-guide">Phoenix production guide</a> · <a href="https://arize.com/docs/phoenix/phoenix-deployment-options">Phoenix architecture</a> · <a href="https://arize.com/docs/phoenix/deployment/authentication">Phoenix authentication</a></p>
+        </div>
+      </section>
+
+      <section id="parent-expansion">
+        <h2><span class="idx">07</span> Parent-section expansion</h2>
+        <p class="lead">The local demo stays flat. Production can retrieve precise child chunks, then expand selected evidence to its full section.</p>
+
+        <div class="callout warn">
+          <span class="lbl">Deferred on purpose</span>
+          <p>Parent expansion needs new storage, index-version rules, token policy, and new evaluation.</p>
+          <p>Adding it to the 27-paper demo would add complexity before its value is measured.</p>
+        </div>
+
+        <h3>Storage contract</h3>
+        <div class="table-scroll">
+          <table class="opts wide">
+            <thead><tr><th>Record</th><th>Stored fields</th><th>Role</th></tr></thead>
+            <tbody>
+              <tr><td>Document version</td><td>Tenant, source hash, object key, parser version, status, and index version.</td><td>Immutable ownership and lifecycle boundary.</td></tr>
+              <tr><td>Parent section</td><td>Parent ID, document version, heading path, page range, text object key, token count, and content hash.</td><td>Complete surrounding evidence, stored in object storage with searchable metadata.</td></tr>
+              <tr><td>Child chunk</td><td>Child ID, parent ID, vectors, searchable text, original text, page numbers, bounding boxes, and token count.</td><td>Precise retrieval, reranking, and citation geometry.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>Expansion policy</h3>
+        <ol class="numbered">
+          <li><span><b>Retrieve children</b><span class="d">Run the current hybrid search and MiniLM reranker over precise child chunks.</span></span></li>
+          <li><span><b>Group parents</b><span class="d">Combine selected children by parent ID while keeping every child score and citation.</span></span></li>
+          <li><span><b>Expand selectively</b><span class="d">Fetch a parent only when it adds uncited context within the turn's token budget. Do not expand every hit.</span></span></li>
+          <li><span><b>Pack deterministically</b><span class="d">Charge the full parent token count, deduplicate overlapping parents, and keep the repeated-document diversity penalty.</span></span></li>
+          <li><span><b>Cite the child</b><span class="d">An answer marker still points to exact child geometry. A broad parent page range cannot replace a precise citation.</span></span></li>
+        </ol>
+
+        <p>Compare flat retrieval with child-to-parent expansion on the 24-item suite and the generation support tests.</p>
+        <p>Ship only if answer support improves without unacceptable citation precision, latency, or token cost.</p>
+      </section>
+
+      <section id="clouds">
+        <h2><span class="idx">08</span> Four deployment sketches</h2>
+        <p class="lead">The service boundaries stay fixed. Each cloud maps those boundaries to its strongest managed products.</p>
+
+        <div class="accordion">
+          <details open>
+            <summary>AWS</summary>
+            <div class="body">
+              <p><strong>Traffic:</strong> CloudFront and AWS WAF serve the static UI and route API traffic through an Application Load Balancer.</p>
+              <p><strong>Compute:</strong> ECS on Fargate runs FastAPI replicas. ECS tasks or AWS Batch run Docling ingestion jobs from SQS.</p>
+              <p><strong>Data:</strong> Amazon RDS for PostgreSQL stores conversations and control data. S3 stores private PDFs and parent sections.</p>
+              <p><strong>Search:</strong> Test Amazon OpenSearch Service or OpenSearch Serverless against the exact hybrid contract. Qdrant or LanceDB remain portable alternatives.</p>
+              <p><strong>Operations:</strong> Secrets Manager, KMS, CloudWatch, and a separate Phoenix service with PostgreSQL complete the stack.</p>
+              <p><a href="https://docs.aws.amazon.com/opensearch-service/latest/developerguide/serverless-overview.html">OpenSearch Serverless overview</a></p>
+            </div>
+          </details>
+          <details>
+            <summary>Google Cloud</summary>
+            <div class="body">
+              <p><strong>Traffic:</strong> Cloud CDN and the external Application Load Balancer serve the UI and protect the API.</p>
+              <p><strong>Compute:</strong> Cloud Run runs FastAPI with tested streaming timeouts and concurrency. Cloud Run Jobs handles ingestion from Pub/Sub.</p>
+              <p><strong>Data:</strong> Cloud SQL for PostgreSQL stores conversations and control data. Cloud Storage stores private source and parent objects.</p>
+              <p><strong>Search:</strong> Vertex AI Vector Search 2.0 now offers managed hybrid search. Its adapter must still pass the application evaluation suite.</p>
+              <p><strong>Operations:</strong> Secret Manager, Cloud KMS, Cloud Monitoring, and Phoenix on Cloud Run or GKE complete the stack.</p>
+              <p><a href="https://docs.cloud.google.com/vertex-ai/docs/core-release-notes">Vertex AI Vector Search 2.0 release</a> · <a href="https://docs.cloud.google.com/architecture/gen-ai-rag-vertex-ai-vector-search">Google Cloud RAG reference architecture</a></p>
+            </div>
+          </details>
+          <details>
+            <summary>Azure</summary>
+            <div class="body">
+              <p><strong>Traffic:</strong> Azure Front Door and Web Application Firewall serve the UI and route API traffic.</p>
+              <p><strong>Compute:</strong> Azure Container Apps runs FastAPI. Container Apps Jobs consumes ingestion work from Service Bus.</p>
+              <p><strong>Data:</strong> Azure Database for PostgreSQL stores conversations and control data. Blob Storage holds private source and parent objects.</p>
+              <p><strong>Search:</strong> Azure AI Search runs full-text and vector queries in parallel and merges them with reciprocal rank fusion.</p>
+              <p><strong>Operations:</strong> Key Vault, Azure Monitor, and Phoenix on Container Apps or AKS complete the stack.</p>
+              <p>Set gateway timeouts and connection draining for server-sent events before load testing.</p>
+              <p><a href="https://learn.microsoft.com/en-us/azure/search/hybrid-search-overview">Azure AI Search hybrid overview</a> · <a href="https://learn.microsoft.com/en-us/azure/container-apps/overview">Azure Container Apps overview</a></p>
+            </div>
+          </details>
+          <details>
+            <summary>Cloudflare</summary>
+            <div class="body">
+              <p><strong>Traffic:</strong> Cloudflare CDN, WAF, Access, and Workers provide the edge and customer identity layer.</p>
+              <p><strong>Compute:</strong> Cloudflare Containers can run the existing image, subject to streaming, startup, filesystem, and regional load tests.</p>
+              <p><strong>Data:</strong> R2 stores private PDFs and parent sections. Hyperdrive connects Workers to a managed PostgreSQL provider.</p>
+              <p><strong>Jobs:</strong> Queues dispatch ingestion to Containers. Do not run Docling in a latency-sensitive Worker request.</p>
+              <p><strong>Search:</strong> Vectorize provides managed vector search and metadata filters, but it does not replace the current BM25 path by itself.</p>
+              <p>Use an external managed hybrid store, or add a measured lexical service and application-level fusion.</p>
+              <p><strong>Operations:</strong> Export application traces to Phoenix in a container platform and keep Cloudflare analytics for edge signals.</p>
+              <p><a href="https://developers.cloudflare.com/containers/get-started/">Cloudflare Containers</a> · <a href="https://developers.cloudflare.com/vectorize/get-started/intro/">Cloudflare Vectorize</a></p>
+            </div>
+          </details>
+        </div>
+
+        <div class="callout">
+          <span class="lbl">Default shortlist</span>
+          <p>Start with the customer's existing cloud and identity provider.</p>
+          <p>If there is no constraint, compare AWS, Google Cloud, and Azure through one load test and one operational cost model.</p>
+          <p>Use Cloudflare as the edge by default. Use it for the full stack only after its hybrid search and container limits pass.</p>
+        </div>
+      </section>
+
+      <section id="delivery">
+        <h2><span class="idx">09</span> Delivery and proof</h2>
+        <p class="lead">Migrate one boundary at a time. Every step has a rollback path and a test that proves the production claim.</p>
+
+        <ol class="numbered">
+          <li><span><b>Externalize state</b><span class="d">Move conversations to managed PostgreSQL and papers to object storage. Run two API replicas without sticky sessions.</span></span></li>
+          <li><span><b>Add identity</b><span class="d">Enforce tenant ownership across chat, documents, search, PDF access, ingestion, traces, and deletion.</span></span></li>
+          <li><span><b>Build ingestion</b><span class="d">Add the queue, isolated worker, versioned indexes, status API, dead-letter recovery, and atomic promotion.</span></span></li>
+          <li><span><b>Shadow managed search</b><span class="d">Dual-read without affecting answers. Compare results, pages, latency, and cost before switching traffic.</span></span></li>
+          <li><span><b>Operationalize Phoenix</b><span class="d">Add trace policy, PostgreSQL, authentication, retention, dashboards, alerts, backups, and restore tests.</span></span></li>
+          <li><span><b>Canary and scale</b><span class="d">Run expected and peak concurrency, provider-failure tests, a canary release, and a complete rollback exercise.</span></span></li>
+        </ol>
+
+        <div class="gates">
+          <div class="gate"><span class="q">Correctness</span><span class="a">The 24 retrieval items, answer support tests, conflict coverage, and citation-to-page checks pass.</span></div>
+          <div class="gate"><span class="q">Scale</span><span class="a">Peak concurrent streams meet first-token and completion targets without provider or database saturation.</span></div>
+          <div class="gate"><span class="q">Reliability</span><span class="a">Replica loss, queue retry, OpenAI timeout, search failure, and Phoenix outage each have tested behavior.</span></div>
+          <div class="gate"><span class="q">Security</span><span class="a">Cross-tenant tests fail closed. Secrets, signed URLs, audit records, retention, and deletion are verified.</span></div>
+          <div class="gate"><span class="q">Recovery</span><span class="a">PostgreSQL, object metadata, search indexes, and Phoenix restore within agreed recovery targets.</span></div>
+          <div class="gate"><span class="q">Cost</span><span class="a">Cost per successful answer and per ingested million tokens stays inside tenant budgets at p95 load.</span></div>
+        </div>
+
+        <p class="footnote">This page is a production plan, not deployed behavior. Product choices remain provisional until these tests produce evidence.</p>
+      </section>
+    </div>
+  </div>
+
+  <footer class="page">
+    <a class="backlink mb-0" href="index.html">← System documentation</a>
+  </footer>
+</div>
+<!-- ds:js:start -->
+<script defer src="_assets/docs.js"></script>
+<!-- ds:js:end -->
+</body>
+</html>
