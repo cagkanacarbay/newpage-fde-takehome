@@ -440,7 +440,7 @@
         </div>
       </section>
       <section id="quality-controls">
-        <h2><span class="idx">08</span> Quality controls: three deterministic retrieval gates</h2>
+        <h2><span class="idx">08</span> Quality controls: deterministic retrieval gates</h2>
         <p class="lead">The v1 quality gates are a hand-authored, deterministic retrieval suite over the 27-paper corpus. No LLM judge, no API keys.</p>
 
         <div class="rec">
@@ -450,7 +450,7 @@
             <p><strong>Why:</strong> The corpus was built with papers that disagree and entities that look alike. These gates test those planted failure cases deterministically, so a retrieval regression fails CI without any model in the loop.</p>
             <p><strong>Thresholds:</strong> 6/6, 6/6, and 11/12 with item C1 mandatory. The 2026-08-11 run confirmed these thresholds. <a href="research/evaluation.html">Research evidence and full item set</a>.</p>
             <p><strong>GitHub:</strong> <a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/20">Issue 20 - choose the v1 eval suite</a> records the decision.</p>
-            <p><strong>Status:</strong> Implemented as a blocking, path-scoped pytest job.</p>
+            <p><strong>Status:</strong> Implemented as a blocking, path-scoped pytest job. The selected fixture also has exact-page and answer-evidence floors. <a href="research/evaluation.html">Research evidence records the measured floors</a>.</p>
           </div>
         </div>
 
@@ -471,9 +471,9 @@
             </div>
           </details>
           <details>
-            <summary>Citation-level gates are v2</summary>
+            <summary>Exact-page support is a fixture floor</summary>
             <div class="body">
-              <p>Gate A requires both sides <em>retrieved</em>. The bar becomes both sides <em>cited</em> only when the answer-generation slice lands.</p>
+              <p>The selected fixture checks exact-page support from packed results and their page provenance. It does not evaluate generated claim citations.</p>
               <p>LLM-judge metrics such as faithfulness and answer correctness are a later consideration, not v1.</p>
             </div>
           </details>
