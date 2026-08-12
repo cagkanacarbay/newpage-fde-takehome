@@ -20,7 +20,7 @@ from live_long_rnd.evaluation import (
     selected_runtime_quality_passes,
 )
 from live_long_rnd.golden_embeddings import GoldenFixtureEmbedder
-from live_long_rnd.query_planning import OpenAIQueryPlanner, QueryPlan, SearchIntent
+from live_long_rnd.query_planning import GeminiQueryPlanner, QueryPlan, SearchIntent
 from live_long_rnd.retrieve import (
     FlashRankCrossEncoder,
     LanceDBHybridStore,
@@ -34,13 +34,23 @@ _FIXTURE_INDEX = Path("tests/fixtures/golden_retrieval_index")
 
 
 @dataclass
+class _PlannerMessage:
+    parsed: QueryPlan
+
+
+@dataclass
+class _PlannerChoice:
+    message: _PlannerMessage
+
+
+@dataclass
 class _PlannerResponse:
-    output_parsed: QueryPlan
+    choices: list[_PlannerChoice]
 
 
-class _PlannerResponses:
+class _PlannerCompletions:
     def parse(self, **kwargs: Any) -> _PlannerResponse:
-        message = kwargs["input"][-1]["content"]
+        message = kwargs["messages"][-1]["content"]
         plans = {
             "Does senolytic treatment reverse cellular senescence in humans?": [
                 SearchIntent(
@@ -78,24 +88,31 @@ class _PlannerResponses:
                 )
             ],
         }
-        return _PlannerResponse(
-            QueryPlan(
-                action="retrieve",
-                search_intents=plans.get(
-                    message,
-                    [
-                        SearchIntent(
-                            dense_query=f"Evidence needed to answer: {message}",
-                            sparse_query=message,
-                        )
-                    ],
-                ),
-            )
+        plan = QueryPlan(
+            action="retrieve",
+            search_intents=plans.get(
+                message,
+                [
+                    SearchIntent(
+                        dense_query=f"Evidence needed to answer: {message}",
+                        sparse_query=message,
+                    )
+                ],
+            ),
         )
+        return _PlannerResponse([_PlannerChoice(_PlannerMessage(plan))])
+
+
+class _PlannerChat:
+    completions = _PlannerCompletions()
+
+
+class _PlannerBeta:
+    chat = _PlannerChat()
 
 
 class _PlannerClient:
-    responses = _PlannerResponses()
+    beta = _PlannerBeta()
 
 
 def test_quality_gates_pass_at_the_decided_threshold_edge() -> None:
@@ -207,7 +224,7 @@ def test_retrieval_quality_gates_block_regressions(tmp_path: Path) -> None:
             dependencies=RetrievalDependencies(
                 store=store,
                 embedder=GoldenFixtureEmbedder(),
-                planner=OpenAIQueryPlanner(client=_PlannerClient()),
+                planner=GeminiQueryPlanner(client=_PlannerClient()),
                 reranker=FlashRankCrossEncoder(cache_dir=tmp_path / "flashrank"),
             ),
         )

@@ -10,8 +10,10 @@ from pathlib import Path
 from typing import Any, Protocol
 
 import tiktoken
+from docling_core.transforms.chunker.hierarchical_chunker import ChunkingDocSerializer
 from docling_core.transforms.chunker.hybrid_chunker import HybridChunker
 from docling_core.transforms.chunker.tokenizer.openai import OpenAITokenizer
+from docling_core.types.doc.document import DoclingDocument
 from lancedb.index import FTS
 from llama_index.core.schema import BaseNode, NodeRelationship, RelatedNodeInfo
 from llama_index.node_parser.docling import DoclingNodeParser
@@ -97,6 +99,66 @@ def _provenance_geometry(metadata: dict[str, Any]) -> tuple[list[int], list[dict
     return sorted(pages), bboxes
 
 
+def _document_item_texts(document: BaseNode) -> dict[str, str]:
+    payload = json.loads(document.get_content())
+    item_texts: dict[str, str] = {}
+    for collection in ("texts", "tables", "pictures", "key_value_items", "form_items"):
+        for index, item in enumerate(payload.get(collection, [])):
+            if not isinstance(item, dict) or not isinstance(item.get("text"), str):
+                continue
+            reference = str(item.get("self_ref") or f"#/{collection}/{index}")
+            item_texts[reference] = item["text"]
+    if payload.get("schema_name") == "DoclingDocument":
+        docling_document = DoclingDocument.model_validate(payload)
+        serializer = ChunkingDocSerializer(doc=docling_document)
+        for table in docling_document.tables:
+            serialized = serializer.table_serializer.serialize(
+                item=table,
+                doc_serializer=serializer,
+                doc=docling_document,
+            )
+            if serialized.text:
+                item_texts[table.self_ref] = serialized.text
+    return item_texts
+
+
+def _citation_spans(
+    metadata: dict[str, Any],
+    item_texts: dict[str, str],
+) -> list[dict[str, Any]]:
+    spans: list[dict[str, Any]] = []
+    for item in metadata.get("doc_items", []):
+        if not isinstance(item, dict):
+            continue
+        item_text = item_texts.get(str(item.get("self_ref", "")), "")
+        for provenance in item.get("prov", []):
+            if not isinstance(provenance, dict):
+                continue
+            page = provenance.get("page_no", 0)
+            bbox = provenance.get("bbox", {})
+            if page < 1 or not {"l", "t", "r", "b"}.issubset(bbox):
+                continue
+            text = item_text
+            charspan = provenance.get("charspan")
+            if (
+                isinstance(charspan, list)
+                and len(charspan) == 2
+                and all(isinstance(offset, int) for offset in charspan)
+            ):
+                start, end = charspan
+                if 0 <= start < end <= len(item_text):
+                    text = item_text[start:end]
+            if text.strip():
+                spans.append(
+                    {
+                        "text": text,
+                        "page": page,
+                        "bbox": {key: bbox[key] for key in ("l", "t", "r", "b")},
+                    }
+                )
+    return spans
+
+
 def _contextual_text(
     heading_path: list[str],
     element_types: list[str],
@@ -116,7 +178,7 @@ def _contextual_text(
     return "\n".join(lines) + "\n\n" + original_text
 
 
-def _prepare_node(node: BaseNode) -> None:
+def _prepare_node(node: BaseNode, item_texts: dict[str, str]) -> None:
     """Enforce the citation contract and attach deterministic contextual text."""
     metadata = node.metadata
     document_id = metadata.get("source_document_id")
@@ -135,13 +197,19 @@ def _prepare_node(node: BaseNode) -> None:
     element_types = sorted({str(item.get("label")) for item in doc_items if item.get("label")})
     item_refs = [str(item["self_ref"]) for item in doc_items if item.get("self_ref")]
     captions = [str(caption) for caption in metadata.get("captions") or [] if caption]
+    citation_spans = _citation_spans(metadata, item_texts)
 
     original_text = node.get_content()
     node.set_content(_contextual_text(heading_path, element_types, captions, pages, original_text))
 
     source_relationship = node.relationships.get(NodeRelationship.SOURCE)
     if isinstance(source_relationship, RelatedNodeInfo):
-        source_relationship.node_id = str(document_id)
+        node.relationships[NodeRelationship.SOURCE] = RelatedNodeInfo(
+            node_id=str(document_id),
+            node_type=source_relationship.node_type,
+            metadata=source_relationship.metadata,
+            hash=source_relationship.hash,
+        )
 
     node.metadata = {
         "document_id": str(document_id),
@@ -152,6 +220,7 @@ def _prepare_node(node: BaseNode) -> None:
         "element_types": json.dumps(element_types),
         "captions": json.dumps(captions),
         "doc_item_refs": json.dumps(item_refs),
+        "citation_spans": json.dumps(citation_spans),
         "original_text": original_text,
     }
 
@@ -174,8 +243,17 @@ def ingest_pdf(source: Path, dependencies: IngestDependencies | None = None) -> 
         documents, node_parser=active_dependencies.node_parser or _create_node_parser()
     )
     nodes = _keep_navigable_nodes(nodes)
+    item_texts_by_document = {
+        document.doc_id: _document_item_texts(document) for document in documents
+    }
     for node in nodes:
-        _prepare_node(node)
+        source_relationship = node.relationships.get(NodeRelationship.SOURCE)
+        item_texts = (
+            item_texts_by_document.get(source_relationship.node_id, {})
+            if isinstance(source_relationship, RelatedNodeInfo)
+            else {}
+        )
+        _prepare_node(node, item_texts)
 
     texts = [node.get_content() for node in nodes]
     vectors = (active_dependencies.embedder or OpenAIEmbedder()).embed(texts)

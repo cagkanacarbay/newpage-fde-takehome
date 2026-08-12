@@ -28,7 +28,7 @@ from live_long_rnd.evaluation import (
 )
 from live_long_rnd.query_planning import (
     ConversationMessage,
-    OpenAIQueryPlanner,
+    GeminiQueryPlanner,
     PlannerUsage,
     QueryPlan,
     QueryPlanner,
@@ -257,9 +257,9 @@ def run_live_calibration(index_dir: Path) -> CalibrationReport:
     baseline_embedder = CachingEmbedder(OpenAIEmbedder())
     raw_planner = CachingPlanner(RawQueryPlanner())
     raw_embedder = CachingEmbedder(OpenAIEmbedder())
-    dual_planner = CachingPlanner(OpenAIQueryPlanner(max_intents=1))
+    dual_planner = CachingPlanner(GeminiQueryPlanner(max_intents=1))
     dual_embedder = CachingEmbedder(OpenAIEmbedder())
-    aspect_planner = CachingPlanner(OpenAIQueryPlanner(max_intents=3))
+    aspect_planner = CachingPlanner(GeminiQueryPlanner(max_intents=3))
     aspect_embedder = CachingEmbedder(OpenAIEmbedder())
     mini_reranker = CachingReranker(FlashRankCrossEncoder())
     base_config = RetrievalConfig(candidate_depth=10)

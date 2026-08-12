@@ -6,12 +6,22 @@ A chat with your docs assistant based on a hypothetical customer "Live Long R&D"
 
 <!-- Maintained by the agent: keep accurate and updated with every change that affects setup -->
 
-Prerequisites: `uv` (Python 3.12), Node 22 with `pnpm` 10, and an OpenAI API
-key. The same key serves embedding, live answer generation, and claim verification.
+Prerequisites: `uv` with Python 3.12, Node 22 with `pnpm` 10, an OpenAI API
+key, and a Gemini API key.
+OpenAI serves embeddings.
+Gemini 3.6 Flash handles query planning, answer generation, and claim verification.
 
 1. `uv sync` - install the Python stack.
-2. Put `OPENAI_API_KEY=...` in `.env` (gitignored). The index build and live
-   application need it. The stub modes below need no key.
+2. Put both keys in `.env` (gitignored):
+
+   ```dotenv
+   OPENAI_API_KEY=...
+   GEMINI_API_KEY=...
+   ```
+
+   The index build needs `OPENAI_API_KEY`.
+   The live application needs both keys.
+   The stub modes below need no key.
 3. Build the vector index once:
 
    ```bash
@@ -26,11 +36,13 @@ key. The same key serves embedding, live answer generation, and claim verificati
    ```bash
    docker build \
      --build-context index=data/index \
+     --build-context corpus=data/corpus/longevity \
      --tag live-long-rnd .
    ```
 
-   The image contains the Next.js export and all 696 LanceDB chunks.
-   It does not contain `.env`, the PDF corpus, Docling, Torch, or the OpenAI key.
+   The image contains the Next.js export, all 696 LanceDB chunks, the verified
+   MiniLM reranker, and the PDF corpus.
+   It does not contain `.env`, Docling, Torch, or either API key.
 5. Start the complete application on port 8000:
 
    ```bash
@@ -44,7 +56,8 @@ key. The same key serves embedding, live answer generation, and claim verificati
    ```
 
    Open http://localhost:8000.
-   The runtime key serves query embeddings, answer generation, and claim verification.
+   OpenAI serves query embeddings.
+   Gemini 3.6 Flash handles query planning, answer generation, and claim verification.
    The bind mount keeps conversations in `data/state/conversations.db` after the
    container stops.
 
@@ -85,7 +98,7 @@ The components:
    - RRF fusion over search results
    - MiniLM Reranking to match query terms to results
 - Verification
-   - Retrieved results verified by verifier agent
+   - Retrieved results verified by verifier agent, citations made, generated responses repaired.
    - Generation is checked so actual info from chunks correctly verified
 
 ## Productionizing, scaling, and hyperscaler deployment
@@ -109,12 +122,11 @@ For productionizing it, we would need to update a few things:
 Chose to build a longevity research paper corpus, as it might be an actual customer use case, building assinstants that help researchers do their work in fields such as longevity.
 
 ### LLM Choice
-GPT 5.6 Luna handles all parts of the workflow. It is relatively cheap and very performant. It handles:
-- query planning, answer generation, claim verification
+Gemini 3.6 Flash handles query planning, answer generation, and claim verification.
+Each task uses a separate model call with minimal reasoning effort.
 
-Main generation uses high reasoning. High reasoning is generally where the benefits of reasoning are best vs the cost of more reasoning. Although in a production environment I would test this as our specific use case might benefit from extensive reasoning effort to handle highly specific scientific information and data.
-
-Verifier uses low reasoning simply checking chunks vs the result.
+OpenAI `text-embedding-3-large` remains the embedding model.
+The application does not use GPT 5.6 Luna.
 
 ### RAG/LLM approach and decisions
 
@@ -179,7 +191,15 @@ A simple approach, I chose a rolling 100k input token window for the chat. Longe
 An extensive discussion of how this could be productionized, extended, and made more functional is provided in the section What I'd do with more time.
 
 #### Guardrails
-The main guardrail that I implemented is a verifier check with a GPT 5.6 Luna model, that reads the main models response, checks the retrieved chunks, identifies exactly what the main model took from the chunk and returns that. This is what allows us to return highlighted citations. So each and every one of the returned items is reliably from a source material.
+Gemini 3.6 Flash generates the draft and a separate Gemini 3.6 Flash call verifies it.
+The verifier reads each claim with only its cited chunks.
+It accepts supported claims, repairs salvageable overstatements, and rejects unsupported claims.
+For each retained claim, the verifier returns an exact evidence quote.
+Deterministic code confirms that the quote occurs in the cited chunk before returning the claim.
+
+Information passed through the corpus always enters LLM through <data> blocks. System instructions through <instructions> block. We use regex to remove tags like <instructions>, <data>, and <question> from the corpus to protect against possible prompt injection through the data. Unlikely in a scientific corpus but with more and more data with a production system this might become important.
+
+
 
 #### Quality
 I created an eval set from the corpus that runs 24 questions against the corpus set against the LanceDB index.
@@ -266,19 +286,24 @@ Given this scenario I would:
 8. Conversation management is kept very simple. It's a simple session system. User can start a new conversation or continue older one. There is no compaction. No context management within and beyond sessions. This would be an area of improvement in any production system. For long chats only the last 100k tokens are used as input. Easy wins here are compaction, session summaries, memory system that stores user queries, and findings when the user specifically asks, or makes what seems to be important connections. This I would develop after understanding actual user patterns, as memory could easily be a negative rather than a positive.
 9. For simplicity sake the corpus raw PDFs are part of the docker image and served directly through there. We use that to directly cite the papers in the chat. In a production system we would need to serve them through a filesystem.
 10. Build in observability. Each and every chat with the LLM, as well as each retrieval event should be observed and tracked. I was looking to build it in with Arize Phoenix this functionality. I would if I had more time.
-11.
+11. The time to first token is slow. I started with GPT 5.6 Luna, which was slower. Moved to Gemini 3.6 Flash, which increased the time. I would spend more time on making this shorter.
 
 
 ## Screenshots
 
 ### Start a research conversation
+Empty State UI
 
 ![Live Long R&D research assistant empty state](screenshots/empty-state.png)
 
 ### Review a cited answer
 
+Each answer is cited from the sources.
+
 ![Live Long R&D answer with inline citations](screenshots/cited-answer.png)
 
 ### Open the exact source passage
+
+Citations open up the PDF and are highlighted for easy reading.
 
 ![Live Long R&D cited answer beside the highlighted PDF source](screenshots/citation-source.png)

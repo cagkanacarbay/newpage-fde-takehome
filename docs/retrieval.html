@@ -257,7 +257,7 @@
         <p>Variant latency uses prewarmed planner and embedding caches, so it isolates retrieval, reranking, and evidence packing.</p>
         <p>The final MiniLM depth-20 control measured 1.62 seconds median and 10.59 seconds p95 on this Apple Silicon run.</p>
         <p>The run used all 696 indexed chunks and an FTS index rebuilt with phrase positions.</p>
-        <p>API cost uses the published <a href="https://developers.openai.com/api/docs/models/gpt-5.6-luna">GPT-5.6 Luna</a> and <a href="https://developers.openai.com/api/docs/models/text-embedding-3-large">text-embedding-3-large</a> prices.</p>
+        <p>API cost uses Gemini 3.6 Flash for query planning and OpenAI <a href="https://developers.openai.com/api/docs/models/text-embedding-3-large">text-embedding-3-large</a> for embeddings.</p>
 
         <h3>Pin the reranker artifact</h3>
         <p>The runtime downloads <code>ms-marco-MiniLM-L-12-v2</code> from FlashRank commit <code>858a1ac046a05663a35367eac852d7f76feeefdd</code>.</p>

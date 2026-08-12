@@ -12,6 +12,12 @@ export function citationKey(citation: Citation): string {
   return JSON.stringify([citation.document_id, citation.page, l, t, r, b]);
 }
 
+/** Resolve a citation to the real PDF route in same-origin and split deployments. */
+export function documentPdfUrl(documentId: string, baseUrl?: string): string {
+  const normalizedBaseUrl = baseUrl?.replace(/\/$/, "") ?? "";
+  return `${normalizedBaseUrl}/api/documents/${encodeURIComponent(documentId)}/pdf`;
+}
+
 /**
  * Dedupe citations on document_id + page + bbox and number them [1]..[N]
  * in arrival order.

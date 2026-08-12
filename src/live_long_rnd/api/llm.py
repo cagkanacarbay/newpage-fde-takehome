@@ -9,6 +9,7 @@ from openai.types.responses.response_input_param import ResponseInputParam
 
 from live_long_rnd.api.conversations import StoredMessage
 from live_long_rnd.api.retrieval import RetrievedChunk
+from live_long_rnd.providers import DEFAULT_GEMINI_MODEL, GEMINI_OPENAI_BASE_URL
 
 
 class LLMClient(Protocol):
@@ -46,8 +47,6 @@ When evidence conflicts, report and cite both sides. Never omit a conflicting re
 Do not invent a verdict.
 Decline personal diagnosis, treatment, and dosing advice.
 </instructions>"""
-
-_GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
 
 
 class OpenAILLM:
@@ -132,7 +131,7 @@ class GeminiLLM:
                 ),
             }
         )
-        client = AsyncOpenAI(api_key=self.api_key, base_url=_GEMINI_BASE_URL)
+        client = AsyncOpenAI(api_key=self.api_key, base_url=GEMINI_OPENAI_BASE_URL)
         stream = await client.chat.completions.create(
             model=self.model,
             messages=messages,
@@ -151,16 +150,17 @@ def create_llm_client(environ: Mapping[str, str] | None = None) -> LLMClient:
     if adapter == "stub":
         return StubLLM()
     if adapter == "openai":
-        model = settings.get("LIVE_LONG_MODEL", "gpt-5.6-luna")
+        model = settings.get("LIVE_LONG_MODEL")
+        if not model:
+            raise LLMConfigurationError("OpenAI generation requires an explicit LIVE_LONG_MODEL.")
         return OpenAILLM(
             api_key=settings.get("OPENAI_API_KEY"),
             model=model,
         )
     if adapter == "gemini":
-        model = settings.get("LIVE_LONG_MODEL", "gemini-3-flash-preview")
         return GeminiLLM(
             api_key=settings.get("GEMINI_API_KEY"),
-            model=model,
+            model=DEFAULT_GEMINI_MODEL,
         )
     raise LLMConfigurationError(
         f"Unsupported LIVE_LONG_LLM value {adapter!r}. Use 'stub', 'openai', or 'gemini'."

@@ -45,7 +45,7 @@ def test_openai_llm_requires_an_api_key_when_streaming() -> None:
     async def exercise() -> None:
         chunks = await StubRetriever().retrieve("What do senolytics target?")
         await _collect(
-            OpenAILLM(api_key=None, model="gpt-5.6-luna").stream_answer(
+            OpenAILLM(api_key=None, model="configured-openai-model").stream_answer(
                 "What do senolytics target?",
                 chunks,
                 [],
@@ -84,7 +84,7 @@ def test_gemini_llm_streams_with_minimal_reasoning(
             self.chat = SimpleNamespace(completions=FakeCompletions())
 
     monkeypatch.setattr("live_long_rnd.api.llm.AsyncOpenAI", FakeAsyncOpenAI)
-    llm = GeminiLLM(api_key="gemini-key", model="gemini-3-flash-preview")
+    llm = GeminiLLM(api_key="gemini-key", model="gemini-3.6-flash")
 
     async def exercise() -> list[str]:
         chunks = await StubRetriever().retrieve("What do senolytics target?")
@@ -93,7 +93,7 @@ def test_gemini_llm_streams_with_minimal_reasoning(
     assert asyncio.run(exercise()) == ["Fast answer [1]."]
     assert captured["api_key"] == "gemini-key"
     assert captured["base_url"] == ("https://generativelanguage.googleapis.com/v1beta/openai/")
-    assert captured["model"] == "gemini-3-flash-preview"
+    assert captured["model"] == "gemini-3.6-flash"
     assert captured["reasoning_effort"] == "minimal"
     assert captured["stream"] is True
     messages = captured["messages"]
@@ -296,12 +296,31 @@ def test_openai_llm_escapes_structural_delimiters_from_evidence(
 def test_environment_selects_the_llm_adapter_and_model() -> None:
     assert isinstance(create_llm_client({}), StubLLM)
 
-    client = create_llm_client({"LIVE_LONG_LLM": "openai", "OPENAI_API_KEY": "test-key"})
+    client = create_llm_client(
+        {
+            "LIVE_LONG_LLM": "openai",
+            "LIVE_LONG_MODEL": "configured-openai-model",
+            "OPENAI_API_KEY": "test-key",
+        }
+    )
 
     assert isinstance(client, OpenAILLM)
-    assert client.model == "gpt-5.6-luna"
+    assert client.model == "configured-openai-model"
 
     gemini = create_llm_client({"LIVE_LONG_LLM": "gemini", "GEMINI_API_KEY": "gemini-key"})
 
     assert isinstance(gemini, GeminiLLM)
-    assert gemini.model == "gemini-3-flash-preview"
+    assert gemini.model == "gemini-3.6-flash"
+
+
+def test_legacy_gemini_preview_setting_upgrades_to_gemini_3_6_flash() -> None:
+    client = create_llm_client(
+        {
+            "LIVE_LONG_LLM": "gemini",
+            "LIVE_LONG_MODEL": "gemini-3-flash-preview",
+            "GEMINI_API_KEY": "gemini-key",
+        }
+    )
+
+    assert isinstance(client, GeminiLLM)
+    assert client.model == "gemini-3.6-flash"

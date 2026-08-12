@@ -199,7 +199,10 @@ def test_research_draft_streams_before_batched_verification(tmp_path: Path) -> N
                     "page": 2,
                     "heading_path": ["Research in context", "1. Introduction"],
                     "bbox": {"l": 310.5, "t": 332.6, "r": 561.6, "b": 53.3},
-                    "snippet": "By definition, the target of senolytics is senescent cells...",
+                    "snippet": (
+                        "Senolytics selectively target senescent cells. Dasatinib and "
+                        "quercetin were evaluated together in the first human trial."
+                    ),
                 }
             ],
             "changed": False,
@@ -377,6 +380,75 @@ def test_verified_markdown_list_keeps_line_breaks() -> None:
     )
 
 
+@pytest.mark.e2e
+def test_verification_repairs_salvageable_claims_and_rebuilds_the_answer(
+    tmp_path: Path,
+) -> None:
+    class RepairingVerifier:
+        async def verify_claims(
+            self,
+            question: str,
+            claims: Sequence[CitedClaim],
+        ) -> Sequence[ClaimVerification]:
+            del question
+            evidence = EvidenceQuote(
+                marker=1,
+                exact_text=claims[0].evidence[0].chunk.text,
+            )
+            return (
+                ClaimVerification(supported=True, evidence=(evidence,)),
+                ClaimVerification(
+                    supported=False,
+                    evidence=(evidence,),
+                    corrected_text="2. Adverse events were reported and considered acceptable.",
+                ),
+                ClaimVerification(supported=False, evidence=()),
+                ClaimVerification(supported=True, evidence=(evidence,)),
+            )
+
+    async def exercise() -> dict[str, object]:
+        transport = httpx.ASGITransport(
+            app=create_app(
+                retriever=StubRetriever(),
+                llm_client=CitedDraftLLM(
+                    "This uncited introduction is removed.\n\n"
+                    "### Trial findings\n\n"
+                    "1. Physical function improved [1].\n"
+                    "2. Every adverse event was mild [1].\n"
+                    "3. DQ made every participant younger [1].\n"
+                    "4. The study was completed [1]."
+                ),
+                verifier=RepairingVerifier(),
+                config=ApplicationConfig(database_path=tmp_path / "conversations.db"),
+            )
+        )
+        async with httpx.AsyncClient(
+            transport=transport,
+            base_url="http://testserver",
+        ) as client:
+            events = _events(
+                await client.post(
+                    "/api/chat",
+                    json={"message": "What did the trial find?"},
+                )
+            )
+        return next(
+            event
+            for event in events
+            if event["type"] == "verification" and event["status"] == "complete"
+        )
+
+    completion = asyncio.run(exercise())
+
+    assert completion["text"] == (
+        "### Trial findings\n\n"
+        "1. Physical function improved [1].\n"
+        "2. Adverse events were reported and considered acceptable [1].\n"
+        "3. The study was completed [1]."
+    )
+    assert completion["changed"] is True
+
+
 def _events(response: httpx.Response) -> list[dict[str, object]]:
     return [
         json.loads(frame.removeprefix("data: "))
@@ -511,12 +583,12 @@ def test_verifier_failure_keeps_the_draft_visible_with_an_error(
 
 
 @pytest.mark.e2e
-def test_openai_verifier_missing_key_fails_closed(
+def test_gemini_verifier_missing_key_fails_closed(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("LIVE_LONG_VERIFIER", "openai")
-    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setenv("LIVE_LONG_VERIFIER", "gemini")
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
 
     async def exercise() -> list[dict[str, object]]:
         transport = httpx.ASGITransport(
@@ -551,8 +623,8 @@ def test_openai_verifier_missing_key_fails_closed(
     }
     serialized = json.dumps(events)
     assert "Private draft" in serialized
-    assert "OPENAI_API_KEY" not in serialized
-    assert "OpenAI verification" not in serialized
+    assert "GEMINI_API_KEY" not in serialized
+    assert "Gemini verification" not in serialized
 
 
 @pytest.mark.e2e
@@ -768,6 +840,70 @@ def test_evidence_text_absent_from_cited_chunk_rejects_claim() -> None:
         return answer.text
 
     assert asyncio.run(exercise()) == ("The retrieved evidence did not provide a supported answer.")
+
+
+def test_verified_evidence_quote_selects_its_exact_pdf_region() -> None:
+    class ExactRegionVerifier:
+        async def verify_claims(
+            self,
+            question: str,
+            claims: Sequence[CitedClaim],
+        ) -> Sequence[ClaimVerification]:
+            del question, claims
+            return (
+                ClaimVerification(
+                    supported=True,
+                    evidence=(
+                        EvidenceQuote(
+                            marker=1,
+                            exact_text="Adverse events occurred, but they were acceptable.",
+                        ),
+                    ),
+                ),
+            )
+
+    chunk = RetrievedChunk(
+        text=("Background information. Adverse events occurred, but they were acceptable."),
+        citation={
+            "document_id": "paper",
+            "page": 1,
+            "heading_path": ["Abstract"],
+            "bbox": {"l": 1, "t": 9, "r": 5, "b": 8},
+            "snippet": "Background information.",
+        },
+        citation_spans=(
+            {
+                "text": "Background information.",
+                "page": 1,
+                "bbox": {"l": 1, "t": 9, "r": 5, "b": 8},
+            },
+            {
+                "text": "Adverse events occurred, but they were acceptable.",
+                "page": 1,
+                "bbox": {"l": 10, "t": 30, "r": 50, "b": 20},
+            },
+        ),
+    )
+
+    answer = asyncio.run(
+        verify_draft(
+            "What did the trial find?",
+            "Adverse events were acceptable [1].",
+            [chunk],
+            ExactRegionVerifier(),
+        )
+    )
+
+    assert answer.citations[0].citation["page"] == 1
+    assert answer.citations[0].citation["bbox"] == {
+        "l": 10,
+        "t": 30,
+        "r": 50,
+        "b": 20,
+    }
+    assert answer.citations[0].citation["snippet"] == (
+        "Adverse events occurred, but they were acceptable."
+    )
 
 
 def test_claim_keeps_only_citations_that_supply_exact_support() -> None:

@@ -11,7 +11,9 @@ from typing import Any, Literal, Protocol, TypedDict, cast
 from openai import OpenAI
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-QUERY_PLANNER_MODEL = "gpt-5.6-luna"
+from live_long_rnd.providers import DEFAULT_GEMINI_MODEL, GEMINI_OPENAI_BASE_URL
+
+QUERY_PLANNER_MODEL = DEFAULT_GEMINI_MODEL
 
 
 class ConversationMessage(TypedDict):
@@ -76,24 +78,10 @@ class _SingleIntentQueryPlan(QueryPlan):
     search_intents: list[SearchIntent] = Field(min_length=0, max_length=1)
 
 
-class ParsedQueryPlan(Protocol):
-    """Subset of an OpenAI parsed response used by the planner."""
+class GeminiClient(Protocol):
+    """OpenAI-compatible Gemini client subset used by query planning."""
 
-    @property
-    def output_parsed(self) -> QueryPlan | None: ...
-
-
-class ResponsesResource(Protocol):
-    """OpenAI Responses operation used at the external seam."""
-
-    def parse(self, **kwargs: Any) -> ParsedQueryPlan: ...
-
-
-class OpenAIClient(Protocol):
-    """OpenAI client subset used by query planning."""
-
-    @property
-    def responses(self) -> ResponsesResource: ...
+    beta: Any
 
 
 class QueryPlanner(Protocol):
@@ -140,20 +128,20 @@ class RawQueryPlanner:
         )
 
 
-class OpenAIQueryPlanner:
-    """Create a strict QueryPlan with one short OpenAI Responses call."""
+class GeminiQueryPlanner:
+    """Create a strict QueryPlan with one Gemini Flash call."""
 
     def __init__(
         self,
         *,
         api_key: str | None = None,
         model: str = QUERY_PLANNER_MODEL,
-        client: OpenAIClient | None = None,
+        client: GeminiClient | None = None,
         max_intents: int = 3,
     ) -> None:
         if not 1 <= max_intents <= 3:
             raise ValueError("max_intents must be between 1 and 3")
-        self._api_key = api_key if api_key is not None else os.environ.get("OPENAI_API_KEY")
+        self._api_key = api_key if api_key is not None else os.environ.get("GEMINI_API_KEY")
         self._model = model
         self._client = client
         self._max_intents = max_intents
@@ -175,36 +163,44 @@ class OpenAIQueryPlanner:
         if client is None:
             if not self._api_key:
                 raise QueryPlanningError(
-                    "OpenAI query planning is selected but OPENAI_API_KEY is not set. "
-                    "Set OPENAI_API_KEY and retry."
+                    "Gemini query planning is selected but GEMINI_API_KEY is not set. "
+                    "Set GEMINI_API_KEY and retry."
                 )
-            client = cast(OpenAIClient, OpenAI(api_key=self._api_key))
+            client = cast(
+                GeminiClient,
+                OpenAI(api_key=self._api_key, base_url=GEMINI_OPENAI_BASE_URL),
+            )
             self._client = client
 
-        response = client.responses.parse(
+        response = client.beta.chat.completions.parse(
             model=self._model,
-            instructions=_planner_instructions(self._max_intents),
-            input=[*history, {"role": "user", "content": message}],
-            text_format=_SingleIntentQueryPlan if self._max_intents == 1 else QueryPlan,
-            store=False,
+            messages=[
+                {"role": "system", "content": _planner_instructions(self._max_intents)},
+                *history,
+                {"role": "user", "content": message},
+            ],
+            response_format=_SingleIntentQueryPlan if self._max_intents == 1 else QueryPlan,
+            reasoning_effort="minimal",
         )
-        if response.output_parsed is None:
+        parsed = response.choices[0].message.parsed
+        if parsed is None:
             raise QueryPlanningError("The query planner returned no structured output.")
-        if any(intent.variant == "raw-only" for intent in response.output_parsed.search_intents):
+        if any(intent.variant == "raw-only" for intent in parsed.search_intents):
             raise QueryPlanningError("The query planner returned a raw-only search intent.")
-        if len(response.output_parsed.search_intents) > self._max_intents:
+        if len(parsed.search_intents) > self._max_intents:
             raise QueryPlanningError(
-                f"The query planner returned {len(response.output_parsed.search_intents)} "
+                f"The query planner returned {len(parsed.search_intents)} "
                 f"search intents; maximum is {self._max_intents}."
             )
         usage = getattr(response, "usage", None)
         with self._usage_lock:
             self._usage = PlannerUsage(
                 calls=self._usage.calls + 1,
-                input_tokens=self._usage.input_tokens + int(getattr(usage, "input_tokens", 0)),
-                output_tokens=self._usage.output_tokens + int(getattr(usage, "output_tokens", 0)),
+                input_tokens=self._usage.input_tokens + int(getattr(usage, "prompt_tokens", 0)),
+                output_tokens=self._usage.output_tokens
+                + int(getattr(usage, "completion_tokens", 0)),
             )
-        return response.output_parsed
+        return cast(QueryPlan, parsed)
 
 
 def _planner_instructions(max_intents: int) -> str:

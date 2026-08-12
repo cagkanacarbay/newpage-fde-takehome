@@ -7,8 +7,8 @@ import pytest
 from pydantic import ValidationError
 
 from live_long_rnd.query_planning import (
+    GeminiQueryPlanner,
     MetadataFilters,
-    OpenAIQueryPlanner,
     PlannerUsage,
     QueryPlan,
     QueryPlanningError,
@@ -32,13 +32,17 @@ def test_direct_question_with_history_produces_one_search_intent() -> None:
         ],
     )
 
-    class FakeResponses:
+    class FakeCompletions:
         def parse(self, **kwargs: Any) -> SimpleNamespace:
             captured.update(kwargs)
-            return SimpleNamespace(output_parsed=expected)
+            return SimpleNamespace(
+                choices=[SimpleNamespace(message=SimpleNamespace(parsed=expected))]
+            )
 
-    client = SimpleNamespace(responses=FakeResponses())
-    planner = OpenAIQueryPlanner(client=client, model="planner-model")
+    client = SimpleNamespace(
+        beta=SimpleNamespace(chat=SimpleNamespace(completions=FakeCompletions()))
+    )
+    planner = GeminiQueryPlanner(client=client, model="planner-model")
 
     plan = planner.plan(
         "What doses and adverse events did it report?",
@@ -52,9 +56,9 @@ def test_direct_question_with_history_produces_one_search_intent() -> None:
 
     assert plan == expected
     assert captured["model"] == "planner-model"
-    assert captured["text_format"] is QueryPlan
-    assert captured["store"] is False
-    assert captured["input"][-1] == {
+    assert captured["response_format"] is QueryPlan
+    assert captured["reasoning_effort"] == "minimal"
+    assert captured["messages"][-1] == {
         "role": "user",
         "content": "What doses and adverse events did it report?",
     }
@@ -109,13 +113,17 @@ def test_single_intent_planner_rejects_model_decomposition() -> None:
         ],
     )
 
-    class FakeResponses:
+    class FakeCompletions:
         def parse(self, **kwargs: Any) -> SimpleNamespace:
             del kwargs
-            return SimpleNamespace(output_parsed=decomposed)
+            return SimpleNamespace(
+                choices=[SimpleNamespace(message=SimpleNamespace(parsed=decomposed))]
+            )
 
-    planner = OpenAIQueryPlanner(
-        client=SimpleNamespace(responses=FakeResponses()),
+    planner = GeminiQueryPlanner(
+        client=SimpleNamespace(
+            beta=SimpleNamespace(chat=SimpleNamespace(completions=FakeCompletions()))
+        ),
         max_intents=1,
     )
 
@@ -140,7 +148,7 @@ def test_raw_planner_preserves_the_message_for_both_query_forms() -> None:
     )
 
 
-def test_openai_planner_rejects_raw_only_search_intents() -> None:
+def test_gemini_planner_rejects_raw_only_search_intents() -> None:
     raw_only = QueryPlan(
         action="retrieve",
         search_intents=[
@@ -152,34 +160,51 @@ def test_openai_planner_rejects_raw_only_search_intents() -> None:
         ],
     )
 
-    class FakeResponses:
+    class FakeCompletions:
         def parse(self, **kwargs: Any) -> SimpleNamespace:
             del kwargs
-            return SimpleNamespace(output_parsed=raw_only)
+            return SimpleNamespace(
+                choices=[SimpleNamespace(message=SimpleNamespace(parsed=raw_only))]
+            )
 
-    planner = OpenAIQueryPlanner(client=SimpleNamespace(responses=FakeResponses()))
+    planner = GeminiQueryPlanner(
+        client=SimpleNamespace(
+            beta=SimpleNamespace(chat=SimpleNamespace(completions=FakeCompletions()))
+        )
+    )
 
     with pytest.raises(QueryPlanningError, match="returned a raw-only search intent"):
         planner.plan("What dose was used?")
 
 
-def test_openai_planner_accumulates_reported_token_usage() -> None:
+def test_gemini_planner_accumulates_reported_token_usage() -> None:
     expected = QueryPlan(
         action="retrieve",
         search_intents=[SearchIntent(dense_query="resolved", sparse_query="literal")],
     )
 
-    class FakeResponses:
+    class FakeCompletions:
         def parse(self, **kwargs: Any) -> SimpleNamespace:
             del kwargs
             return SimpleNamespace(
-                output_parsed=expected,
-                usage=SimpleNamespace(input_tokens=120, output_tokens=30),
+                choices=[SimpleNamespace(message=SimpleNamespace(parsed=expected))],
+                usage=SimpleNamespace(prompt_tokens=120, completion_tokens=30),
             )
 
-    planner = OpenAIQueryPlanner(client=SimpleNamespace(responses=FakeResponses()))
+    planner = GeminiQueryPlanner(
+        client=SimpleNamespace(
+            beta=SimpleNamespace(chat=SimpleNamespace(completions=FakeCompletions()))
+        )
+    )
 
     planner.plan("first")
     planner.plan("second")
 
     assert planner.usage == PlannerUsage(calls=2, input_tokens=240, output_tokens=60)
+
+
+def test_gemini_planner_requires_a_gemini_key() -> None:
+    planner = GeminiQueryPlanner(api_key=None)
+
+    with pytest.raises(QueryPlanningError, match="GEMINI_API_KEY is not set"):
+        planner.plan("What did the trial find?")

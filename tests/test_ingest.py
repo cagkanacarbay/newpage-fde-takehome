@@ -66,7 +66,10 @@ class StubReader:
     """Reader boundary double: one document with parseable Docling-like content."""
 
     def __init__(self) -> None:
-        payload = {"body": {"children": [{"$ref": "#/texts/0"}]}, "texts": [{"text": "body"}]}
+        texts = [{"text": f"unused {index}"} for index in range(5)]
+        texts.append({"text": "Senescent cells accumulate with age."})
+        texts.append({"text": "Rapamycin extends lifespan in mice."})
+        payload = {"body": {"children": [{"$ref": "#/texts/5"}]}, "texts": texts}
         self.document = Document(text=json.dumps(payload))
 
     def load_data(self, _file_path: Path) -> list[Document]:
@@ -125,7 +128,7 @@ def _full_metadata() -> dict[str, Any]:
                     {
                         "page_no": 2,
                         "bbox": {"l": 10.0, "t": 20.0, "r": 30.0, "b": 40.0},
-                        "charspan": [0, 12],
+                        "charspan": [0, 36],
                     }
                 ],
             }
@@ -234,6 +237,13 @@ def test_ingested_chunk_keeps_original_text_and_carries_full_citation(tmp_path: 
     assert json.loads(stored_metadata["element_types"]) == ["text"]
     assert json.loads(stored_metadata["captions"]) == ["Table 1: Hallmarks of aging"]
     assert json.loads(stored_metadata["doc_item_refs"]) == ["#/texts/5"]
+    assert json.loads(stored_metadata["citation_spans"]) == [
+        {
+            "text": "Senescent cells accumulate with age.",
+            "page": 2,
+            "bbox": {"l": 10.0, "t": 20.0, "r": 30.0, "b": 40.0},
+        }
+    ]
 
 
 def test_ingested_chunk_is_keyed_by_the_stable_document_id(tmp_path: Path) -> None:
@@ -282,6 +292,80 @@ def test_ingested_chunks_carry_dense_embeddings_and_return_count(tmp_path: Path)
         expected = float(len(stored.get_content()))
         assert stored.embedding == [expected] * 4
     assert store.finalize_count == 1
+
+
+def test_ingested_chunks_keep_text_geometry_when_the_parser_shares_source_relationship(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "paper.pdf"
+    source.touch()
+    reader = StubReader()
+    shared_source = RelatedNodeInfo(node_id=reader.document.doc_id)
+    first = _linked_node(reader.document, _full_metadata())
+    first.relationships[NodeRelationship.SOURCE] = shared_source
+    second_metadata = _full_metadata()
+    second_metadata["doc_items"][0]["self_ref"] = "#/texts/6"
+    second_metadata["doc_items"][0]["prov"][0]["bbox"] = {
+        "l": 50.0,
+        "t": 60.0,
+        "r": 70.0,
+        "b": 80.0,
+    }
+    second = TextNode(text="Rapamycin extends lifespan in mice.", metadata=second_metadata)
+    second.relationships[NodeRelationship.SOURCE] = shared_source
+    store = StubStore()
+
+    ingest_pdf(
+        source,
+        IngestDependencies(
+            reader=reader,
+            node_parser=StubNodeParser([first, second]),
+            embedder=StubEmbedder(),
+            store=store,
+        ),
+    )
+
+    assert [json.loads(node.metadata["citation_spans"]) for node in store.nodes] == [
+        [
+            {
+                "text": "Senescent cells accumulate with age.",
+                "page": 2,
+                "bbox": {"l": 10.0, "t": 20.0, "r": 30.0, "b": 40.0},
+            }
+        ],
+        [
+            {
+                "text": "Rapamycin extends lifespan in mice.",
+                "page": 2,
+                "bbox": {"l": 50.0, "t": 60.0, "r": 70.0, "b": 80.0},
+            }
+        ],
+    ]
+
+
+@pytest.mark.e2e
+def test_ingested_table_chunk_keeps_its_serialized_text_geometry() -> None:
+    source = Path("data/corpus/longevity/010-koch-2026-pan-epigenetic-age-prediction-mammals.pdf")
+    store = StubStore()
+
+    ingest_pdf(
+        source,
+        IngestDependencies(
+            embedder=StubEmbedder(),
+            store=store,
+        ),
+    )
+
+    table_nodes = [
+        node for node in store.nodes if "table" in json.loads(node.metadata["element_types"])
+    ]
+    assert table_nodes
+    assert all(json.loads(node.metadata["citation_spans"]) for node in table_nodes)
+    assert any(
+        "Canadian Epigenetics, Environment and Health Research Consortium" in span["text"]
+        for node in table_nodes
+        for span in json.loads(node.metadata["citation_spans"])
+    )
 
 
 def test_directory_ingestion_finalizes_the_fts_index_once(
@@ -376,6 +460,11 @@ def test_cli_ingests_one_corpus_pdf_with_openai_into_lancedb(tmp_path: Path) -> 
         assert bboxes
         assert all({"l", "t", "r", "b"} <= bbox.keys() for bbox in bboxes)
         assert all(bbox["page"] >= 1 for bbox in bboxes)
+        citation_spans = json.loads(metadata["citation_spans"])
+        assert citation_spans
+        assert all(span["text"].strip() for span in citation_spans)
+        assert all(span["page"] >= 1 for span in citation_spans)
+        assert all({"l", "t", "r", "b"} == span["bbox"].keys() for span in citation_spans)
 
     index_descriptions = [str(index).lower() for index in table.list_indices()]
     assert any("fts" in description for description in index_descriptions)

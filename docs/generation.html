@@ -37,7 +37,7 @@
             <p><strong>Citations:</strong> every factual claim ends with inline <code>[n]</code> markers. The final answer numbers only verified, used chunks. Each marker indexes one citation payload with document, page, heading path, bounding box, and snippet.</p>
             <p><strong>Format:</strong> prose draft, no generation JSON schema. A deterministic parser extracts claim-marker pairs. An unknown or out-of-range marker rejects that claim.</p>
             <p><strong>Conflicts:</strong> natural prose covering both sides, each side cited, no synthesized verdict.</p>
-            <p><strong>Verifier:</strong> <code>gpt-5.6-luna</code> at low reasoning effort. It returns a strict structured support result and exact evidence text for deterministic validation.</p>
+            <p><strong>Verifier:</strong> <code>gemini-3.6-flash</code> at minimal reasoning effort. It returns a strict structured support result and exact evidence text for deterministic validation.</p>
             <p><strong>Boundary:</strong> strictly corpus-only. No model knowledge, marked or otherwise. Refusals follow the <a href="decisions.html#guardrails">guardrails policy</a> exactly.</p>
           </div>
         </div>
@@ -47,7 +47,7 @@
         <h2><span class="idx">02</span> Answer contract</h2>
         <p class="lead">The unit of the answer is the claim: one atomic factual statement, carrying the citation markers it depends on.</p>
         <p>The model drafts prose. Every factual claim ends with one or more inline markers, <code>[1]</code>, <code>[2]</code>, and so on, numbered into the retrieved evidence set it received. Connective text - framing and transitions - carries no marker and makes no factual assertion of its own.</p>
-        <p>After generation completes, deterministic code parses the draft into claims and marker references. A marker that does not resolve to retrieved evidence rejects that claim. The API sends no draft text through SSE. It emits the verified answer and its used citations only.</p>
+        <p>After generation completes, deterministic code parses the draft into claims and marker references. A marker that does not resolve to retrieved evidence rejects that claim. The API streams the draft for responsiveness, then replaces it with the rebuilt verified answer.</p>
         <div class="callout note"><span class="lbl">Why not structured generation output</span><p>A JSON schema of atomic claims and citation IDs is easier to verify, but it conflicts with the readable prose draft used here. Inline markers keep that draft readable and deterministically parseable. If markers prove unreliable in practice, this is the first decision to revisit - see <a href="#reopen">what reopens this</a>.</p></div>
       </section>
 
@@ -70,18 +70,19 @@
         <p class="lead">Every claim is checked against its cited chunk before the answer is final. The pipeline is the one the guardrails policy defines.</p>
         <ol class="numbered">
           <li><span><b>Parse</b><span class="d">Deterministic code extracts claims and their citation markers from the completed draft. Unknown markers are rejected outright.</span></span></li>
-          <li><span><b>Verify</b><span class="d"><code>gpt-5.6-luna</code> at low reasoning effort reads each claim with only its cited chunks and returns a status plus exact supporting text.</span></span></li>
-          <li><span><b>Validate</b><span class="d">Code rejects unknown citation IDs, missing provenance, and supporting text that is not an exact substring of the cited chunk.</span></span></li>
-          <li><span><b>Emit</b><span class="d">Code keeps only accepted claims and renumbers their markers for the used citation payload. It never adds facts, changes values, or changes citations.</span></span></li>
+          <li><span><b>Verify</b><span class="d"><code>gemini-3.6-flash</code> at minimal reasoning effort reads each claim with only its cited chunks. It accepts accurate claims, repairs salvageable overstatements, and rejects invented or contradicted claims.</span></span></li>
+          <li><span><b>Validate</b><span class="d">Code rejects unknown citation IDs, missing provenance, and supporting text that is not an exact substring of the cited chunk. A repair must carry validated evidence.</span></span></li>
+          <li><span><b>Rebuild</b><span class="d">Code removes uncited claims, keeps useful headings, inserts repaired language, removes empty sections, and renumbers ordered lists and citation markers without gaps.</span></span></li>
+          <li><span><b>Emit</b><span class="d">The final answer contains accepted and repaired claims only. The API stores this answer with only its used citation payloads.</span></span></li>
         </ol>
         <p>The substring check proves the evidence text exists; the verifier judges whether it supports the claim. Claim verification does not judge whether the draft covered every retrieved result. The generation contract requires the main model to account for all material packed evidence and cite both sides of each conflict. Uncertainty stated by a source is kept, not smoothed over.</p>
         <div class="accordion">
           <details>
             <summary>Production implementation</summary>
             <div class="body">
-              <p><strong>Verifier model:</strong> <code>gpt-5.6-luna</code> at low reasoning effort, selected with <code>LIVE_LONG_VERIFIER=openai</code>.</p>
-              <p><strong>Input boundary:</strong> each request contains only the user question, one generated claim, and the chunks cited by that claim.</p>
-              <p><strong>Output contract:</strong> strict structured output gives a support decision and the shortest exact supporting text for each cited marker.</p>
+              <p><strong>Verifier model:</strong> <code>gemini-3.6-flash</code> at minimal reasoning effort, selected with <code>LIVE_LONG_VERIFIER=gemini</code>.</p>
+              <p><strong>Input boundary:</strong> one batched request contains the user question and isolated claim blocks. Each claim block contains only that claim and its cited chunks.</p>
+              <p><strong>Output contract:</strong> strict structured output gives a support decision, optional corrected text, and the shortest exact supporting text for each retained marker.</p>
               <p><strong>Failure policy:</strong> missing configuration, timeout, malformed output, and provider errors fail closed before any draft text reaches SSE.</p>
             </div>
           </details>
@@ -94,7 +95,7 @@
         <p><strong>Conflicts:</strong> when the packed evidence disagrees - the corpus plants six such pairs - the answer covers both sides in natural prose. Each side's claims carry their own citations, with conditions and uncertainty preserved. The assistant never synthesizes a verdict on contested evidence.</p>
         <p><strong>Refusals</strong> follow the guardrails policy verbatim:</p>
         <ol class="numbered">
-          <li><span><b>Partial support</b><span class="d">Return only the claims that verification accepts.</span></span></li>
+          <li><span><b>Partial support</b><span class="d">Return accepted claims and grounded repairs. Remove only uncited, invented, contradicted, or unsalvageable claims, then rebuild the answer structure.</span></span></li>
           <li><span><b>No supported answer</b><span class="d">If verification rejects every claim, say the retrieved evidence gave no supported answer.</span></span></li>
           <li><span><b>Verifier failure</b><span class="d">If verifier configuration, a provider call, or its structured output fails, return a verification error. Never return the unverified draft.</span></span></li>
           <li><span><b>No relevant evidence</b><span class="d">If no chunks pass the retrieval gate, the main model is never called; the answer states that no sufficiently relevant evidence was found in the corpus.</span></span></li>
@@ -106,10 +107,10 @@
         <p class="lead">A marker in verified answer text resolves to an exact spot in a source PDF. The data flows through the full pipeline.</p>
         <ol class="numbered">
           <li><span><b>Marker</b><span class="d">A factual claim in the verified answer ends with <code>[n]</code>.</span></span></li>
-          <li><span><b>Payload</b><span class="d"><code>n</code> indexes the citation payload of one retrieved chunk: document ID, page, heading path, bounding box, snippet.</span></span></li>
+          <li><span><b>Payload</b><span class="d"><code>n</code> indexes the citation payload of one retrieved chunk. The verifier's exact quote selects its Docling text span, page, bounding box, and snippet.</span></span></li>
           <li><span><b>UI</b><span class="d">The marker renders clickable. Activating it opens the source PDF at that page with the bounding box highlighted.</span></span></li>
         </ol>
-        <p>Older stored answers can lack resolvable markers. Their citation payload remains available through numbered source controls, which open the same PDF page and highlight.</p>
+        <p>Older stored answers can lack resolvable markers. Their citation payload remains available through numbered source controls. Indexes built before text-span storage use the chunk's earlier fallback location until they are rebuilt.</p>
         <p>The PDF viewer, page jump, and highlight interaction are designed and prototyped under <a href="https://github.com/cagkanacarbay/newpage-fde-takehome/issues/24">issue 24</a>. This page fixes the contract that work builds against: one marker, one chunk, one exact location.</p>
       </section>
 
@@ -120,7 +121,7 @@
             <summary>Conditions that would change the decision</summary>
             <div class="body">
               <p><strong>Unreliable markers:</strong> if the model drops, duplicates, or misnumbers inline markers at a rate the deterministic parser cannot absorb, switch the generation format to a strict JSON schema of claims and citation IDs.</p>
-              <p><strong>Verifier too weak:</strong> if calibration on the 24-item suite shows <code>gpt-5.6-luna</code> cannot judge support, move the verifier up a tier before relaxing the claim-per-citation rule.</p>
+              <p><strong>Verifier too weak:</strong> if calibration on the 24-item suite shows <code>gemini-3.6-flash</code> cannot judge support, move the verifier up a tier before relaxing the claim-per-citation rule.</p>
               <p><strong>Conflict prose hides disagreement:</strong> if natural-prose conflict reporting lets answers quietly favor one side, move to a structured both-sides block. This was the alternative considered and set aside.</p>
             </div>
           </details>

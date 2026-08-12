@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 
 import { Button } from "@/components/ui/button";
-import { bboxToCssRect, prettifySlug } from "@/lib/citations";
+import { bboxToCssRect, documentPdfUrl, prettifySlug } from "@/lib/citations";
 import type { Citation } from "@/lib/sse";
 
 // Static export: the worker is served from the app itself, no CDN.
@@ -30,9 +30,7 @@ type PdfPanelProps = {
 
 export default function PdfPanel({ documentId, citation, onClose }: PdfPanelProps) {
   const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "");
-  const fileUrl = baseUrl
-    ? `${baseUrl}/api/documents/${encodeURIComponent(documentId)}/pdf`
-    : "/sample-document.pdf";
+  const fileUrl = documentPdfUrl(documentId, baseUrl);
 
   const [title, setTitle] = useState(() => prettifySlug(documentId));
   const [numPages, setNumPages] = useState<number | null>(null);
@@ -62,11 +60,8 @@ export default function PdfPanel({ documentId, citation, onClose }: PdfPanelProp
   }, []);
 
   useEffect(() => {
-    if (!baseUrl) {
-      return;
-    }
     let cancelled = false;
-    fetch(`${baseUrl}/api/documents/${encodeURIComponent(documentId)}`)
+    fetch(`${baseUrl ?? ""}/api/documents/${encodeURIComponent(documentId)}`)
       .then((response) => (response.ok ? response.json() : null))
       .then((data: { title?: string } | null) => {
         if (!cancelled && data?.title) {

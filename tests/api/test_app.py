@@ -116,7 +116,10 @@ def test_new_chat_streams_verified_answer_with_configured_application_adapters(
         "page": 2,
         "heading_path": ["Research in context", "1. Introduction"],
         "bbox": {"l": 310.5, "t": 332.6, "r": 561.6, "b": 53.3},
-        "snippet": "By definition, the target of senolytics is senescent cells...",
+        "snippet": (
+            "Senolytics selectively target senescent cells. Dasatinib and quercetin "
+            "were evaluated together in the first human trial."
+        ),
     }
     assert all(
         set(citation)
@@ -510,6 +513,7 @@ def test_chat_emits_setup_error_when_openai_key_is_missing(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     monkeypatch.setenv("LIVE_LONG_LLM", "openai")
+    monkeypatch.setenv("LIVE_LONG_MODEL", "gpt-5.6-luna")
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
 
     async def exercise() -> tuple[list[dict[str, object]], dict[str, object]]:

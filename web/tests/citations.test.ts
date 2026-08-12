@@ -4,6 +4,7 @@ import { describe, it } from "node:test";
 import {
   bboxToCssRect,
   citationKey,
+  documentPdfUrl,
   fallbackCitations,
   linkCitationMarkers,
   numberCitations,
@@ -76,6 +77,15 @@ describe("numberCitations", () => {
 describe("citationKey", () => {
   it("is stable for identical citations", () => {
     assert.equal(citationKey(makeCitation()), citationKey(makeCitation()));
+  });
+});
+
+describe("documentPdfUrl", () => {
+  it("loads the cited document from the same-origin API when no base URL is set", () => {
+    assert.equal(
+      documentPdfUrl("015-hickson-2019-senolytics", undefined),
+      "/api/documents/015-hickson-2019-senolytics/pdf",
+    );
   });
 });
 

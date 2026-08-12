@@ -148,7 +148,7 @@
             <div class="architecture-band"><strong>Input</strong> - question plus the selected conversation history</div>
             <div class="retrieval-flow" aria-label="Query planning and hybrid retrieval flow">
               <div class="architecture-node live planner">
-                <h3>GPT-5.6 Luna query planner</h3>
+                <h3>Gemini 3.6 Flash query planner</h3>
                 <p>Creates one to three search intents, dense meaning, sparse anchors, and safe filters.</p>
               </div>
               <span class="architecture-arrow split planner-arrow" aria-hidden="true"></span>
@@ -181,12 +181,12 @@
               <span class="architecture-arrow down" aria-hidden="true"></span>
               <div class="retrieval-generation">
                 <div class="architecture-node live">
-                  <h3>Gemini 3 Flash answer</h3>
+                  <h3>Gemini 3.6 Flash answer</h3>
                   <p>Streams grounded prose with per-claim citation markers.</p>
                 </div>
                 <span class="architecture-arrow right" aria-hidden="true"></span>
                 <div class="architecture-node live">
-                  <h3>Claim verifier</h3>
+                  <h3>Gemini 3.6 Flash verifier</h3>
                   <p>Rejects unsupported claims before the answer is final.</p>
                 </div>
               </div>

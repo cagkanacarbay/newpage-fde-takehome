@@ -6,7 +6,7 @@ from typing import Protocol, TypedDict, cast
 
 from live_long_rnd.embeddings import OpenAIEmbedder
 from live_long_rnd.index_config import DEFAULT_INDEX_DIR
-from live_long_rnd.query_planning import ConversationMessage, OpenAIQueryPlanner
+from live_long_rnd.query_planning import ConversationMessage, GeminiQueryPlanner
 from live_long_rnd.retrieve import (
     DEFAULT_RETRIEVAL_CONFIG,
     FlashRankCrossEncoder,
@@ -33,10 +33,17 @@ class Citation(TypedDict):
     snippet: str
 
 
+class CitationSpan(TypedDict):
+    text: str
+    page: int
+    bbox: BoundingBox
+
+
 @dataclass(frozen=True)
 class RetrievedChunk:
     text: str
     citation: Citation
+    citation_spans: tuple[CitationSpan, ...] = ()
 
 
 class Retriever(Protocol):
@@ -64,7 +71,7 @@ class LanceDbRetriever:
             self._dependencies = RetrievalDependencies(
                 store=LanceDBHybridStore(DEFAULT_INDEX_DIR),
                 embedder=OpenAIEmbedder(),
-                planner=OpenAIQueryPlanner(),
+                planner=GeminiQueryPlanner(),
                 reranker=FlashRankCrossEncoder(),
             )
         return self._dependencies
@@ -85,6 +92,7 @@ class LanceDbRetriever:
             RetrievedChunk(
                 text=result.original_text,
                 citation=cast(Citation, to_citation_payload(result)),
+                citation_spans=cast(tuple[CitationSpan, ...], tuple(result.citation_spans)),
             )
             for result in results
         ]

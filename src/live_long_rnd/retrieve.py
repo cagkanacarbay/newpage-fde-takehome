@@ -8,7 +8,7 @@ import re
 import unicodedata
 import zipfile
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from pathlib import Path, PurePosixPath
 from tempfile import TemporaryDirectory
 from typing import Any, Protocol, TypedDict, cast
@@ -24,8 +24,8 @@ from live_long_rnd.embeddings import EMBEDDING_ENCODING_NAME, Embedder, OpenAIEm
 from live_long_rnd.index_config import DEFAULT_INDEX_DIR, DEFAULT_TABLE_NAME
 from live_long_rnd.query_planning import (
     ConversationMessage,
+    GeminiQueryPlanner,
     MetadataFilters,
-    OpenAIQueryPlanner,
     QueryPlanner,
 )
 
@@ -188,6 +188,7 @@ class RetrievalResult:
     heading_path: list[str]
     original_text: str
     score: float
+    citation_spans: list[dict[str, Any]] = field(default_factory=list)
 
 
 class FlashRankCrossEncoder:
@@ -341,6 +342,7 @@ def _result_from_row(row: Mapping[str, Any]) -> RetrievalResult:
         heading_path=json.loads(metadata["heading_path"]),
         original_text=str(metadata["original_text"]),
         score=float(row["_relevance_score"]),
+        citation_spans=json.loads(metadata.get("citation_spans") or "[]"),
     )
 
 
@@ -373,7 +375,7 @@ def retrieve(
     runtime = _ActiveRuntime(
         store=selected.store or LanceDBHybridStore(DEFAULT_INDEX_DIR),
         embedder=selected.embedder or OpenAIEmbedder(),
-        planner=selected.planner or OpenAIQueryPlanner(),
+        planner=selected.planner or GeminiQueryPlanner(),
         reranker=selected.reranker or FlashRankCrossEncoder(),
     )
     return _retrieve_planned(query, history, config, runtime)
