@@ -200,6 +200,8 @@ class FlashRankCrossEncoder:
         cache_dir: Path = DEFAULT_RERANKER_CACHE_DIR,
         ranker: FlashRankClient | None = None,
     ) -> None:
+        if model_name != FLASHRANK_MODEL:
+            raise ValueError(f"Unsupported FlashRank model: {model_name}")
         self._model_name = model_name
         self._cache_dir = cache_dir
         self._ranker = ranker

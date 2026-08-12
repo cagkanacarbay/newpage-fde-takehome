@@ -346,6 +346,11 @@ def test_flashrank_adapter_preserves_provenance_while_replacing_scores() -> None
     assert reranked[0].original_text == candidates[1].original_text
 
 
+def test_flashrank_adapter_rejects_an_unverified_model() -> None:
+    with pytest.raises(ValueError, match="Unsupported FlashRank model"):
+        FlashRankCrossEncoder(model_name="unverified-model")
+
+
 def test_flashrank_checksum_mismatch_does_not_install_an_artifact(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
