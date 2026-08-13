@@ -18,6 +18,7 @@ import pytest
 from openai import OpenAI
 
 from live_long_rnd.embeddings import OpenAIEmbedder
+from live_long_rnd.flashrank_artifact import prepare_flashrank_model
 from live_long_rnd.ingest import IngestDependencies, LanceDBNodeStore, ingest_pdf
 from live_long_rnd.query_planning import MetadataFilters, QueryPlan, SearchIntent
 from live_long_rnd.retrieve import (
@@ -28,7 +29,6 @@ from live_long_rnd.retrieve import (
     RetrievalConfig,
     RetrievalDependencies,
     RetrievalResult,
-    prepare_flashrank_model,
     retrieve,
     retrieve_baseline,
     to_citation_payload,
@@ -368,7 +368,7 @@ def test_flashrank_checksum_mismatch_does_not_install_an_artifact(
             return [b"corrupt artifact"]
 
     monkeypatch.setattr(
-        "live_long_rnd.retrieve.httpx.stream",
+        "live_long_rnd.flashrank_artifact.httpx.stream",
         lambda *_args, **_kwargs: CorruptDownload(),
     )
 
@@ -402,11 +402,11 @@ def test_flashrank_cold_start_is_safe_for_concurrent_installers(
             return [artifact]
 
     monkeypatch.setattr(
-        "live_long_rnd.retrieve.httpx.stream",
+        "live_long_rnd.flashrank_artifact.httpx.stream",
         lambda *_args, **_kwargs: ConcurrentDownload(),
     )
     monkeypatch.setattr(
-        "live_long_rnd.retrieve.FLASHRANK_MODEL_SHA256",
+        "live_long_rnd.flashrank_artifact.FLASHRANK_MODEL_SHA256",
         hashlib.sha256(artifact).hexdigest(),
     )
 

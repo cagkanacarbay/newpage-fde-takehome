@@ -9,7 +9,7 @@ WORKDIR /app
 COPY pyproject.toml uv.lock README.md ./
 COPY src ./src
 RUN uv sync --locked --no-default-groups --no-editable
-RUN uv run --no-sync python -c "from live_long_rnd.retrieve import prepare_flashrank_model; prepare_flashrank_model()"
+RUN uv run --no-sync python -c "from live_long_rnd.flashrank_artifact import prepare_flashrank_model; prepare_flashrank_model()"
 
 
 FROM node:22-bookworm-slim AS web-builder

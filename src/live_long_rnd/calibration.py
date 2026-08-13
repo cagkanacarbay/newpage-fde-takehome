@@ -26,6 +26,7 @@ from live_long_rnd.evaluation import (
     score_citation_support,
     score_quality_gates,
 )
+from live_long_rnd.flashrank_artifact import FLASHRANK_MODEL
 from live_long_rnd.query_planning import (
     ConversationMessage,
     GeminiQueryPlanner,
@@ -35,7 +36,6 @@ from live_long_rnd.query_planning import (
     RawQueryPlanner,
 )
 from live_long_rnd.retrieve import (
-    FLASHRANK_MODEL,
     FlashRankCrossEncoder,
     IdentityReranker,
     LanceDBHybridStore,
