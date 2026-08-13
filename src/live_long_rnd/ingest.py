@@ -4,16 +4,20 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Any, Protocol
+from uuid import uuid4
 
 import tiktoken
 from docling_core.transforms.chunker.hierarchical_chunker import ChunkingDocSerializer
 from docling_core.transforms.chunker.hybrid_chunker import HybridChunker
 from docling_core.transforms.chunker.tokenizer.openai import OpenAITokenizer
 from docling_core.types.doc.document import DoclingDocument
+from dotenv import load_dotenv
 from lancedb.index import FTS
 from llama_index.core.schema import BaseNode, NodeRelationship, RelatedNodeInfo
 from llama_index.node_parser.docling import DoclingNodeParser
@@ -269,6 +273,7 @@ def ingest_pdf(source: Path, dependencies: IngestDependencies | None = None) -> 
 
 def main(argv: Sequence[str] | None = None) -> int:
     """CLI entry: ingest one PDF or every PDF in a directory into the index."""
+    load_dotenv(Path.cwd() / ".env")
     argument_parser = argparse.ArgumentParser(
         prog="live_long_rnd.ingest",
         description="Ingest corpus PDFs into the LanceDB hybrid index.",
@@ -291,25 +296,51 @@ def main(argv: Sequence[str] | None = None) -> int:
     if not sources:
         argument_parser.error(f"{args.source} contains no PDFs")
 
-    embedder = OpenAIEmbedder()
-    store = LanceDBNodeStore(args.index_dir)
-    reader = create_reader()
-    total = 0
-    for pdf in sources:
-        count = ingest_pdf(
-            pdf,
-            IngestDependencies(
-                reader=reader,
-                embedder=embedder,
-                store=store,
-                finalize=False,
-            ),
-        )
-        total += count
-        print(f"{pdf.name}: {count} chunks")
-    store.finalize()
+    args.index_dir.parent.mkdir(parents=True, exist_ok=True)
+    with TemporaryDirectory(
+        prefix=f".{args.index_dir.name}-build-",
+        dir=args.index_dir.parent,
+    ) as temporary_dir:
+        staged_index = Path(temporary_dir) / "index"
+        embedder = OpenAIEmbedder()
+        store = LanceDBNodeStore(staged_index)
+        reader = create_reader()
+        total = 0
+        for pdf in sources:
+            count = ingest_pdf(
+                pdf,
+                IngestDependencies(
+                    reader=reader,
+                    embedder=embedder,
+                    store=store,
+                    finalize=False,
+                ),
+            )
+            total += count
+            print(f"{pdf.name}: {count} chunks")
+        store.finalize()
+        del store
+        _replace_index(staged_index, args.index_dir)
     print(f"Indexed {total} chunks from {len(sources)} document(s) into {args.index_dir}")
     return 0
+
+
+def _replace_index(staged_index: Path, index_dir: Path) -> None:
+    """Replace one complete index while preserving the prior index on failure."""
+    backup = index_dir.with_name(f".{index_dir.name}-backup-{uuid4().hex}")
+    moved_existing = False
+    try:
+        if index_dir.exists():
+            index_dir.replace(backup)
+            moved_existing = True
+        staged_index.replace(index_dir)
+    except Exception:
+        if moved_existing and backup.exists() and not index_dir.exists():
+            backup.replace(index_dir)
+        raise
+    finally:
+        if backup.exists():
+            shutil.rmtree(backup, ignore_errors=True)
 
 
 if __name__ == "__main__":

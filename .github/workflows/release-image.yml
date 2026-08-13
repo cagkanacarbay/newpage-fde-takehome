@@ -1,0 +1,179 @@
+name: Release image
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Immutable image version, such as 1.0.0
+        required: true
+        type: string
+      publish:
+        description: Publish the tested image to GHCR
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: release-image-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/newpage-fde-takehome
+  RELEASE_TEST_IMAGE: live-long-rnd-release-test:${{ github.run_id }}
+
+jobs:
+  test-and-publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Install the locked build environment
+        run: uv sync --locked
+
+      - name: Build the production retrieval index
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          if [[ -z "$OPENAI_API_KEY" ]]; then
+            echo "The OPENAI_API_KEY repository secret is required." >&2
+            exit 1
+          fi
+          uv run python -m live_long_rnd.ingest data/corpus/longevity
+
+      - name: Validate production retrieval assets
+        run: uv run python -m live_long_rnd.release_assets
+
+      - name: Run the complete fixture container test
+        run: RUN_DOCKER_E2E=1 uv run pytest tests/test_container.py
+
+      - name: Resolve the immutable version
+        id: version
+        env:
+          MANUAL_VERSION: ${{ inputs.version }}
+        run: |
+          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
+            version="${GITHUB_REF_NAME#v}"
+          else
+            version="$MANUAL_VERSION"
+          fi
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
+            echo "Version must use semantic version form, such as 1.0.0." >&2
+            exit 1
+          fi
+          echo "value=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build the production image for its smoke test
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          build-contexts: |
+            index=./data/index
+            corpus=./data/corpus/longevity
+          platforms: linux/amd64
+          load: true
+          tags: ${{ env.RELEASE_TEST_IMAGE }}
+          cache-from: type=gha,scope=release-image
+          cache-to: type=gha,mode=max,scope=release-image
+
+      - name: Check the production image contents
+        run: |
+          docker run --rm --entrypoint python "$RELEASE_TEST_IMAGE" \
+            -m live_long_rnd.release_assets \
+            --corpus-dir /app/data/corpus/longevity \
+            --index-dir /app/data/index
+          docker run --rm --entrypoint python "$RELEASE_TEST_IMAGE" -c \
+            "import importlib.util, shutil; from pathlib import Path; \
+            assert importlib.util.find_spec('docling') is None; \
+            assert importlib.util.find_spec('torch') is None; \
+            assert shutil.which('node') is None; \
+            assert shutil.which('pnpm') is None; \
+            assert not Path('/app/.env').exists(); \
+            assert not Path('/app/state/conversations.db').exists(); \
+            assert Path('/app/web/pdf.worker.min.mjs').is_file()"
+
+      - name: Smoke test the production image with a named volume
+        run: |
+          container_name="release-smoke-${GITHUB_RUN_ID}"
+          volume_name="release-smoke-state-${GITHUB_RUN_ID}"
+          cleanup() {
+            docker rm --force "$container_name" >/dev/null 2>&1 || true
+            docker volume rm "$volume_name" >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+          docker volume create "$volume_name"
+          docker run --detach --rm \
+            --name "$container_name" \
+            --publish 127.0.0.1::8000 \
+            --volume "$volume_name:/app/state" \
+            "$RELEASE_TEST_IMAGE"
+          address="$(docker port "$container_name" 8000/tcp)"
+          port="${address##*:}"
+          for attempt in {1..60}; do
+            if curl --fail --silent "http://127.0.0.1:${port}/" >/dev/null; then
+              break
+            fi
+            if [[ "$attempt" == "60" ]]; then
+              docker logs "$container_name"
+              exit 1
+            fi
+            sleep 1
+          done
+          curl --fail --silent "http://127.0.0.1:${port}/pdf.worker.min.mjs" >/dev/null
+          docker exec "$container_name" test -f /app/state/conversations.db
+
+      - name: Log in to GHCR
+        if: github.event_name == 'push' || inputs.publish
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish the multi-platform image
+        if: github.event_name == 'push' || inputs.publish
+        id: publish
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          build-contexts: |
+            index=./data/index
+            corpus=./data/corpus/longevity
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ env.IMAGE_NAME }}:${{ steps.version.outputs.value }}
+            ${{ env.IMAGE_NAME }}:latest
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ steps.version.outputs.value }}
+          cache-from: type=gha,scope=release-image
+          cache-to: type=gha,mode=max,scope=release-image
+          provenance: mode=max
+          sbom: true
+
+      - name: Record the published digest
+        if: github.event_name == 'push' || inputs.publish
+        run: |
+          echo "### Published image" >> "$GITHUB_STEP_SUMMARY"
+          echo "- \`$IMAGE_NAME:${{ steps.version.outputs.value }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- \`$IMAGE_NAME:latest\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Digest: \`${{ steps.publish.outputs.digest }}\`" >> "$GITHUB_STEP_SUMMARY"

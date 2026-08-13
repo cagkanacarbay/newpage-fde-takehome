@@ -203,7 +203,8 @@ def test_gemini_planner_accumulates_reported_token_usage() -> None:
     assert planner.usage == PlannerUsage(calls=2, input_tokens=240, output_tokens=60)
 
 
-def test_gemini_planner_requires_a_gemini_key() -> None:
+def test_gemini_planner_requires_a_gemini_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     planner = GeminiQueryPlanner(api_key=None)
 
     with pytest.raises(QueryPlanningError, match="GEMINI_API_KEY is not set"):

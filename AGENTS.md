@@ -78,7 +78,8 @@ Keep this map current as the repo grows, so it stays a reliable index of where t
 - `rules/` — durable rules referenced from this file.
 - `.agents/skills/` — vendored skills, symlinked into `.claude/skills/` and `.codex/skills/`.
 - `Dockerfile` and `.dockerignore` - one indexed application image.
-- `.github/workflows/ci.yml` - Python, container, and web validation for each PR.
+- `.github/workflows/ci.yml` - fast Python, retrieval, citation, and web validation.
+- `.github/workflows/release-image.yml` - complete image testing and multi-platform GHCR publishing.
 
 ## Worktrees and PRs
 

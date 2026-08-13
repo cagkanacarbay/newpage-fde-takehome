@@ -15,6 +15,7 @@ dependencies = [
     "flashrank>=0.2.10,<0.3",
     "lancedb>=0.36.0,<1",
     "openai>=2.53.0",
+    "python-dotenv>=1.2.1,<2",
     "tiktoken>=0.13.0,<1",
     "uvicorn>=0.52.1",
 ]
@@ -43,6 +44,7 @@ testpaths = ["tests"]
 markers = [
     "e2e: tests that exercise a real process or external I/O boundary",
     "integration: tests that exercise installed third-party integrations",
+    "slow: tests that parse the complete 27-document corpus",
 ]
 
 [tool.mypy]

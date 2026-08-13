@@ -14,7 +14,7 @@ from live_long_rnd.api.generation import (
     EvidenceQuote,
     StubClaimVerifier,
 )
-from live_long_rnd.providers import DEFAULT_GEMINI_MODEL, GEMINI_OPENAI_BASE_URL
+from live_long_rnd.providers import DEFAULT_GEMINI_MODEL, gemini_base_url
 
 DEFAULT_VERIFIER_MODEL = DEFAULT_GEMINI_MODEL
 DEFAULT_VERIFIER_TIMEOUT_SECONDS = 20.0
@@ -71,11 +71,13 @@ class GeminiClaimVerifier:
         *,
         api_key: str | None = None,
         model: str = DEFAULT_VERIFIER_MODEL,
+        base_url: str | None = None,
         timeout_seconds: float = DEFAULT_VERIFIER_TIMEOUT_SECONDS,
         client: _GeminiClient | None = None,
     ) -> None:
         self._api_key = api_key
         self._model = model
+        self._base_url = base_url or gemini_base_url()
         self._timeout_seconds = timeout_seconds
         self._client = client
 
@@ -97,7 +99,7 @@ class GeminiClaimVerifier:
                 )
             client = cast(
                 _GeminiClient,
-                AsyncOpenAI(api_key=self._api_key, base_url=GEMINI_OPENAI_BASE_URL),
+                AsyncOpenAI(api_key=self._api_key, base_url=self._base_url),
             )
             self._client = client
 
@@ -182,6 +184,7 @@ def create_claim_verifier(
         return GeminiClaimVerifier(
             api_key=settings.get("GEMINI_API_KEY"),
             model=DEFAULT_VERIFIER_MODEL,
+            base_url=gemini_base_url(settings),
         )
     raise VerifierConfigurationError(
         f"Unsupported LIVE_LONG_VERIFIER value {adapter!r}. Use 'stub' or 'gemini'."

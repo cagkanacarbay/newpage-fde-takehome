@@ -6,23 +6,60 @@ A chat with your docs assistant based on a hypothetical customer "Live Long R&D"
 
 <!-- Maintained by the agent: keep accurate and updated with every change that affects setup -->
 
-Prerequisites: `uv` with Python 3.12, Node 22 with `pnpm` 10, an OpenAI API
-key, and a Gemini API key.
+### Reviewer setup with the published image
+
+The reviewer needs Docker, an OpenAI API key, and a Gemini API key.
 OpenAI serves embeddings.
 Gemini 3.6 Flash handles query planning, answer generation, and claim verification.
 
-1. `uv sync` - install the Python stack.
-2. Put both keys in `.env` (gitignored):
+1. Create `.env` from `.env.example`, then add both keys:
 
    ```dotenv
    OPENAI_API_KEY=...
    GEMINI_API_KEY=...
    ```
 
+2. Pull the published image:
+
+   ```bash
+   docker pull ghcr.io/cagkanacarbay/newpage-fde-takehome:1.0.0
+   ```
+
+3. Start the complete application with a named SQLite volume:
+
+   ```bash
+   docker run --rm \
+     --name live-long-rnd \
+     --env-file .env \
+     --publish 8000:8000 \
+     --volume live-long-rnd-state:/app/state \
+     ghcr.io/cagkanacarbay/newpage-fde-takehome:1.0.0
+   ```
+
+Open http://localhost:8000.
+The volume keeps `/app/state/conversations.db` across container restarts.
+The image already contains the 27 PDFs, 696-row index, FlashRank model, web application, and PDF.js worker.
+The reviewer does not need Python, `uv`, Node.js, `pnpm`, Docling, Torch, or an ingest step.
+
+### Local source setup
+
+Prerequisites are `uv` with Python 3.12, Node 22 with `pnpm` 10, and both API keys.
+
+1. Run `uv sync` to install the Python stack.
+2. Put both keys in `.env`, which Git ignores:
+
+   ```dotenv
+   OPENAI_API_KEY=...
+   GEMINI_API_KEY=...
+   # Optional: use a Gemini-compatible OpenAI endpoint instead of Google's default.
+   GEMINI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/
+   ```
+
    The index build needs `OPENAI_API_KEY`.
    The live application needs both keys.
    The stub modes below need no key.
-3. Build the vector index once:
+   Omit `GEMINI_BASE_URL` to use Google's Gemini OpenAI-compatible endpoint.
+3. Build or rebuild the vector index:
 
    ```bash
    uv run python -m live_long_rnd.ingest data/corpus/longevity
@@ -31,6 +68,10 @@ Gemini 3.6 Flash handles query planning, answer generation, and claim verificati
    This parses all 27 PDFs with Docling, embeds with OpenAI
    `text-embedding-3-large`, and writes a self-contained LanceDB index to
    `data/index/` (gitignored; fully reproducible with this command).
+   The build uses a clean staging index and replaces `data/index/` only after all
+   documents and indexes complete.
+   If parsing or embedding fails, the prior complete index remains available.
+   Rerun the command to rebuild the index from scratch with 696 rows.
 4. Build one application image with the completed index:
 
    ```bash
@@ -46,20 +87,18 @@ Gemini 3.6 Flash handles query planning, answer generation, and claim verificati
 5. Start the complete application on port 8000:
 
    ```bash
-   mkdir -p data/state
-   chgrp "$(id -g)" data/state
-   chmod 0770 data/state
-   docker run --rm --env-file .env --publish 8000:8000 \
-     --group-add "$(id -g)" \
-     --volume "$(pwd)/data/state:/app/state" \
+   docker run --rm \
+     --name live-long-rnd \
+     --env-file .env \
+     --publish 8000:8000 \
+     --volume live-long-rnd-state:/app/state \
      live-long-rnd
    ```
 
    Open http://localhost:8000.
    OpenAI serves query embeddings.
    Gemini 3.6 Flash handles query planning, answer generation, and claim verification.
-   The bind mount keeps conversations in `data/state/conversations.db` after the
-   container stops.
+   The named volume keeps conversations after the container stops.
 
 For local development, run the API and UI as separate processes.
 The API defaults to deterministic stubs when the live adapter variables are absent.
@@ -69,6 +108,11 @@ real PDF and build a real index) or `uv run pytest -m "not e2e"` for the fast
 unit suite.
 Set `RUN_DOCKER_E2E=1` to include the one-image container smoke test.
 Lint and types: `uv run ruff check`, `uv run mypy`.
+
+Pull requests run only deterministic Python, retrieval, citation, and web checks.
+The separate `Release image` workflow builds and tests the complete image.
+Run it manually for a dry run or publish from a `v*.*.*` release tag.
+Publishing requires the `OPENAI_API_KEY` repository secret.
 
 The repository includes the 27-PDF research corpus in
 `data/corpus/longevity/`.
