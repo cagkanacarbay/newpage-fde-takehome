@@ -380,13 +380,16 @@ def test_directory_ingestion_finalizes_the_fts_index_once(
     second_pdf.touch()
     store = StubStore()
     finalized_per_pdf: list[bool] = []
+    index_dir = tmp_path / "index"
 
     def ingest_stub(source: Path, dependencies: IngestDependencies) -> int:
         assert source in {first_pdf, second_pdf}
         finalized_per_pdf.append(dependencies.finalize)
         return 1
 
-    def create_store(_index_dir: Path) -> StubStore:
+    def create_store(staged_index: Path) -> StubStore:
+        staged_index.mkdir()
+        (staged_index / "complete").touch()
         return store
 
     def create_stub_reader() -> StubReader:
@@ -396,9 +399,72 @@ def test_directory_ingestion_finalizes_the_fts_index_once(
     monkeypatch.setattr(ingest_module, "create_reader", create_stub_reader)
     monkeypatch.setattr(ingest_module, "ingest_pdf", ingest_stub)
 
-    assert ingest_module.main([str(source_dir)]) == 0
+    assert ingest_module.main([str(source_dir), "--index-dir", str(index_dir)]) == 0
     assert finalized_per_pdf == [False, False]
     assert store.finalize_count == 1
+    assert (index_dir / "complete").is_file()
+
+
+def test_failed_directory_ingestion_preserves_the_last_complete_index(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source_dir = tmp_path / "corpus"
+    source_dir.mkdir()
+    first_pdf = source_dir / "first.pdf"
+    second_pdf = source_dir / "second.pdf"
+    first_pdf.touch()
+    second_pdf.touch()
+    index_dir = tmp_path / "index"
+    index_dir.mkdir()
+    (index_dir / "last-complete").write_text("old", encoding="utf-8")
+
+    def create_store(staged_index: Path) -> StubStore:
+        staged_index.mkdir()
+        (staged_index / "partial").write_text("new", encoding="utf-8")
+        return StubStore()
+
+    def failing_ingest(source: Path, dependencies: IngestDependencies) -> int:
+        del dependencies
+        if source == second_pdf:
+            raise RuntimeError("embedding request failed")
+        return 1
+
+    monkeypatch.setattr(ingest_module, "LanceDBNodeStore", create_store)
+    monkeypatch.setattr(ingest_module, "create_reader", StubReader)
+    monkeypatch.setattr(ingest_module, "ingest_pdf", failing_ingest)
+
+    with pytest.raises(RuntimeError, match="embedding request failed"):
+        ingest_module.main([str(source_dir), "--index-dir", str(index_dir)])
+
+    assert (index_dir / "last-complete").read_text(encoding="utf-8") == "old"
+    assert not (index_dir / "partial").exists()
+
+
+def _run_ingest_cli(
+    source: Path,
+    index_dir: Path,
+    working_dir: Path,
+) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "live_long_rnd.ingest",
+            str(source),
+            "--index-dir",
+            str(index_dir),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+        cwd=working_dir,
+        env={
+            key: value
+            for key, value in os.environ.items()
+            if key not in {"OPENAI_API_KEY", "OPENAI_BASE_URL"}
+        },
+    )
 
 
 @pytest.mark.integration
@@ -416,32 +482,15 @@ def test_cli_ingests_one_corpus_pdf_with_openai_into_lancedb(tmp_path: Path) -> 
         f"OPENAI_API_KEY=test-key\nOPENAI_BASE_URL=http://127.0.0.1:{server.server_port}/v1\n",
         encoding="utf-8",
     )
-
     try:
-        result = subprocess.run(
-            [
-                sys.executable,
-                "-m",
-                "live_long_rnd.ingest",
-                str(source),
-                "--index-dir",
-                str(index_dir),
-            ],
-            check=False,
-            capture_output=True,
-            text=True,
-            cwd=tmp_path,
-            env={
-                key: value
-                for key, value in os.environ.items()
-                if key not in {"OPENAI_API_KEY", "OPENAI_BASE_URL"}
-            },
-        )
+        first_result = _run_ingest_cli(source, index_dir, tmp_path)
+        result = _run_ingest_cli(source, index_dir, tmp_path)
     finally:
         server.shutdown()
         server.server_close()
         thread.join()
 
+    assert first_result.returncode == 0, first_result.stderr
     assert result.returncode == 0, result.stderr
     assert "create_fts_index is deprecated" not in result.stderr
     assert f"{source.name}: 1 chunks" in result.stdout
@@ -449,7 +498,7 @@ def test_cli_ingests_one_corpus_pdf_with_openai_into_lancedb(tmp_path: Path) -> 
     table = lancedb.connect(str(index_dir)).open_table("chunks")
     rows = table.to_arrow().to_pylist()
 
-    assert rows
+    assert len(rows) == 1
     assert OpenAIEmbeddingsHandler.requests
     assert all(
         request["model"] == "text-embedding-3-large" for request in OpenAIEmbeddingsHandler.requests
