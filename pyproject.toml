@@ -44,6 +44,7 @@ testpaths = ["tests"]
 markers = [
     "e2e: tests that exercise a real process or external I/O boundary",
     "integration: tests that exercise installed third-party integrations",
+    "slow: tests that parse the complete 27-document corpus",
 ]
 
 [tool.mypy]

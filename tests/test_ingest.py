@@ -535,6 +535,7 @@ def test_cli_ingests_one_corpus_pdf_with_openai_into_lancedb(tmp_path: Path) -> 
 
 @pytest.mark.integration
 @pytest.mark.e2e
+@pytest.mark.slow
 def test_cli_rebuilds_the_complete_corpus_without_duplicate_rows(tmp_path: Path) -> None:
     source_dir = Path("data/corpus/longevity").resolve()
     index_dir = tmp_path / "index"
