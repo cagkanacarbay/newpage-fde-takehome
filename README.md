@@ -25,7 +25,7 @@ Gemini 3.6 Flash handles query planning, answer generation, and claim verificati
    The live application needs both keys.
    The stub modes below need no key.
    Omit `GEMINI_BASE_URL` to use Google's Gemini OpenAI-compatible endpoint.
-3. Build the vector index once:
+3. Build or rebuild the vector index:
 
    ```bash
    uv run python -m live_long_rnd.ingest data/corpus/longevity
