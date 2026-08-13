@@ -531,3 +531,31 @@ def test_cli_ingests_one_corpus_pdf_with_openai_into_lancedb(tmp_path: Path) -> 
 
     fts_matches = table.search("epigenetic", query_type="fts").limit(1).to_list()
     assert fts_matches[0]["id"] == expected_id
+
+
+@pytest.mark.integration
+@pytest.mark.e2e
+def test_cli_rebuilds_the_complete_corpus_without_duplicate_rows(tmp_path: Path) -> None:
+    source_dir = Path("data/corpus/longevity").resolve()
+    index_dir = tmp_path / "index"
+    OpenAIEmbeddingsHandler.requests = []
+    server = ThreadingHTTPServer(("127.0.0.1", 0), OpenAIEmbeddingsHandler)
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    (tmp_path / ".env").write_text(
+        f"OPENAI_API_KEY=test-key\nOPENAI_BASE_URL=http://127.0.0.1:{server.server_port}/v1\n",
+        encoding="utf-8",
+    )
+    try:
+        first_result = _run_ingest_cli(source_dir, index_dir, tmp_path)
+        retry_result = _run_ingest_cli(source_dir, index_dir, tmp_path)
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join()
+
+    assert first_result.returncode == 0, first_result.stderr
+    assert retry_result.returncode == 0, retry_result.stderr
+    assert "Indexed 696 chunks from 27 document(s)" in retry_result.stdout
+    table = lancedb.connect(str(index_dir)).open_table("chunks")
+    assert len(table.to_arrow()) == 696

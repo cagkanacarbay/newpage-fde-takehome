@@ -17,11 +17,14 @@ Gemini 3.6 Flash handles query planning, answer generation, and claim verificati
    ```dotenv
    OPENAI_API_KEY=...
    GEMINI_API_KEY=...
+   # Optional: use a Gemini-compatible OpenAI endpoint instead of Google's default.
+   GEMINI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/
    ```
 
    The index build needs `OPENAI_API_KEY`.
    The live application needs both keys.
    The stub modes below need no key.
+   Omit `GEMINI_BASE_URL` to use Google's Gemini OpenAI-compatible endpoint.
 3. Build the vector index once:
 
    ```bash
@@ -31,6 +34,10 @@ Gemini 3.6 Flash handles query planning, answer generation, and claim verificati
    This parses all 27 PDFs with Docling, embeds with OpenAI
    `text-embedding-3-large`, and writes a self-contained LanceDB index to
    `data/index/` (gitignored; fully reproducible with this command).
+   The build uses a clean staging index and replaces `data/index/` only after all
+   documents and indexes complete.
+   If parsing or embedding fails, the prior complete index remains available.
+   Rerun the command to rebuild the index from scratch with 696 rows.
 4. Build one application image with the completed index:
 
    ```bash
